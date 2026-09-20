@@ -102,9 +102,39 @@ Option 3.
 ## Confirmation
 
 - `./gradlew :konture-test:test` passes on `main` and runs first in `.github/workflows/ci.yml`,
-  **unconditionally** once `konture-test/` exists (no `if:` guard left in the workflow).
+  **unconditionally** (no `if:` guard left in the workflow).
 - A 2-hour spike validated the plugin against the AGP 9 `androidLibrary {}` modules before any rule was
-  promised (open until done — see AI-LOG).
+  promised — done 2026-09-20, results below.
+
+## Spike result (2026-09-20, wave 0, PR `arch/konture`)
+
+- **Plugin ↔ AGP 9 `androidLibrary {}`: works.** `io.github.baole.konture` 0.8.4 applied in
+  `settings.gradle.kts` generated `build/konture/layout_v2.json` with the three `shared/*` modules and
+  their source sets on the first run; the module-graph rules (1, 2, negative test) passed unchanged.
+- **The documented source-set DSL is not in the released jar.** `sourceSet("commonMain") {
+  mustBePlatformIndependent() }` (docs/recipes/source-sets.md on `main`) does not exist in 0.8.4 —
+  checked with `javap` on the artifact. Rule 4 is therefore a `files { that { sourceSet?.name ==
+  "commonMain" }.should { … } }` rule with an explicit banned-prefix list (`android.`, `androidx.`
+  minus the JetBrains multiplatform artifacts, `java.`, `javax.`, `platform.`, `kotlinx.cinterop.`).
+  Same guarantee, and it will not silently change meaning when the DSL ships.
+- **Rule 8 is a plain source scan, not a Konture rule.** Konture 0.8.4 has no `expect`/`actual`
+  selector; the test walks `shared/**/src/**/*.kt` and `androidApp/src/**/*.kt` for the keywords and
+  fails on any file whose path has no `/platform/` segment. It survives a library swap (plan B).
+- **Inside `architecture { }` no `.check()` is needed** — `verifyAll` runs at the end of the block
+  and throws `AssertionError` with rule id, message and `File:path:line`. The negative test proves it.
+- **Gradle up-to-date trap.** The test task only knows its own inputs; a change in `shared/` left
+  `:konture-test:test` UP-TO-DATE and the planted violations passed on the first run. Fixed by
+  declaring every module's `src/**/*.kt` and build scripts as task inputs (`konture-test/build.gradle.kts`).
+  CI never hits it (clean checkout); a developer would — worth stating in the walkthrough.
+- **Every rule seen failing once** (PR `arch/konture` carries the output): rule 1 — a domain class
+  importing `app.App` (`ViolationRule1.kt:5`); rule 4 — `import java.util.UUID` in `App.kt:1`;
+  rule 5 — `class FakeDeviceRepository` (`FakeDeviceRepository.kt:3`); rule 8 — `expect fun` in the
+  domain package (`ViolationRule8.kt`). Rule 2 cannot be violated without a Gradle cycle (every
+  wrong edge in a 4-module chain closes one), so its failure mode is the negative test on the real graph.
+- **Kover 0.9.9 works with the AGP 9 multiplatform library plugin** (`koverGenerateArtifactAndroid`
+  → aggregated `build/reports/kover/report.xml`); applied to `:shared:domain` and `:shared:app`,
+  report only, Compose/`platform`/preview classes excluded (ADR-006).
+- Rules 3, 6, 7 and 11 arrive with the code that first exercises them (first feature slice), as planned.
 - Each ADR-001..008 has a "Guardrail" section naming its rule(s); each rule's test name matches.
 - The PR that introduces each rule contains the captured failure output of the intentional violation.
 - Konture and its plugin share one version in `gradle/libs.versions.toml`; the schema-version check in

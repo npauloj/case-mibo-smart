@@ -1,0 +1,8 @@
+# Copy to local.properties (never versioned). Android Studio adds sdk.dir automatically.
+sdk.dir=C:\\Android\\Sdk
+
+# Partner platform hosts — provided in the case e-mail, never committed.
+# Read by :androidApp into BuildConfig; CI leaves them unset and falls back to a fictitious host,
+# tests use Ktor MockEngine and never reach the network.
+smarthome.apiHost=https://api.example.invalid
+smarthome.portalHost=https://portal.example.invalid

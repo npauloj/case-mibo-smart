@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window background and system bars follow the device day/night setting; Compose paints everything else. -->
+    <style name="Theme.MiboSmart" parent="android:Theme.DeviceDefault.Light.NoActionBar" />
+</resources>

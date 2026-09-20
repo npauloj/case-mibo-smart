@@ -47,7 +47,8 @@ ones of the same name.
 - Do not weaken, skip or delete a failing test to get green — fix the code, or change the rule with an ADR.
   Any such proposal must be recorded in `AI-LOG.md` under "Tentativa de enfraquecer verificação".
 - Do not touch `shared/` without running `./gradlew :konture-test:test` (architecture tests) first — once
-  the `:konture-test` module exists (wave 0, PR `arch/konture`); the CI step is conditional until then.
+  the `:konture-test` module exists (wave 0, PR `arch/konture`); the CI step is unconditional. Locally the
+  task re-runs on any change under `shared/` (declared inputs) — do not add `--offline` caching tricks around it.
 - Do not "fix it in code" when the implementation diverges from `docs/specs/SPEC.md` or the ticket: change
   the SPEC/ticket first (with an ADR when structural), then the code.
 - Do not explain trial-and-error history in code comments; what was learned goes into a short ADR that the
@@ -56,7 +57,9 @@ ones of the same name.
   are the visual evidence for now. When they land: goldens are recorded and verified in CI only (Linux
   runner), never committed from a local machine.
 - Do not import `android.*`, `androidx.*`, `platform.*` or `java.*` in `commonMain`; platform code goes to
-  `expect/actual` under `:shared:data/platform`.
+  `expect/actual` in a package named `platform` of the module that owns the abstraction —
+  `:shared:data` `platform.vault` (token vault) or `:shared:app` `camera.platform` (video surface) —
+  never in `:androidApp` / `iosApp` (rule 8, ADR-001/005/008).
 - Do not log the token, ever — `Authorization` is sanitized in the Ktor `Logging` plugin; use `LogLevel.HEADERS`, never `ALL`.
 - Do not write the partner's hosts, portal URL, Swagger path or the test account's device serials /
   `idProduto` into any versioned file. Hosts come from `local.properties` (`smarthome.apiHost`,

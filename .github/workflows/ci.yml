@@ -39,16 +39,10 @@ jobs:
             echo "::error::An access token pattern was found in a versioned file"; exit 1
           fi
 
-      # The gate is never silent: while the module does not exist (before PR arch/konture, wave 0) the
-      # run summary shows a warning; that PR deletes the `if` branch so the gate cannot be disabled
-      # again without a visible diff in this file (ADR-009).
+      # Unconditional on purpose (ADR-009): the architecture gate cannot be switched off without a
+      # visible diff in this file.
       - name: Architecture tests (Konture)
-        run: |
-          if [ ! -f konture-test/build.gradle.kts ]; then
-            echo "::warning title=Architecture gate not active::konture-test/ is missing — the Konture gate is OFF until PR 'arch: architecture tests' (wave 0) lands. Remove this branch in that PR."
-            exit 0
-          fi
-          ./gradlew :konture-test:test --stacktrace
+        run: ./gradlew :konture-test:test --stacktrace
 
       - name: Unit and contract tests (shared modules, Android host)
         run: >
@@ -58,14 +52,20 @@ jobs:
           :shared:app:testAndroidHostTest
           --stacktrace
 
-      - name: Upload test reports
+      # Coverage is measured, not gated (ADR-006): the aggregated report is an artifact and its
+      # per-module numbers go into docs/PRODUCT.md at delivery.
+      - name: Coverage report (Kover, measured only)
+        run: ./gradlew koverXmlReport koverHtmlReport --stacktrace
+
+      - name: Upload test and coverage reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
+          name: test-and-coverage-reports
           path: |
             shared/*/build/reports/tests/
             konture-test/build/reports/tests/
+            build/reports/kover/
           if-no-files-found: ignore
 
   android:

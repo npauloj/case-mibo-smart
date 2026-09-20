@@ -1,0 +1,45 @@
+# Claude Code — local, per-machine
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Dependencies / build (adjust to the project stack)
+node_modules/
+dist/
+build/
+.env
+.env.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Kotlin / Gradle / Android / Xcode
+*.iml
+.kotlin/
+.gradle/
+**/build/
+!src/**/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+xcuserdata/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+**/xcshareddata/WorkspaceSettings.xcsettings
+
+# Never commit credentials (case rule)
+*.token
+secrets.properties
+
+# Signing material never enters the repository
+*.jks
+*.keystore
+
+# Unsanitised copies of the partner API contract (hosts, Swagger, real device ids) stay local
+docs/private/

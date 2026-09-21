@@ -246,13 +246,20 @@ plays, reconnects or fails; leave without leaking streaming quota.
   `LiveVideoScreenLifecycleTest` on the Android host)_
   Applies to: androidMain and iosMain (`LiveVideoPlayer` actuals in `app.camera.platform` release their
   player on dispose, ADR-005).
-- **V9** Given the fallback "Abrir no player web", when tapped, then a WebView loads `monitor_url`
-  inside the app (not an external browser). _(evidence: manual check on device/simulator recorded in the PR + preview `LiveVideoScreen_WebFallback`; no instrumented test in scope)_ `[ASSUMED: monitor page works in WebView — on iPhone, WKWebView only offers ManagedMediaSource (iOS 17.1+); verified on the Mac before any iOS player code]`
-- **V10** On iOS, the `iosMain` actual of `LiveVideoPlayer` IS the WKWebView on `monitor_url` (no
-  VLCKit, ADR-005); IF the Mac check of V9 fails, THE SYSTEM SHALL show "Abrir no player web" opening
-  the system browser instead. _(test: iOS unit test `LiveVideoPlayerIosTest.rendersWebViewForMonitorUrl`
-  on the simulator target)_
+- **V9** Given the fallback "Abrir no player web", when tapped, THE SYSTEM SHALL load `monitor_url` in
+  an in-app WebView on **Android** and in the **system browser** on iOS, where the player surface
+  already is a WebView on that same URL (V10). _(evidence: manual check on device recorded in the PR +
+  preview `LiveVideoScreen_WebFallback`; no instrumented test in scope)_
+  `[ASSUMED: the monitor page plays in WKWebView — on iPhone it offers only ManagedMediaSource (iOS 17.1+)]`
+- **V10** On iOS, the `iosMain` actual of `LiveVideoPlayer` IS the WKWebView on `monitor_url`, **always**
+  (no VLCKit, ADR-005). _(test: `LiveVideoPlayerIosTest.rendersWebViewForMonitorUrl` on the simulator target)_
   Applies to: androidMain and iosMain (`LiveVideoPlayer` actuals, ADR-005).
+  **No behaviour is conditioned on checking the page by hand first.** An earlier wording made the iOS
+  fallback depend on "if the Mac check of V9 fails" — a result no agent can obtain, which blocked two
+  slices at the dispatch gate. What answers a page that does not play is already in the spec and is
+  observable at runtime: **U1's first-frame timeout** moves the screen to `Failed`, which offers
+  "Abrir no player web". That path is correct whether the page plays or not, so the product no longer
+  needs the answer in advance — it discovers it, and says so to the user.
 
 ### Screen states
 - creating · live (video + camera name + "ao vivo" badge + session consumption if available) ·

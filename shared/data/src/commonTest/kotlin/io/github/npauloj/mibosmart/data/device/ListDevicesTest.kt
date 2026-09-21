@@ -4,9 +4,11 @@ import io.github.npauloj.mibosmart.data.local.DeviceCache
 import io.github.npauloj.mibosmart.data.local.FakeDeviceCache
 import io.github.npauloj.mibosmart.data.remote.EnvelopeReader
 import io.github.npauloj.mibosmart.data.remote.HttpClientFactory
+import io.github.npauloj.mibosmart.data.remote.RequestCounter
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.data.remote.smartHomeJson
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
+import io.github.npauloj.mibosmart.data.session.SessionRefusals
 import io.github.npauloj.mibosmart.data.session.SessionSamples
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
@@ -214,6 +216,8 @@ class ListDevicesTest {
             ),
             baseUrl = "https://api.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
+            requestCounter = RequestCounter(),
+            refusedRequests = SessionRefusals(),
         ),
         sessionStore = InMemorySessionStore().apply { token?.let { write(it, SessionSamples.IssuedAt) } },
         cache = cache,

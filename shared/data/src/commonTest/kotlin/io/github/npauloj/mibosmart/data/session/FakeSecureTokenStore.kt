@@ -22,4 +22,8 @@ internal class FakeSecureTokenStore(private val failure: Throwable? = null) : Se
     override fun write(token: String) {
         stored = token
     }
+
+    override fun clear() {
+        stored = null
+    }
 }

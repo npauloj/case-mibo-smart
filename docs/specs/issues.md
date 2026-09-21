@@ -487,12 +487,25 @@ graph TD
 - **Non-goals:** any change to the Android actual, the use case, the ViewModel or the states from V-01a;
   the retry policy and the web fallback button (V-02); VLCKit, which ADR-005 rejected.
 - **Expected behaviour:** on iOS the camera screen plays through a WKWebView pointed at `monitor_url`,
-  with the same states the Android screen shows. If the Mac check proves the monitor page unusable in
-  WKWebView, the slice records that in ADR-005 and falls back to the system browser, as V10 allows.
-- **Technical detail:** WKWebView on iOS 17.1+ offers only `ManagedMediaSource` (`[ASSUMED]`, SPEC V9) —
-  **verify on the Mac before writing player code**, and record the result either way. No VLCKit
-  (ADR-005). This slice is only fully proven by the macOS CI job, which **does not run on PRs**: say so
-  in the PR body rather than claiming a green iOS build.
+  with the same states the Android screen shows. If the page turns out not to play, the answer is
+  already in the product and needs no prior knowledge: U1's first-frame timeout moves the screen to
+  `Failed`, which offers "Abrir no player web" (V-02). Record in ADR-005 what was observed, and mark
+  what was not.
+- **Technical detail:** implement the WKWebView actual **unconditionally** — it is the path ADR-005
+  chose, and no VLCKit. `[ASSUMED]` SPEC V9: WKWebView on iOS 17.1+ offers only `ManagedMediaSource`,
+  so the `monitor_url` page may or may not play.
+
+  **Do not condition any code on a "Mac check".** An earlier version of this ticket did, and the gate
+  rejected it: the result is not in the text, the agent cannot obtain it, and a ticket that waits on a
+  human observation is a ticket that cannot be executed. Instead, **write the fallback into the
+  product**: if the page does not report a first frame within V-02's timeout, the screen offers
+  "Abrir no player web" in the system browser (SPEC V10's second half). That behaviour is correct
+  whether the page works or not, so the slice no longer depends on knowing.
+
+  Fill the ADR-005 checkpoint table with what **can** be observed here — the actual compiles and links
+  for both iOS targets (ADR-013 cross-compile, quoted in the PR) — and leave the rows that need real
+  hardware marked "not observed", naming who observes them. This slice is only fully proven by the
+  macOS CI job, which **does not run on PRs**: say so rather than claiming a green iOS build.
 - **Files:** `shared/app/src/iosMain/kotlin/.../app/camera/platform/LiveVideoPlayer.ios.kt`,
   `shared/app/src/iosTest/kotlin/.../app/camera/LiveVideoPlayerIosTest.kt`,
   `docs/adr/ADR-005-live-video-native-players.md` (checkpoint table).
@@ -505,8 +518,9 @@ graph TD
   - the ADR-005 checkpoint table filled row by row with observed / not observed, and chore #9 closed
 - **Test scenarios:** the actual renders for a `monitor_url`; disposal releases it; the framework links
   for both iOS targets.
-- **Rollout / kill switch:** the same `smarthome.liveVideoEnabled` flag of V-01a; and if the Mac check
-  fails, the documented fallback is the system browser (V10).
+- **Rollout / kill switch:** the same `smarthome.liveVideoEnabled` flag of V-01a. The in-product
+  fallback — system browser on `monitor_url` — is the answer to the page not playing, and it needs no
+  prior knowledge of whether it will.
 - **Events / metrics:** n/a beyond V-01a's counters.
 - **i18n / LGPD / factories:** n/a — no new user-facing strings.
 - **Applies to / ADRs:** iosMain. Completes ADR-005 and closes its checkpoint (chore #9).
@@ -572,7 +586,15 @@ graph TD
 - **Technical detail:** `habilitar-abrir-remoto` takes `{ ns, idProduto, habilitar: true }`
   (`docs/api-contract.md` §5) with L-01a's composite address. `mudar-volume` takes `volume: 0..3`. Both
   are writes, so neither is optimistic: the UI follows the API, never leads it.
-- **Files:** `shared/data/.../data/remote/` (mudar-volume, habilitar-abrir-remoto requests + DTOs),
+
+  **The app only ever enables, never disables** — `habilitar: false` has no caller and must not gain
+  one here. **On the test account `status-abrir-remoto` already answers `{"habilitado": true}`**
+  (probed 2026-09-21), so the `RemoteOpenDisabled` path cannot be reached against the real lock; its
+  proof is the `MockEngine` tests and the previews, and the PR body must say so rather than implying
+  it was seen on hardware.
+- **Files:** `androidApp/build.gradle.kts` + `local.properties.example` (the `smarthome.lockWritesEnabled`
+  BuildConfig field), `shared/app/.../app/lock/LockWritesSwitch.kt` (the flag, mirroring V-01a's
+  `LiveVideoSwitch`), `shared/data/.../data/remote/` (mudar-volume, habilitar-abrir-remoto requests + DTOs),
   `shared/app/.../app/lock/ChangeVolume.kt`, `.../app/lock/EnableRemoteOpen.kt`,
   `.../app/lock/LockViewModel.kt` (extend), `.../app/lock/LockScreen.kt` (extend) +
   `LockScreenPreviews.kt`, both `strings.xml`.
@@ -590,12 +612,22 @@ graph TD
     _(test: `EnableRemoteOpenTest.failureKeepsCommandDisabled`)_
   - THE SYSTEM SHALL never enable remote opening except through that action
     _(test: `EnableRemoteOpenTest.noOtherPathEnablesIt` — every other intent leaves the flag untouched)_
+  - IF `smarthome.lockWritesEnabled` is false, THE SYSTEM SHALL make **no write request at all** and
+    SHALL explain that lock writes are off in this build
+    _(test: `EnableRemoteOpenTest.killSwitchOffSendsNothing` and `ChangeVolumeTest.killSwitchOffSendsNothing`
+    — the fake repository's call counter stays at **0** in both)_
   Previews: `LockScreen_RemoteOpenDisabled` gains the action; volume selector states + dark variants.
 - **Test scenarios:** exact bodies for both writes; volume not shown before success; enable succeeding
   then refreshing; enable failing and leaving the control disabled; no other path flipping the flag.
-- **Rollout / kill switch:** enabling remote opening is a **user-initiated, labelled action** and never
-  implicit — that is the control. **No test may call the real API**; both endpoints are exercised
-  through `MockEngine` only.
+- **Rollout / kill switch:** `local.properties` key **`smarthome.lockWritesEnabled`** (default `false`)
+  reaches the app through `BuildConfig`, exactly as `smarthome.liveVideoEnabled` does in V-01a. When it
+  is false, **both writes short-circuit before any request**: the volume selector is disabled and
+  "Habilitar abertura remota" renders as an explanation of what it would do, with no call. This is the
+  kill switch, and it is required — a labelled user action is an affordance, not a way to turn the
+  feature off. Shipping the default as `false` means the case can be demonstrated, and the app run on
+  the shared account, without a single write reaching a physical door until someone opts in.
+
+  **No test may call the real API**; both endpoints are exercised through `MockEngine` only.
 - **Events / metrics:** one counter increment per write, plus one for the refresh after enabling.
 - **i18n / LGPD / factories:** the enable action's label and explanation in Compose resources — it
   changes a door's security posture, so the wording says so plainly.
@@ -748,9 +780,14 @@ graph TD
   loads `monitor_url` in a WebView inside the app, not an external browser.
 - **Technical detail:** delays are 1 s, 3 s, 7 s (`[ASSUMED]`, SPEC V4) and the first-frame budget is
   20 s (`[ASSUMED]`, U1); both are tested on a virtual clock and tuned on the real camera. Session
-  creations stay inside the 2-per-visit cap of V4. On iOS the player already *is* a WKWebView on
-  `monitor_url` (ADR-005), so the fallback there degrades to the system browser only if the Mac check
-  of V9 failed — record the outcome in ADR-005.
+  creations stay inside the 2-per-visit cap of V4.
+
+  **No behaviour in this slice is conditioned on a "Mac check"** — an earlier version was, and the gate
+  rejected it for depending on a result the text does not contain. On iOS the player already *is* a
+  WKWebView on `monitor_url` (ADR-005, V-01b), so "Abrir no player web" opens the **system browser**
+  there and an in-app WebView on Android. That rule holds regardless of how the monitor page behaves,
+  which is the point: the timeout is what detects a page that does not play, and the fallback is what
+  answers it.
 - **Files:** `shared/domain/.../domain/camera/PlaybackRetryPolicy.kt`,
   `shared/app/.../app/camera/LiveVideoViewModel.kt` (extend),
   `shared/app/.../app/camera/LiveVideoScreenContent.kt` (extend + previews),

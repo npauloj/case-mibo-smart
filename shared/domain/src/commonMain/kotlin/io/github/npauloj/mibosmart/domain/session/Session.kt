@@ -46,16 +46,35 @@ data class Session(val token: Token, val issuedAt: Instant) {
      */
     fun remainingUntilWarning(now: Instant): Duration = WARN_AFTER - (now - issuedAt)
 
+    /**
+     * How much of the 2 h window is left; zero or negative once the partner will refuse the token.
+     *
+     * The account screen is the one surface that has to say a number rather than raise a banner
+     * (SPEC S6's "Sessão expirada" and the "expira em …" beside it), and it is the same arithmetic as
+     * [remainingUntilWarning] against the other deadline — so it is stated once, here, instead of
+     * being re-derived from [WARN_AFTER] plus the 10 min the warning is early by.
+     */
+    fun remainingLife(now: Instant): Duration = LIFETIME - (now - issuedAt)
+
     companion object {
 
         /**
-         * The partner's tokens last 2 h, and the app warns 10 min before that (SPEC S7).
+         * How long the partner's tokens last (SPEC S7).
+         *
+         * Counted from the acceptance this app witnessed, not from a field on the wire: a session
+         * started by pasting a token has no `tempoExpiracao` to read (only `renovar-token` returns
+         * one, which is S-03's).
+         */
+        val LIFETIME: Duration = 2.hours
+
+        /**
+         * The app warns 10 min before [LIFETIME] (SPEC S7).
          *
          * Ten minutes is the margin S-03's "Renovar" needs to be a choice rather than a race; until
          * renewal exists the warning is still the difference between a session that ends in the
          * user's hands and one that ends mid-tap.
          */
-        val WARN_AFTER: Duration = 1.hours + 50.minutes
+        val WARN_AFTER: Duration = LIFETIME - 10.minutes
     }
 }
 
@@ -74,8 +93,6 @@ enum class SessionState {
  *
  * The functions suspend because the implementation behind them is the platform vault (ADR-008) and
  * its reads and writes are blocking platform I/O.
- *
- * Deliberately still without `clear()`: logout is the slice that has a caller for it (S-02b, ADR-010).
  */
 interface SessionStore {
 
@@ -84,6 +101,14 @@ interface SessionStore {
 
     /** Stores [token] as the session's credential, replacing any previous one. */
     suspend fun write(token: Token, issuedAt: Instant)
+
+    /**
+     * Removes the session, so the next [read] answers `null` (SPEC S6, S8).
+     *
+     * The last member ADR-008 asked for, arriving with the two callers it was waiting on (ADR-010):
+     * "Sair" and the guard that clears a session the partner has refused.
+     */
+    suspend fun clear()
 }
 
 /**

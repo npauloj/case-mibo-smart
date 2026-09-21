@@ -6,6 +6,7 @@ import io.github.npauloj.mibosmart.data.lock.lockDataModule
 import io.github.npauloj.mibosmart.data.platform.log.platformLogger
 import io.github.npauloj.mibosmart.data.remote.EnvelopeReader
 import io.github.npauloj.mibosmart.data.remote.HttpClientFactory
+import io.github.npauloj.mibosmart.data.remote.RequestCounter
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.data.remote.smartHomeJson
 import io.github.npauloj.mibosmart.data.session.sessionDataModule
@@ -28,7 +29,18 @@ fun dataModule(apiHost: String): Module = module {
     // not read, so the app logged nothing at all while talking to the API (ADR-012).
     single { HttpClientFactory.create(platformLogger()) }
     single { EnvelopeReader(smartHomeJson) }
-    single { SmartHomeApi(httpClient = get(), baseUrl = apiHost, envelopeReader = get()) }
+    // The budget counter (ADR-006): one instance for the whole run, because "requests spent so far"
+    // is a property of the app, not of a screen. The transport is what increments it.
+    single { RequestCounter() }
+    single {
+        SmartHomeApi(
+            httpClient = get(),
+            baseUrl = apiHost,
+            envelopeReader = get(),
+            requestCounter = get(),
+            refusedRequests = get(),
+        )
+    }
 
     includes(featureModules)
 }

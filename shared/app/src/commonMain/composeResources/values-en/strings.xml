@@ -8,6 +8,9 @@
     <string name="token_paste">Paste</string>
     <string name="token_validate">Validate</string>
     <string name="token_validating">Validating the token</string>
+    <string name="token_counter">%1$s/%2$s</string>
+    <string name="token_counter_description">%1$s of %2$s characters</string>
+    <string name="token_error_format">Incomplete token, or wrong format</string>
     <string name="token_error_rejected">Invalid or expired token</string>
     <string name="token_error_offline">No connection</string>
     <string name="token_error_unexpected">Unexpected response</string>

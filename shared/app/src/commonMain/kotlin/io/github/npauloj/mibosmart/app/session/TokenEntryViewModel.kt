@@ -18,13 +18,28 @@ data class TokenEntryUiState(
     val isValidating: Boolean = false,
     val error: TokenEntryError? = null,
 ) {
+    /** How many characters of [TokenFormat.LENGTH] the field holds, for the counter of SPEC S1.1. */
+    val characterCount: Int get() = TokenFormat.characterCount(token)
+
     /**
-     * "Validar" is disabled while the field is blank and while a validation is running (SPEC S1).
+     * Something was entered, and it cannot be a token (SPEC S1.2).
+     *
+     * The message only appears once the user has typed or pasted something: an empty field is the
+     * starting state, not a mistake.
+     */
+    val hasInvalidFormat: Boolean get() = token.isNotBlank() && !TokenFormat.isValid(token)
+
+    /**
+     * "Validar" is enabled only for a token that matches the documented format, and never while a
+     * validation is running (SPEC S1, S1.2).
+     *
+     * Gating on the format is what keeps a truncated paste from costing one of the account's ~300
+     * requests (ADR-006) just to come back as the message an expired token produces.
      *
      * It is also the retry of SPEC S4: a failed validation keeps what was typed, so pressing the same
      * button again is the one action the error state offers (SPEC U6).
      */
-    val canSubmit: Boolean get() = token.isNotBlank() && !isValidating
+    val canSubmit: Boolean get() = TokenFormat.isValid(token) && !isValidating
 }
 
 /** The reasons a validation can fail, one user-facing message each (SPEC E2, limited to what S-01a can observe). */

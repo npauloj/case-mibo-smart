@@ -48,7 +48,7 @@ class TokenEntryViewModelCancellationTest {
         val partnerAnswered = CompletableDeferred<Unit>()
         val repository = FakeSessionRepository { partnerAnswered.await() }
         val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore()))
-        viewModel.onTokenChange("um-token")
+        viewModel.onTokenChange(TokenSamples.Valid)
 
         // Stands in for the composition: the scope the screen's tap arrives on, and the one a
         // configuration change cancels.

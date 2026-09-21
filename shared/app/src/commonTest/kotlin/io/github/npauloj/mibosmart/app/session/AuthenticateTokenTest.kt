@@ -92,6 +92,7 @@ class AuthenticateTokenTest {
         TokenEntryViewModel(AuthenticateToken(repository, store))
 
     private companion object {
-        const val TOKEN = "um-token-de-teste"
+        /** Well-formed: since S1.2 the screen refuses to submit anything else (see [TokenSamples]). */
+        val TOKEN = TokenSamples.Valid
     }
 }

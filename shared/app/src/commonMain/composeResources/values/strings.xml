@@ -46,6 +46,7 @@
     <string name="lock_error_unexpected">Resposta inesperada</string>
     <string name="lock_error_failed">Não foi possível ler a fechadura</string>
     <string name="device_list_loading">Carregando dispositivos</string>
+    <string name="device_list_loading_more">Carregando mais dispositivos</string>
     <string name="device_empty">Nenhum dispositivo para este filtro</string>
     <string name="device_retry">Tentar novamente</string>
     <string name="device_filter_all">Todos</string>

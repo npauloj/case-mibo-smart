@@ -1,0 +1,13 @@
+-- Version 1 -> 2: the device list remembers its origin chip (SPEC D4).
+--
+-- A migration and not just a line in Device.sq, because a `.sq` file is only ever run on a file that
+-- does not exist yet: a phone that already has `mibosmart.db` from D-01b would reach the first
+-- preference read with no such table and crash on launch. This is the whole reason the database
+-- version moves with it.
+--
+-- Nothing is copied or dropped — the cache rows are untouched, which is the point: a schema change
+-- that is not about the cache must not cost the user their offline list (SPEC D8).
+CREATE TABLE preference (
+  key TEXT NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+);

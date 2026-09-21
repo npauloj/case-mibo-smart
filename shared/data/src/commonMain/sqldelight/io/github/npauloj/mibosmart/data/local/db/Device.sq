@@ -24,6 +24,16 @@ CREATE TABLE cacheMeta (
   schemaVersion INTEGER NOT NULL
 );
 
+-- The list's own small settings, keyed by name (SPEC D4): today only the chosen origin chip.
+--
+-- Same file as the cache, deliberately — a second store for one string would be a second thing to
+-- open, migrate and clear. It is NOT covered by the cache's schema-version kill switch: a discarded
+-- cache costs one request, while a discarded preference silently undoes a choice the user made.
+CREATE TABLE preference (
+  key TEXT NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 selectAll:
 SELECT * FROM cachedDevice;
 
@@ -39,3 +49,9 @@ SELECT schemaVersion FROM cacheMeta WHERE id = 0;
 
 setSchemaVersion:
 INSERT OR REPLACE INTO cacheMeta(id, schemaVersion) VALUES (0, ?);
+
+preference:
+SELECT value FROM preference WHERE key = ?;
+
+setPreference:
+INSERT OR REPLACE INTO preference(key, value) VALUES (?, ?);

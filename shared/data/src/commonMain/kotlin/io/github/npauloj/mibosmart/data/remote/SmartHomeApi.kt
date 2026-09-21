@@ -29,8 +29,9 @@ internal class SmartHomeApi(
      * `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the envelope.
      *
      * @param origin the `origem` filter on the wire — `"todos"`, `"vinculados"` or `"compartilhados"`
-     *   (`docs/api-contract.md` §3). The default is the one the partner documents, so a caller that
-     *   only wants "whatever the account has" does not have to know the vocabulary.
+     *   (`docs/api-contract.md` §3). The device list always states it (SPEC D4); the default is
+     *   there for the one caller that is not listing anything — the token validation of SPEC S2,
+     *   which asks for the smallest page of whatever the account has.
      */
     suspend fun listDevices(
         token: Token,
@@ -93,7 +94,7 @@ internal class SmartHomeApi(
     }
 
     internal companion object {
-        /** The documented default of the `origem` filter, read by the device slice (SPEC D1). */
+        /** The `origem` of "everything the account has" (`docs/api-contract.md` §3). */
         const val ALL_ORIGINS = "todos"
         private const val LIST_DEVICES_PATH = "/produtos/listar-dispositivos/v1"
         private const val FUNCTIONS_PATH = "/produtos/funcoes/v1"

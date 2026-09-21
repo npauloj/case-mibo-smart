@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.app.di
 
 import io.github.npauloj.mibosmart.app.devices.ListDevices
+import io.github.npauloj.mibosmart.app.lock.LoadLock
 import io.github.npauloj.mibosmart.app.session.AuthenticateToken
 import kotlin.test.Test
 import kotlin.test.assertNotNull
@@ -17,6 +18,15 @@ class AppModulesTest {
         val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
 
         assertNotNull(koin.get<AuthenticateToken>())
+
+        koin.close()
+    }
+
+    @Test
+    fun theLockUseCaseResolvesFromTheRealGraph() {
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+
+        assertNotNull(koin.get<LoadLock>())
 
         koin.close()
     }

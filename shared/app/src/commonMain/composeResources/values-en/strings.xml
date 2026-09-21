@@ -18,6 +18,32 @@
     <string name="token_error_failed">The token could not be validated</string>
 
     <string name="device_list_title">Devices</string>
+    <string name="device_list_placeholder">The device list arrives in the next delivery.</string>
+
+    <string name="lock_back">Back</string>
+    <string name="lock_loading">Reading the lock\'s state</string>
+    <string name="lock_state_label">State</string>
+    <string name="lock_state_locked">Locked</string>
+    <string name="lock_state_unlocked">Unlocked</string>
+    <string name="lock_volume_label">Volume</string>
+    <string name="lock_volume_mute">Mute</string>
+    <string name="lock_volume_low">Low</string>
+    <string name="lock_volume_medium">Medium</string>
+    <string name="lock_volume_high">High</string>
+    <string name="lock_remote_open_disabled_title">Remote opening is off</string>
+    <string name="lock_remote_open_disabled_explanation">This lock takes no command from the app while remote opening is off. It has to be enabled before opening or closing from here does anything.</string>
+    <string name="lock_offline">Lock offline</string>
+    <string name="lock_last_update_moments">last updated moments ago</string>
+    <string name="lock_last_update_minutes">last updated %1$s min ago</string>
+    <string name="lock_last_update_hours">last updated %1$s h ago</string>
+    <string name="lock_last_update_days">last updated %1$s d ago</string>
+    <string name="lock_last_update_never">never seen online</string>
+    <string name="lock_retry">Try again</string>
+    <string name="lock_error_rejected">Your session is no longer valid</string>
+    <string name="lock_error_expired">Your session has expired (tokens last 2 h)</string>
+    <string name="lock_error_offline">No connection</string>
+    <string name="lock_error_unexpected">Unexpected response</string>
+    <string name="lock_error_failed">The lock could not be read</string>
     <string name="device_list_loading">Loading devices</string>
     <string name="device_empty">No device for this filter</string>
     <string name="device_retry">Try again</string>

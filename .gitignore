@@ -1,5 +1,5 @@
-# Claude Code — local, per-machine
-.claude/settings.local.json
+# Claude Code — local, per-machine tooling, not a deliverable (docs/PROCESS.md §1)
+.claude/
 CLAUDE.local.md
 
 # Dependencies / build (adjust to the project stack)

@@ -17,9 +17,12 @@ depois** — nunca "corrige no código e segue". Não é *spec-as-source*: human
 **Para quem é cada artefato:** SPEC, `docs/specs/issues.md` e as Issues são escritos para o agente (e para
 o gate). O **corpo do PR é escrito para pessoas** — em português, para a banca.
 
-Ferramentas do pipeline (versionadas em `.claude/`): `/to-issues`, `wave-orchestrate` (modo `pr`),
-`/review`, `/adr`. O orquestrador lê `docs/specs/issues.md` (fonte canônica, passado como `issuesPath`),
-recalcula o grafo de dependências, rejeita tickets fora do contrato e **para no gate de merge**.
+Ferramentas do pipeline: `/to-issues`, `wave-orchestrate` (modo `pr`), `/review`, `/adr`. Elas rodam a
+partir do setup local do autor em `.claude/`, que **não é versionado neste repositório** — é ferramental
+de máquina, não entregável do case. O que é versionado, e portanto auditável, é este `PROCESS.md` mais
+tudo que as ferramentas produzem: a SPEC, `docs/specs/issues.md`, as Issues, os ADRs, os commits e os
+PRs. O orquestrador lê `docs/specs/issues.md` (fonte canônica, passado como `issuesPath`), recalcula o
+grafo de dependências, rejeita tickets fora do contrato e **para no gate de merge**.
 
 ## 2. Fatias (slices) e ondas
 

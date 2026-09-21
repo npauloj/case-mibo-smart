@@ -1,14 +1,17 @@
 package io.github.npauloj.mibosmart.app.devices
 
+import app.cash.turbine.test
 import io.github.npauloj.mibosmart.domain.device.CachedDevices
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
+import io.github.npauloj.mibosmart.domain.device.OriginFilter
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
@@ -181,8 +184,87 @@ class DeviceListViewModelTest {
         assertEquals(LastSeen.Ago(1, ElapsedUnit.Hours), viewModel.state.value.rows.single().lastSeen)
     }
 
+    /**
+     * SPEC U2: the tap on a camera row *is* the navigation — one event, carrying the device the live
+     * screen needs, with no state in between for a dialog to hang off.
+     *
+     * Turbine, because this is the one-shot event flow; the screen state next to it is still read
+     * from `state.value`.
+     */
+    @Test
+    fun cameraTapEmitsOpenLiveVideo() = runTest(dispatcher) {
+        val repository = FakeDeviceRepository {
+            listOf(device("iM3-C", kind = DeviceKind.Camera), device("MFR 1001", kind = DeviceKind.Lock))
+        }
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.onCameraTap(viewModel.state.value.rows.first { it.name == "iM3-C" })
+            advanceUntilIdle()
+
+            val event = assertIs<DeviceListEvent.OpenLiveVideo>(awaitItem())
+            assertEquals("iM3-C", event.camera.name)
+            assertEquals(DeviceKind.Camera, event.camera.kind)
+
+            // SPEC D6: a lock row has no destination in this slice, and inventing one would open the
+            // live screen on a device that has no video.
+            viewModel.onCameraTap(viewModel.state.value.rows.first { it.name == "MFR 1001" })
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+        assertEquals(1, repository.calls, "navigating must not reload the list (SPEC D7)")
+    }
+
+    /** SPEC D4: the list opens on the chip the user left it on, and asks for that `origem`. */
+    @Test
+    fun opensOnTheRememberedFilter() = runTest(dispatcher) {
+        val repository = FakeDeviceRepository { listOf(device("iM3-C")) }
+        val viewModel = DeviceListViewModel(
+            listDevices = listDevices(repository, FakeDeviceListPreferences(OriginFilter.Shared)),
+            now = { NOW },
+        )
+        advanceUntilIdle()
+
+        assertEquals(OriginFilter.Shared, viewModel.state.value.filter)
+        assertEquals(listOf(DeviceQuery(OriginFilter.Shared, page = 1)), repository.queries)
+    }
+
+    /** SPEC D4: choosing a chip reloads from page 1 with the new `origem` and records the choice. */
+    @Test
+    fun choosingAChipReloadsFromPageOneAndRemembersIt() = runTest(dispatcher) {
+        val repository = FakeDeviceRepository { query ->
+            if (query.origin == OriginFilter.All) listOf(device("iM3-C")) else listOf(device("MFR 1001"))
+        }
+        val preferences = FakeDeviceListPreferences()
+        val viewModel =
+            DeviceListViewModel(listDevices = listDevices(repository, preferences), now = { NOW })
+        advanceUntilIdle()
+
+        viewModel.selectFilter(OriginFilter.Linked)
+        advanceUntilIdle()
+
+        assertEquals(listOf("MFR 1001"), viewModel.state.value.rows.map { it.name })
+        assertEquals(OriginFilter.Linked, viewModel.state.value.filter)
+        assertEquals(listOf(OriginFilter.Linked), preferences.written)
+        assertEquals(OriginFilter.Linked, preferences.readOriginFilter(), "the next launch must open on it")
+    }
+
+    /** ADR-006: the chip that is already on is not a change, and must not be paid for again. */
+    @Test
+    fun choosingTheChipAlreadyOnSpendsNoRequest() = runTest(dispatcher) {
+        val repository = FakeDeviceRepository { listOf(device("iM3-C")) }
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.selectFilter(OriginFilter.All)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.calls)
+    }
+
     private fun viewModel(repository: FakeDeviceRepository) =
-        DeviceListViewModel(listDevices = ListDevices(repository), now = { NOW })
+        DeviceListViewModel(listDevices = listDevices(repository), now = { NOW })
 
     private companion object {
         val NOW = Instant.parse("2026-09-21T12:00:00Z")

@@ -59,6 +59,7 @@
     <string name="lock_error_unexpected">Unexpected response</string>
     <string name="lock_error_failed">The lock could not be read</string>
     <string name="device_list_loading">Loading devices</string>
+    <string name="device_list_loading_more">Loading more devices</string>
     <string name="device_empty">No device for this filter</string>
     <string name="device_retry">Try again</string>
     <string name="device_filter_all">All</string>

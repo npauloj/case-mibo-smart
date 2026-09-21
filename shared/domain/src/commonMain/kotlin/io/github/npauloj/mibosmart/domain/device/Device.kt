@@ -17,6 +17,15 @@ value class DeviceId(val value: String)
 /** Whether the device belongs to the account or was shared with it (RF07 filter). */
 enum class DeviceOrigin { Linked, Shared }
 
+/**
+ * Which devices the list is asking for — the three chips of SPEC D4, as a domain choice.
+ *
+ * [All] is not `null`: the partner has a value for "everything" and so does the screen, and an
+ * absent filter would have to be re-invented as one at every layer it crossed. The Portuguese wire
+ * words it maps to (`todos|vinculados|compartilhados`) live only in `:shared:data` (ADR-004).
+ */
+enum class OriginFilter { All, Linked, Shared }
+
 enum class DeviceStatus { Online, Offline }
 
 /** Classified from the partner's model string at list time, without extra calls (ADR-006, SPEC D5). */
@@ -59,6 +68,16 @@ data class Device(
 data class CachedDevices(val devices: List<Device>, val fetchedAt: Instant)
 
 /**
+ * One page of the list, and whether asking for the next one is worth a request (SPEC D2).
+ *
+ * The partner sends a bare array — no total, no page count (`docs/api-contract.md` §3) — so "is
+ * there more" is not a fact the caller can read off [devices]: it is *inferred* from the page being
+ * exactly as long as the one that was asked for, and only the module that chose that length can
+ * say so. [hasMore] is that module's answer, which is what keeps the page size out of the domain.
+ */
+data class DevicePage(val devices: List<Device>, val hasMore: Boolean)
+
+/**
  * The partner-side half of the device list: the domain states the intent, `:shared:data` knows the
  * wire and where the credential comes from (ADR-004).
  *
@@ -68,16 +87,16 @@ data class CachedDevices(val devices: List<Device>, val fetchedAt: Instant)
 interface DeviceRepository {
 
     /**
-     * The first page of the account's devices, already classified and ordered (SPEC D1, D5, U8).
+     * One page of the account's devices, already classified and ordered (SPEC D1, D2, D5, U8).
      *
-     * Exactly one partner call (ADR-006) and no retry of its own. Paging beyond page 1 and the origin
-     * filter arrive with the slice that has a control for them. A page that arrives is written to the
-     * cache [cachedPage] reads (SPEC D10).
+     * Exactly one partner call (ADR-006) and no retry of its own — which is also why the caller, not
+     * this interface, decides when a next page is worth asking for. [page] is 1-based, as the
+     * partner counts. Page 1 is written to the cache [cachedPage] reads (SPEC D10).
      */
-    suspend fun firstPage(): List<Device>
+    suspend fun page(origin: OriginFilter, page: Int): DevicePage
 
     /**
-     * The last page [firstPage] stored, or null when nothing was ever stored (SPEC D8, D10, U2).
+     * The last page 1 [page] stored, or null when nothing was ever stored (SPEC D8, D10, U2).
      *
      * It costs no request, which is what lets a cold start render it before the partner is even asked
      * and lets an offline list show something instead of an error (ADR-006).

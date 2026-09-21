@@ -5,6 +5,7 @@ import io.github.npauloj.mibosmart.domain.device.DeviceClassifier
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.DeviceStatus
+import io.github.npauloj.mibosmart.domain.device.OriginFilter
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -38,6 +39,20 @@ internal fun DeviceDto.toDevice(): Device = Device(
     kind = DeviceClassifier.classify(model = model, isSubDevice = isSubDevice),
     parent = parentSerial?.takeIf { it.isNotBlank() }?.let(::DeviceId),
 )
+
+/**
+ * The `origem` the request carries for a chip (SPEC D4, `docs/api-contract.md` §3).
+ *
+ * The three Portuguese words stop here, like every other wire vocabulary (ADR-004). They are
+ * **plural** on the way out and singular on the way back on each device — one of the contract's own
+ * contradictions, and the reason this mapping is not shared with [toDevice]'s.
+ */
+internal val OriginFilter.wireValue: String
+    get() = when (this) {
+        OriginFilter.All -> "todos"
+        OriginFilter.Linked -> "vinculados"
+        OriginFilter.Shared -> "compartilhados"
+    }
 
 /**
  * `ultimaVezOnline` as an instant, or null when it is absent or unreadable.

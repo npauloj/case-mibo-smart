@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.app.devices
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,15 +10,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -45,6 +52,7 @@ import io.github.npauloj.mibosmart.app.resources.device_last_seen_hours
 import io.github.npauloj.mibosmart.app.resources.device_last_seen_minutes
 import io.github.npauloj.mibosmart.app.resources.device_last_seen_never
 import io.github.npauloj.mibosmart.app.resources.device_list_loading
+import io.github.npauloj.mibosmart.app.resources.device_list_loading_more
 import io.github.npauloj.mibosmart.app.resources.device_list_title
 import io.github.npauloj.mibosmart.app.resources.device_origin_linked
 import io.github.npauloj.mibosmart.app.resources.device_origin_shared
@@ -54,28 +62,54 @@ import io.github.npauloj.mibosmart.app.resources.device_stale_days
 import io.github.npauloj.mibosmart.app.resources.device_stale_hours
 import io.github.npauloj.mibosmart.app.resources.device_stale_minutes
 import io.github.npauloj.mibosmart.app.resources.device_status_online
+import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
+import io.github.npauloj.mibosmart.domain.device.OriginFilter
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
-/** The hub of the app: every other feature is reached from a row here (SPEC D1–D6, U3, U8). */
+/** The hub of the app: every other feature is reached from a row here (SPEC D1–D7, U2, U3, U8). */
 @Composable
 fun DeviceListScreen(
+    onOpenLiveVideo: (Device) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DeviceListViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    DeviceListScreenContent(state = state, onRetry = viewModel::load, modifier = modifier)
+    // SPEC U2: a tap on a camera row *is* the navigation — one event, consumed once, no confirmation
+    // step in between. Keyed on the ViewModel so a recomposition does not re-subscribe.
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is DeviceListEvent.OpenLiveVideo -> onOpenLiveVideo(event.camera)
+            }
+        }
+    }
+
+    DeviceListScreenContent(
+        state = state,
+        onRetry = viewModel::load,
+        onRefresh = viewModel::refresh,
+        onSelectFilter = viewModel::selectFilter,
+        onLoadMore = viewModel::loadMore,
+        onCameraTap = viewModel::onCameraTap,
+        modifier = modifier,
+    )
 }
 
 /** The screen as a pure function of its state, so every state has a preview and no ViewModel. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceListScreenContent(
     state: DeviceListUiState,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
+    onSelectFilter: (OriginFilter) -> Unit,
+    onLoadMore: () -> Unit,
+    onCameraTap: (DeviceRow) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 24.dp)) {
@@ -85,24 +119,34 @@ fun DeviceListScreenContent(
             modifier = Modifier.padding(bottom = 8.dp),
         )
         // SPEC U8: the chips are part of the frame, not of the content — they stay put while the list
-        // below swaps between loading, empty and error. Choosing one is D-02's criterion.
-        OriginFilterChips()
+        // below swaps between loading, empty and error, so the way out of an empty filter is always
+        // on screen (SPEC D3).
+        OriginFilterChips(selected = state.filter, onSelect = onSelectFilter)
 
-        when {
-            // Rows win over every other state: a cache on screen while page 1 is in flight is SPEC
-            // U2, and a cache on screen after it failed is SPEC D8 — both beat a spinner or an error.
-            state.rows.isNotEmpty() -> Column {
-                state.staleFor?.let { StaleBanner(staleFor = it, onRetry = onRetry) }
-                DeviceRows(state.rows)
+        // SPEC D7: the pull is the only thing on this screen that refetches by itself. Coming back
+        // to the list reuses the ViewModel and costs nothing.
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            when {
+                // Rows win over every other state: a cache on screen while page 1 is in flight is SPEC
+                // U2, a cache on screen after it failed is SPEC D8, and a list under a failed *next*
+                // page is SPEC D2 — all three beat a spinner or an error.
+                state.rows.isNotEmpty() -> Column {
+                    state.staleFor?.let { StaleBanner(staleFor = it, onRetry = onRetry) }
+                    DeviceRows(state = state, onLoadMore = onLoadMore, onCameraTap = onCameraTap)
+                }
+
+                state.isLoading -> CenteredMessage { LoadingIndicator() }
+                state.error != null -> CenteredMessage {
+                    ErrorState(error = state.error, serverMessage = state.serverMessage, onRetry = onRetry)
+                }
+
+                // Not loading, no error, no rows: page 1 answered with nothing (SPEC D3, `state.isEmpty`).
+                else -> CenteredMessage { Text(stringResource(Res.string.device_empty)) }
             }
-
-            state.isLoading -> CenteredMessage { LoadingIndicator() }
-            state.error != null -> CenteredMessage {
-                ErrorState(error = state.error, serverMessage = state.serverMessage, onRetry = onRetry)
-            }
-
-            // Not loading, no error, no rows: page 1 answered with nothing (SPEC D3, `state.isEmpty`).
-            else -> CenteredMessage { Text(stringResource(Res.string.device_empty)) }
         }
     }
 }
@@ -133,45 +177,78 @@ private fun StaleBanner(staleFor: Elapsed, onRetry: () -> Unit) {
 }
 
 /**
- * "Todos / Vinculados / Compartilhados", visible in every state (SPEC U8).
+ * "Todos / Vinculados / Compartilhados", visible in every state (SPEC D4, U8).
  *
- * They are inert on purpose: this slice always requests `origem: todos`, and a chip that looked
- * selectable but silently did nothing would be worse than one that is plainly not ready. D-02 gives
- * them behaviour and persistence (SPEC D4).
+ * Exactly one is on at a time, and choosing it reloads the list from page 1 — the chips are the only
+ * control on this screen that changes what is being asked for.
  */
 @Composable
-private fun OriginFilterChips() {
-    val labels = listOf(
-        Res.string.device_filter_all,
-        Res.string.device_filter_linked,
-        Res.string.device_filter_shared,
-    )
-
+private fun OriginFilterChips(selected: OriginFilter, onSelect: (OriginFilter) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-        labels.forEachIndexed { index, label ->
+        OriginFilter.entries.forEach { filter ->
             FilterChip(
-                selected = index == 0,
-                onClick = {},
-                enabled = false,
-                label = { Text(stringResource(label)) },
+                selected = filter == selected,
+                onClick = { onSelect(filter) },
+                label = { Text(stringResource(filter.label)) },
             )
         }
     }
 }
 
+/**
+ * The rows, plus whatever the end of the list currently is: a footer spinner, a failed next page, or
+ * nothing at all once the partner has run out of devices (SPEC D2).
+ */
 @Composable
-private fun DeviceRows(rows: List<DeviceRow>) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(rows, key = DeviceRow::id) { row ->
-            DeviceRowItem(row)
+private fun DeviceRows(
+    state: DeviceListUiState,
+    onLoadMore: () -> Unit,
+    onCameraTap: (DeviceRow) -> Unit,
+) {
+    val listState = rememberLazyListState()
+    // SPEC D2: the next page is asked for while the user still has a screenful to read, so the list
+    // does not stop under their finger. Derived from the list's own layout and nothing else, so it
+    // cannot go stale against a row count captured somewhere else.
+    val reachedEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
+            last >= info.totalItemsCount - 1 - NEXT_PAGE_THRESHOLD
+        }
+    }
+    // A failed next page stops the automatic asking (SPEC D8): the user is sitting at the bottom of
+    // the list, which is exactly where the trigger fires, and retrying on its own would spend the
+    // account's requests in a loop. The footer's button is the way back (ADR-006).
+    LaunchedEffect(reachedEnd, state.hasMore, state.error) {
+        if (reachedEnd && state.hasMore && state.error == null) onLoadMore()
+    }
+
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+        items(state.rows, key = DeviceRow::id) { row ->
+            DeviceRowItem(row, onCameraTap)
             HorizontalDivider()
+        }
+        if (state.isLoadingMore) item { LoadingMoreFooter() }
+        // Rows on screen *and* an error means the next page failed: page 1's failures take the list
+        // away and never reach this composable (SPEC D2, D8).
+        state.error?.let { failure ->
+            item { NextPageError(error = failure, serverMessage = state.serverMessage, onRetry = onLoadMore) }
         }
     }
 }
 
 @Composable
-private fun DeviceRowItem(row: DeviceRow) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+private fun DeviceRowItem(row: DeviceRow, onCameraTap: (DeviceRow) -> Unit) {
+    // SPEC U2: the camera row is the two-tap path to the picture. Locks are actionable too (SPEC D6),
+    // but their destination is another slice's; a row that reacted to a tap by doing nothing would
+    // read as a broken app, so only the camera takes one.
+    val opensLiveVideo = row.kind == DeviceKind.Camera
+
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .clickable(enabled = opensLiveVideo) { onCameraTap(row) }
+            .padding(vertical = 12.dp),
+    ) {
         Text(
             text = row.name,
             style = MaterialTheme.typography.titleMedium,
@@ -218,6 +295,42 @@ private fun ErrorState(
         // The server's sentence wins only where it is fit to show — an expired token (SPEC U6, S3.1).
         Text(text = serverMessage ?: stringResource(error.message))
         Button(onClick = onRetry) { Text(stringResource(Res.string.device_retry)) }
+    }
+}
+
+/** The list is still loading, but only at the bottom: the rows above stay put (SPEC D2). */
+@Composable
+private fun LoadingMoreFooter() {
+    val loadingMore = stringResource(Res.string.device_list_loading_more)
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator(modifier = Modifier.semantics { contentDescription = loadingMore })
+    }
+}
+
+/**
+ * A next page that failed, at the end of the list it could not extend (SPEC D2, D8).
+ *
+ * The same sentence the error state would have used, in the one place where it does not take the
+ * rows away — and the same "Tentar novamente", which here asks for that page and not for page 1.
+ */
+@Composable
+private fun NextPageError(error: DeviceListError, serverMessage: String?, onRetry: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = serverMessage ?: stringResource(error.message),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        TextButton(onClick = onRetry) { Text(stringResource(Res.string.device_retry)) }
     }
 }
 
@@ -274,6 +387,14 @@ private val DeviceOrigin.label: StringResource
         DeviceOrigin.Shared -> Res.string.device_origin_shared
     }
 
+/** The chips, in the order the user reads them (SPEC D4). */
+private val OriginFilter.label: StringResource
+    get() = when (this) {
+        OriginFilter.All -> Res.string.device_filter_all
+        OriginFilter.Linked -> Res.string.device_filter_linked
+        OriginFilter.Shared -> Res.string.device_filter_shared
+    }
+
 /** One friendly sentence per category, never the server's own words (SPEC U6). */
 private val DeviceListError.message: StringResource
     get() = when (this) {
@@ -284,3 +405,11 @@ private val DeviceListError.message: StringResource
         DeviceListError.UnexpectedResponse -> Res.string.device_error_unexpected
         DeviceListError.Failed -> Res.string.device_error_failed
     }
+
+/**
+ * How many rows from the bottom the next page is asked for.
+ *
+ * Small on purpose: the account pays per request (ADR-006), so the list fetches ahead by a couple of
+ * rows — enough to hide the wait on a fast scroll, not enough to pull pages nobody looks at.
+ */
+private const val NEXT_PAGE_THRESHOLD = 3

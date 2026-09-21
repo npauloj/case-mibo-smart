@@ -36,25 +36,25 @@ class ErrorMappingTest {
         )
 
         expected.forEach { (failure, result) ->
-            val listDevices = ListDevices(FakeDeviceRepository { throw failure })
+            val listDevices = listDevices(FakeDeviceRepository { throw failure })
 
-            assertEquals(result, listDevices(), "mapping ${failure::class.simpleName}")
+            assertEquals(result, listDevices.firstPage(), "mapping ${failure::class.simpleName}")
         }
     }
 
     /** Anything outside the taxonomy — a bug, not a partner outcome — is still a rendered state. */
     @Test
     fun anUnknownFailureIsStillAState() = runTest {
-        val listDevices = ListDevices(FakeDeviceRepository { throw IllegalStateException("bug") })
+        val listDevices = listDevices(FakeDeviceRepository { throw IllegalStateException("bug") })
 
-        assertEquals(DeviceListResult.Failed, listDevices())
+        assertEquals(DeviceListResult.Failed, listDevices.firstPage())
     }
 
     /** SPEC E4 / ADR-002: a cancelled load is not an error the screen has to explain. */
     @Test
     fun cancellationIsNotMapped() = runTest {
-        val listDevices = ListDevices(FakeDeviceRepository { throw CancellationException("gone") })
+        val listDevices = listDevices(FakeDeviceRepository { throw CancellationException("gone") })
 
-        assertFailsWith<CancellationException> { listDevices() }
+        assertFailsWith<CancellationException> { listDevices.firstPage() }
     }
 }

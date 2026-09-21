@@ -51,7 +51,7 @@ class SessionStartTest {
             answer = { network.await() },
         )
 
-        val viewModel = DeviceListViewModel(listDevices = ListDevices(repository), now = { NOW })
+        val viewModel = DeviceListViewModel(listDevices = listDevices(repository), now = { NOW })
         advanceUntilIdle()
 
         assertEquals(1, repository.calls, "page 1 must already have been asked for")
@@ -71,7 +71,7 @@ class SessionStartTest {
     fun withoutACacheTheListStillStartsOnTheSpinner() = runTest(dispatcher) {
         val network = CompletableDeferred<List<Device>>()
         val viewModel = DeviceListViewModel(
-            listDevices = ListDevices(FakeDeviceRepository { network.await() }),
+            listDevices = listDevices(FakeDeviceRepository { network.await() }),
             now = { NOW },
         )
         advanceUntilIdle()

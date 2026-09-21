@@ -3,9 +3,24 @@ package io.github.npauloj.mibosmart.app.devices
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
+import io.github.npauloj.mibosmart.domain.device.DeviceListPreferences
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.DeviceStatus
+import io.github.npauloj.mibosmart.domain.device.OriginFilter
 import kotlin.time.Instant
+
+/** The use case as every test builds it: a fake partner, and a chip nobody has chosen yet. */
+internal fun listDevices(
+    repository: FakeDeviceRepository,
+    preferences: DeviceListPreferences = FakeDeviceListPreferences(),
+) = ListDevices(deviceRepository = repository, preferences = preferences)
+
+/**
+ * Page 1 of [origin], with the stored page allowed to answer for it — the call the list makes when
+ * it opens (SPEC D1, D8). Tests about paging state the page and the cache explicitly.
+ */
+internal suspend fun ListDevices.firstPage(origin: OriginFilter = OriginFilter.All) =
+    this(origin = origin, page = 1, mayUseCache = true)
 
 /**
  * Domain devices for the app-side tests, with **placeholder** serials only — the test account's `ns`

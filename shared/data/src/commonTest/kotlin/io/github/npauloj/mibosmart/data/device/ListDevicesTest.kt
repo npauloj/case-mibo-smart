@@ -14,6 +14,7 @@ import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.DeviceRepository
 import io.github.npauloj.mibosmart.domain.device.DeviceStatus
+import io.github.npauloj.mibosmart.domain.device.OriginFilter
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.session.Token
 import io.ktor.client.engine.mock.MockEngine
@@ -29,6 +30,7 @@ import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -147,11 +149,57 @@ class ListDevicesTest {
         assertTrue(requests.isEmpty(), "a call was made with no credential to send")
     }
 
+    /**
+     * SPEC D2 and D4 on the wire: the chip picks the `origem`, the page number is the partner's own,
+     * and a page exactly as long as the one requested is what offers the next.
+     */
+    @Test
+    fun aFilteredNextPageAsksForItByNumber() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val repository = repositoryAnswering(requests) { respondWithDevices(fullPage()) }
+
+        val page = repository.page(OriginFilter.Linked, page = 2)
+
+        assertEquals(
+            """{"tamanhoPagina":20,"pagina":2,"origem":"vinculados"}""",
+            (requests.single().body as TextContent).text,
+        )
+        assertTrue(page.hasMore, "a page of exactly `tamanhoPagina` devices must offer the next one")
+    }
+
+    /** SPEC D2: a page shorter than `tamanhoPagina` is the last one, whatever the filter. */
+    @Test
+    fun aShortPageIsTheLastPage() = runTest {
+        val repository = repositoryAnswering(mutableListOf()) { respondWithDevices(PAGE) }
+
+        assertFalse(repository.page(OriginFilter.Shared, page = 1).hasMore)
+    }
+
+    /** SPEC D10: only page 1 is cached — a later page would open the app halfway down the list. */
+    @Test
+    fun aLaterPageIsNotCached() = runTest {
+        val cache = FakeDeviceCache()
+        val repository = repositoryAnswering(mutableListOf(), cache = cache) { respondWithDevices(PAGE) }
+
+        repository.page(OriginFilter.All, page = 2)
+
+        assertNull(repository.cachedPage(), "page 2 was written over the cold-start page")
+    }
+
+    /** Twenty devices, which is what `tamanhoPagina` asks for — the "there may be more" boundary. */
+    private fun fullPage(): String = (1..20).joinToString(prefix = "[", postfix = "]") { index ->
+        """{"ns":"PLACEHOLDER-NS-$index","modelo":"iM7-FC","nome":"iM7-FC $index",
+           "status":"online","origem":"vinculado"}"""
+    }
+
     private fun MockRequestHandleScope.respondWithDevices(data: String) = respond(
         content = """{"status":"sucesso","data":$data}""",
         status = HttpStatusCode.OK,
         headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
     )
+
+    /** Page 1 of everything: what every test that is not about paging is asking for (SPEC D1). */
+    private suspend fun DeviceRepository.firstPage() = page(OriginFilter.All, page = 1).devices
 
     private suspend fun repositoryAnswering(
         requests: MutableList<HttpRequestData>,

@@ -4,9 +4,10 @@ import io.github.npauloj.mibosmart.data.remote.EnvelopeReader
 import io.github.npauloj.mibosmart.data.remote.HttpClientFactory
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.data.platform.log.platformLogger
+import io.github.npauloj.mibosmart.data.platform.vault.secureTokenStore
 import io.github.npauloj.mibosmart.data.remote.smartHomeJson
-import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
 import io.github.npauloj.mibosmart.data.session.SmartHomeSessionRepository
+import io.github.npauloj.mibosmart.data.session.VaultSessionStore
 import io.github.npauloj.mibosmart.domain.session.SessionRepository
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import org.koin.core.module.Module
@@ -25,5 +26,5 @@ fun dataModule(apiHost: String): Module = module {
     single { EnvelopeReader(smartHomeJson) }
     single { SmartHomeApi(httpClient = get(), baseUrl = apiHost, envelopeReader = get()) }
     single<SessionRepository> { SmartHomeSessionRepository(get()) }
-    single<SessionStore> { InMemorySessionStore() }
+    single<SessionStore> { VaultSessionStore(secureTokenStore()) }
 }

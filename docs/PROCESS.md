@@ -27,12 +27,22 @@ grafo de dependências, rejeita tickets fora do contrato e **para no gate de mer
 ## 2. Fatias (slices) e ondas
 
 Uma fatia é **vertical** — atravessa `domain → data → app → tela` e entrega algo observável — e cabe
-em um PR revisável: **≤ ~400 linhas executáveis** ([ADR-011](adr/ADR-011-pr-budget-measured-in-executable-lines.md)).
+em um PR revisável: **≤ ~400 linhas executáveis de produção**
+([ADR-011](adr/ADR-011-pr-budget-measured-in-executable-lines.md), emendado pela
+[ADR-017](adr/ADR-017-the-ceiling-bounds-production-not-tests.md)).
 Executável = linhas adicionadas menos KDoc/comentários, `import`/`package`, linhas em branco, arquivos de
 recurso (`strings.xml` pt/en), `.sq`, build/catálogo e corpos de `@Preview`/`PreviewParameterProvider`.
-**Testes contam** — não se compra espaço entregando menos teste. O diff bruto costuma ser 2–3× esse
-número num app KMP de quatro módulos; a linha `Size:` de cada ticket declara os dois e o limiar em que o
-worker deve **parar e devolver `blocked`**. Fatias da mesma onda são independentes (`[P]`) e podem
+**Testes são contados e declarados, mas não entram no teto**: cada um é exigido por um critério nomeado
+no ticket, então quem os limita são os critérios. O número sai de `python tools/executable-lines.py
+<base>..<head>`, não da mão. Calibração medida nas seis primeiras fatias: **tela de feature ≈ 400 de
+produção + ≈ 350 de teste; fatia estreita ≈ 120 + ≈ 100**.
+
+**A linha `Size:` é estimativa, não ordem de parada.** O worker devolve `blocked` quando o excedente vem
+de **escopo que o ticket não nomeou** — isso ele percebe enquanto escreve, e parar sai barato. Quando o
+excedente vem do escopo do próprio ticket, quem errou foi a estimativa: entrega, declara os dois números
+e registra como **defeito de ticket**. Um ticket cuja estimativa honesta passe de ~400 de produção é
+grande demais, e é o **gate**, antes do despacho, que deve dizer isso — é o único lugar onde dividir não
+joga trabalho fora. Fatias da mesma onda são independentes (`[P]`) e podem
 ser implementadas em paralelo, cada uma em seu worktree e **em uma sessão de agente própria**; uma onda
 só começa quando as dependências da anterior foram mescladas em `main`.
 
@@ -133,9 +143,10 @@ Uma Issue por fatia, gerada de `docs/specs/issues.md` (ou escrita à mão no mes
 
 ## 6. Pull requests
 
-Um PR por fatia, ≤ ~400 linhas **executáveis** (ADR-011; o diff bruto que o GitHub mostra é maior e não
-é o gate). O corpo é o roteiro da apresentação — escrito em **português**, para a banca; **o worker
-escreve o corpo no template**, o humano edita, e a seção Evidência declara **as duas contagens**.
+Um PR por fatia, ≤ ~400 linhas **executáveis de produção** (ADR-011 + ADR-017; o diff bruto que o GitHub
+mostra é maior e não é o gate). O corpo é o roteiro da apresentação — escrito em **português**, para a
+banca; **o worker escreve o corpo no template**, o humano edita, e a seção Evidência cola a saída de
+`tools/executable-lines.py` com **as duas contagens**.
 
 - **Título:** o mesmo formato do commit de squash: `feat(lock): open/close with confirmation state machine (L3–L6)`.
 - **Corpo:** `.github/PULL_REQUEST_TEMPLATE.md`, cinco seções — contexto e por quê; o que muda (com o que

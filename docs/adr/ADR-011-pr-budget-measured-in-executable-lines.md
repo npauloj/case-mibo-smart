@@ -1,6 +1,13 @@
 # ADR-011. The PR budget counts executable lines, not diff lines
 
-Status: Accepted (2026-09-21)
+Status: Accepted (2026-09-21) — **amended by [ADR-017](ADR-017-the-ceiling-bounds-production-not-tests.md) (2026-09-21): the ceiling bounds production only**
+
+> The decision below — count executable lines, not diff lines — stands and is what made the
+> amendment measurable. What did not survive contact with four slices is *"tests count"*: with
+> tests inside a 400-line ceiling, a slice that delivers a screen violates it by construction
+> (≈400 production + ≈350 test). ADR-017 bounds production, keeps tests required and reported,
+> and replaces the "stop past N" instruction with a block condition based on where the extra
+> work came from.
 
 ## Context
 

@@ -75,9 +75,7 @@ graph TD
   operation-rejected — are added by the first slice that can receive them (D-01, V-01, L-01). Model the
   sealed hierarchy so those arrive as new subtypes, not as a refactor.
   **Dark previews are one `uiMode`-parameterised preview function, not a second set of screen bodies.**
-- **Size:** ~3 points. Target diff ≈ 400 lines total (≈ 250 production, ≈ 150 test). If the
-  implementation is heading past ~500, stop and return blocked rather than shipping a PR nobody can
-  review.
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈400 executable production lines + ≈350 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Files:** `shared/domain/src/commonMain/kotlin/io/github/npauloj/mibosmart/domain/session/`
   (Token, SessionStore interface), `.../domain/error/` (typed errors per ADR-002);
   `shared/data/src/commonMain/kotlin/io/github/npauloj/mibosmart/data/remote/` (HttpClientFactory,
@@ -147,8 +145,7 @@ graph TD
   `shared/data/src/commonMain/kotlin/.../data/di/DataModule.kt` (binding only).
 - **Depends on:** S-01a
 - **Issue:** #25
-- **Size:** ~2 points. ≈120 executable production lines + ≈60 test (ADR-011). Stop and return blocked
-  past ~200 executable.
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** the persistence half of SPEC **S2** and the storage half of **S9**.
   **Every criterion below is provable by `./gradlew :shared:data:testAndroidHostTest`** — the Keystore
   and Keychain actuals cannot run there (no Robolectric, no instrumented source set, and the macOS CI
@@ -233,9 +230,7 @@ graph TD
   `shared/app/src/commonTest/kotlin/.../app/session/SessionStateTest.kt`.
 - **Depends on:** S-01b
 - **Issue:** #15
-- **Size:** ~2 points. ≈130 executable production lines + ≈80 test (ADR-011). Stop and return blocked
-  past ~220 executable. **The stop threshold is an instruction, not advice**: two slices in this wave
-  passed theirs and shipped anyway.
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **S5** and **S7**.
   - `SessionStartTest.storedTokenSkipsEntry` — a stored session opens the device-list destination and
     the fake repository's call counter stays at **0**
@@ -282,8 +277,7 @@ graph TD
   `.../app/di/AppModules.kt`, both `strings.xml`.
 - **Depends on:** S-02a
 - **Issue:** #32
-- **Size:** ~3 points. ≈190 executable production lines + ≈120 test (ADR-011). Stop and return blocked
-  past ~320 executable.
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈400 executable production lines + ≈350 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **S6**, **S8**, the UI half of **S9**, and **U5**.
   - `SessionGuardTest.rejectionClearsAndRoutes` (401) and `.expiryClearsAndRoutesWithServerMessage` (403)
   - `SessionGuardTest.rejectionOfRotatedTokenDoesNotClearVault` — a refusal carrying a replaced token
@@ -338,8 +332,7 @@ graph TD
   `strings.xml`.
 - **Depends on:** S-01a
 - **Issue:** #16
-- **Size:** ~3 points. ≈200 executable production lines + ≈140 test (ADR-011). Stop and return blocked
-  past ~350 executable.
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈400 executable production lines + ≈350 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **D1, D3, D5, D6**, **U3**, **U8**, **D9** (defers to the guard),
   and **E2 completed** with device-not-found. Tests: `ListDevicesTest.firstPageUsesDefaults` (exact
   request via `MockEngine`), `.emptyFirstPageIsEmptyState`, `.networkFailureShowsError`,
@@ -386,8 +379,7 @@ graph TD
   (`_Stale`), both `strings.xml`.
 - **Depends on:** D-01a
 - **Issue:** #33
-- **Size:** ~3 points. ≈170 executable production lines + ≈120 test (ADR-011). Stop and return blocked
-  past ~300 executable.
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **D8**, **D10**, and **U2** (cache rendered before the network).
   - `DeviceCacheTest.roundTripsPage`
   - `DeviceCacheTest.schemaVersionMismatchDropsAndRefetches` — the rule above, proven
@@ -458,9 +450,7 @@ graph TD
   `.../app/di/AppModules.kt`, both `strings.xml`.
 - **Depends on:** S-01a
 - **Issue:** #17
-- **Size:** ~3 points. ≈210 executable production lines + ≈150 test (ADR-011). Stop and return blocked
-  past ~360 executable. **The stop threshold is an instruction, not advice**: two slices in this wave
-  passed theirs and shipped anyway.
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈400 executable production lines + ≈350 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **V1, V2, V3, V6, V7, V8**. Tests:
   `WatchLiveVideoTest.capabilityCheckedOnce` / `.noRtsvNoSession` / `.exactCreateRequest` /
   `.playerPreparedImmediately` / `.quotaExceededState` / `.offlineCameraNoSession`,
@@ -508,8 +498,7 @@ graph TD
   `docs/adr/ADR-005-live-video-native-players.md` (checkpoint table).
 - **Depends on:** V-01a
 - **Issue:** #34
-- **Size:** ~2 points. ≈90 executable production lines + ≈40 test (ADR-011). Stop and return blocked
-  past ~160 executable.
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **V10**, and the iOS half of **V2** and **V8**.
   - `LiveVideoPlayerIosTest.rendersWebViewForMonitorUrl` (iOS simulator target)
   - `LiveVideoPlayerIosTest.disposeReleasesTheWebView`
@@ -550,8 +539,7 @@ graph TD
   both `strings.xml`.
 - **Depends on:** S-01a
 - **Issue:** #18
-- **Size:** ~3 points. ≈180 executable production lines + ≈120 test (ADR-011). Stop and return blocked
-  past ~300 executable.
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈400 executable production lines + ≈350 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **L1**, **L8**, the read half of **L2**, the offline half of
   **L5**, and **U3** as it applies to the lock. Tests:
   `LoadLockTest.compositeAddress`, `.exactlyThreeRequestsInParallel`,
@@ -590,8 +578,7 @@ graph TD
   `LockScreenPreviews.kt`, both `strings.xml`.
 - **Depends on:** L-01a
 - **Issue:** #35
-- **Size:** ~2 points. ≈120 executable production lines + ≈110 test (ADR-011). Stop and return blocked
-  past ~230 executable.
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **L7**, and the action half of **L2**.
   - WHEN the user picks a volume level, THE SYSTEM SHALL send `mudar-volume` with that integer and SHALL
     show the new level only after success _(test: `ChangeVolumeTest.exactRequestAndOptimisticOff`)_
@@ -641,6 +628,7 @@ graph TD
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
 - **Depends on:** D-01b
 - **Issue:** #19
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈400 executable production lines + ≈350 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **D2, D4, D7, D11** and **U2**. Tests named in the SPEC:
   `PaginationTest.fullPageHasMore` / `.shortPageEndsList` / `.emptyPageEndsListWithoutExtraCall` /
   `.staleResponseFromPreviousFilterIsDropped` / `.concurrentNextPageTriggersMakeOneRequest` /
@@ -686,6 +674,7 @@ graph TD
 - **Depends on:** L-01b
   _(**stacked edge, ADR-015**: L-02 needs only L-01a logically, but it extends the same `LockScreen` and `LockViewModel` as L-01b. Branch from `slice/l-01b`, not `main`, and say so in the PR body — the CI green is against the stack.)_
 - **Issue:** #20
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈400 executable production lines + ≈350 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **L3, L4, L6** and the command half of **L5**. Tests named in
   the SPEC: `ToggleLockTest.happyPathConfirmsWithStatusRead` /
   `.disagreementBecomesCommandExpiredNoPolling` / `.timeoutBecomesCommandExpired` /
@@ -728,6 +717,7 @@ graph TD
 - **Depends on:** L-02
   _(**stacked edge, ADR-015**: same `LockScreen` and `LockViewModel` as L-02. Branch from `slice/l-02`, not `main`, and say so in the PR body — the CI green is against the stack.)_
 - **Issue:** #21
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **L9, L10** and **U4**. Tests named in the SPEC:
   `OpeningHistoryTest.mapsKnownTypes` / `.unknownTypeShownRaw` / `.emptyState` /
   `.entryShowsRelativeAndAbsoluteTime` / `.remoteEntryShowsActorName`.
@@ -768,6 +758,7 @@ graph TD
   `shared/app/src/commonMain/composeResources/values/strings.xml`, `docs/adr/ADR-005-live-video-native-players.md`.
 - **Depends on:** V-01a
 - **Issue:** #22
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **V4, V5, V9** and **U1**. Tests named in the SPEC:
   `PlaybackRetryPolicyTest.*` including `.decodeErrorNoRetry`,
   `LiveVideoViewModelTest.firstFrameTimeoutBecomesFailed`.
@@ -806,6 +797,7 @@ graph TD
   the one real call returned), `docs/adr/` (new ADR only if the endpoint contradicts the assumption).
 - **Depends on:** S-02b
 - **Issue:** #23
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **S10**. Tests: `RenewTokenTest.replacesStoredToken`,
   `RenewTokenTest.failureKeepsCurrentToken`. Preview: `AccountScreen_ExpiringSoon` gains the action.
 - **Test scenarios:** successful renewal replacing the token in the vault; a failed renewal keeping the
@@ -842,6 +834,7 @@ graph TD
   `shared/data/build.gradle.kts`, `shared/app/.../app/lock/OpeningHistoryContent.kt` (labels).
 - **Depends on:** L-03
 - **Issue:** #24
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):**
   - WHEN a history row carries a known event type on Android, THE SYSTEM SHALL render the friendly
     label supplied by the Java catalogue _(test: `ModelCatalogAdapterTest.mapsKnownEventLabels`)_

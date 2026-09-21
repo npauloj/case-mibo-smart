@@ -67,7 +67,7 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
   truncated clipboard that costs one request from the budget to discover. Revealing at most the last 4
   characters is the most S9 permits, so this needs no exception to it.
 - **S1.2 — reject a malformed token before spending a request.** WHEN the input does not match
-  `Ot_` followed by exactly 32 hexadecimal characters (after trimming surrounding whitespace),
+  `Ot_` followed by exactly 32 **alphanumeric** characters (after trimming surrounding whitespace),
   THE SYSTEM SHALL keep "Validar" disabled and, once the user has typed or pasted something, SHALL
   show "Token incompleto ou em formato inválido" in the field; THE SYSTEM SHALL NOT call the API.
   _(test: `TokenFormatTest.acceptsTheDocumentedFormat`, `.rejectsTruncatedPaste`,
@@ -330,7 +330,8 @@ _EARS adapted to the lock domain vocabulary because no market standard for EARS 
 - Android minSdk 24, targetSdk 36; iOS deployment target 15.3, simulator build in CI (`workflow_dispatch` / `main`).
 - Unit tests run on the JVM via `testAndroidHostTest` (AGP 9 KMP library plugin) on every PR, and on the iOS simulator target in the CI `ios` job.
 - Compose UI tests are out of scope for the case: screen states are proven by previews (visual acceptance) and ViewModel tests.
-- No token pattern (`Ot_[0-9a-f]{20,}`) anywhere in the repository (CI check, ADR-008).
+- No token pattern (`Ot_[0-9A-Za-z]{20,}`) anywhere in the repository (CI check, ADR-008). The class is
+  alphanumeric, not hexadecimal — the original `[0-9a-f]` could not match a real token (ADR-012).
 - Request budget instrumentation: a session counter visible in the account screen (debug builds).
 
 ## 7. Open markers (carried from the contract)
@@ -343,7 +344,7 @@ _EARS adapted to the lock domain vocabulary because no market standard for EARS 
 | `[ASSUMED delays]` | V4 | No |
 | `[ASSUMED: 10 s confirmation timeout]` | L4 | No — tune on the real lock in wave 3 |
 | `[ASSUMED: monitor page works in WebView]` | V9 | No — verify on device in wave 2 |
-| Expired token == invalid token response | S3/S6 | No — same handling |
+| ~~Expired token == invalid token response~~ | S3/S6 | **Resolved 2026-09-21 — false.** `401` = rejected, `403` = expired, with a server message fit to show. See ADR-012. |
 | `[ASSUMED: 20 s first-frame timeout]` | U1 | No — tune on the real camera in wave 2 |
 | `[CHECKPOINT: ADR-005 player plan — confirm or amend on the real camera]` | V2–V5, V8–V10, U1 | No — the video slice PR fills the ADR-005 checkpoint table and amends what does not hold; tracked as a Wave 2 chore issue |
 | `[ASSUMED: return to previous destination after re-auth]` | U5 | No |

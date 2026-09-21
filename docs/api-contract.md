@@ -19,7 +19,7 @@ sensors, GDI sub-accounts, lock passwords, camera recordings) are out of scope.
 | Method | `POST` with a JSON body for every endpoint used here (`GET` exists only for `/gdi/subcontas/v1`) |
 | Headers | `Content-Type: application/json`, `Authorization: Bearer <token>` |
 | Host | Descriptions and the case brief say `https://<API_HOST>`; the Swagger `host` and the docs playground use `https://<PORTAL_HOST>`, which serves the same paths. From a browser the `<API_HOST>` fails with CORS; a native app has no CORS, so `<API_HOST>` is expected to work. **The base URL is configured locally (`local.properties` → `smarthome.apiHost`), never versioned; confirm on the first app call.** |
-| HTTP status | **Always `200`, even on errors.** The outcome lives inside the body. |
+| HTTP status | `200` for business outcomes, with the result inside the body. **Authentication failures are the exception: `401` and `403`** — re-probed 2026-09-21, see §1.2 and ADR-012. |
 | Token lifetime | Max **2 hours**. `renovarToken` issues a new one "with extended duration". |
 
 ### 1.1 Response envelopes — two shapes coexist
@@ -44,16 +44,32 @@ The parser must accept both: unwrap `body` when present, then read `status`/`dat
 
 ### 1.2 Authentication failures
 
-| Situation | Observed body (HTTP 200) |
-|---|---|
-| No `Authorization` header | `{ "status": "erro", "msg": "Token não está presente na requisição" }` |
-| Invalid token | `{ "status": "erro", "msg": "Erro desconhecido, por favor tente novamente mais tarde" }` |
-| Expired token | Not probed; assumed identical to "invalid" (same generic message). `[ASSUMED]` |
+**Re-probed 2026-09-21 against `POST /produtos/listar-dispositivos/v1`.** The earlier reading of this
+section was wrong on every point; it is corrected here and the consequences are in
+[ADR-012](adr/ADR-012-auth-failures-are-http-status-not-message-text.md).
 
-There is no dedicated 401/403. The only signal that a token was rejected is the generic
-"Erro desconhecido" on an otherwise well-formed request. Business rule (see ADR-002): a flat-shape
-`status: "erro"` whose `msg` starts with "Erro desconhecido" on a request whose body is known to be
-valid is treated as **token rejected**.
+| Situation | HTTP | `Content-Type` | Observed body |
+|---|---|---|---|
+| No `Authorization` header | **401** | `text/plain` | `"Token não está presente na requisição"` — a bare JSON **string** |
+| Malformed token (no `Ot_` prefix) | **401** | `text/plain` | `"Token não está presente na requisição"` |
+| Well-formed but unknown token | **401** | `text/plain` | `"Não autorizado"` — a bare JSON **string** |
+| **Expired token** | **403** | `text/plain` | `{ "status": "erro", "msg": "Token expirado, por favor gere um novo token" }` — an **object** |
+
+Four corrections to what this document said before:
+
+1. **401 and 403 do exist.** The previous claim that there is no dedicated status was wrong.
+2. **They mean different things.** `401` = the token is absent or not recognised; `403` = the token is
+   recognised and expired. The old `[ASSUMED: expired identical to invalid]` is false — and false in
+   the app's favour, since the platform hands back a sentence fit to show the user.
+3. **`"Erro desconhecido"` never appears** on an authentication failure. The business rule ADR-002
+   derived from it could not fire; ADR-012 removes it.
+4. **The body is not always an envelope.** On `401` it is a bare JSON string served as `text/plain`, so
+   a parser that expects `{status, msg}` throws — which is why the app showed "Resposta inesperada"
+   for an unknown token instead of a token error.
+
+Business rule (ADR-012): **classify on the status before parsing the body.** `401` → token rejected,
+`403` → token expired (use the server's `msg` when the body parses), and only a `2xx` body is read for
+a business `status != "sucesso"`.
 
 ### 1.3 Account quota — every call counts
 

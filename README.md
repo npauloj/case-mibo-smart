@@ -51,7 +51,7 @@ Casa Inteligente e digitado na tela inicial (RF01). Passo a passo:
 2. Menu **Contas → Adicionar Conta**: cadastre a conta do aplicativo Mibo (a conta que possui os
    dispositivos). É ela que os tokens representam.
 3. Menu **Contas → Token Temporário**: gere um token com um rótulo que identifique você (ex.: "Case —
-   seu nome") e copie o valor. O formato é `Ot_` seguido de 32 caracteres hexadecimais.
+   seu nome") e copie o valor. O formato é `Ot_` seguido de 32 caracteres alfanuméricos.
 4. Cole o token na tela inicial do app. Ele é guardado no cofre nativo do sistema (Android Keystore /
    iOS Keychain) e nunca em preferências simples, logs ou na interface (só o sufixo é exibido).
 

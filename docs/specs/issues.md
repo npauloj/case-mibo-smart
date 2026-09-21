@@ -179,7 +179,7 @@ graph TD
   "Validar" disabled and, once something has been entered, shows "Token incompleto ou em formato
   inválido" — with no API call at all. A well-formed token enables the button and behaves exactly as it
   does today.
-- **Technical detail:** the format is `Ot_` + exactly 32 hexadecimal characters, 35 in total
+- **Technical detail:** the format is `Ot_` + exactly 32 **alphanumeric** characters, 35 in total
   (`docs/guides/token.md` §2). Trim surrounding whitespace before matching — clipboard content often
   carries a trailing newline. The mask is a `VisualTransformation` with a correct `OffsetMapping`, or
   the cursor lands in the wrong place; mask by codepoint count, never by byte. A field holding fewer

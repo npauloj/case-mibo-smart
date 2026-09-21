@@ -7,6 +7,7 @@ import io.github.npauloj.mibosmart.data.remote.LockVolumeDto
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockRepository
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import io.github.npauloj.mibosmart.domain.session.SessionStore
@@ -51,6 +52,17 @@ internal class SmartHomeLockRepository(
      */
     override suspend fun changeVolume(address: LockAddress, volume: VolumeLevel) {
         api.changeLockVolume(token(), LockRequests.changeVolume(address, volume))
+    }
+
+    /**
+     * `controle-fechadura` (SPEC L3): the request the whole confirmation state machine exists for.
+     *
+     * Same silence on the body, for a stronger reason than the other writes: even a success here
+     * means only that the partner accepted the command. Whether the door moved is
+     * [readOpenState]'s answer, and the use case above asks it.
+     */
+    override suspend fun command(address: LockAddress, command: LockCommand) {
+        api.commandLock(token(), LockRequests.command(address, command))
     }
 
     /** `habilitar-abrir-remoto`, always with `habilitar: true` (SPEC L2); same silence on the body. */

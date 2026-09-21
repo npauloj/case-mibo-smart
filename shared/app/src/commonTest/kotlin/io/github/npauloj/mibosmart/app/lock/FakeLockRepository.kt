@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.app.lock
 
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockRepository
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
@@ -19,12 +20,19 @@ import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
  * @param remoteOpenAfterEnabling what `status-abrir-remoto` answers **after** a successful
  *   `habilitar-abrir-remoto`. It is `false` in the test that checks the app believes the re-read
  *   rather than the write.
+ * @param answerConfirmation runs inside `status-abertura` **only after a command was sent** — the
+ *   confirmation read of SPEC L3. It is separate from [answer] because the interesting case is a
+ *   lock whose three reads on entry work and whose confirmation never comes.
+ * @param obeysCommands whether `controle-fechadura` actually moves the door. `false` is the lock
+ *   that takes the command and does nothing — the disagreement of SPEC L4.
  */
 internal class FakeLockRepository(
     private val state: LockState = LockSamples.Locked,
     private val answer: suspend () -> Unit = {},
     private val answerWrite: suspend () -> Unit = {},
     private val remoteOpenAfterEnabling: Boolean = true,
+    private val answerConfirmation: suspend () -> Unit = {},
+    private val obeysCommands: Boolean = true,
 ) : LockRepository {
 
     val reads = mutableListOf<Read>()
@@ -34,10 +42,12 @@ internal class FakeLockRepository(
     val calls: Int get() = reads.size + writes.size
 
     private var isRemoteOpenEnabled = state.isRemoteOpenEnabled
+    private var isOpen = state.isOpen
 
     override suspend fun readOpenState(address: LockAddress): Boolean {
         record(Read(Read.OPEN_STATE, address))
-        return state.isOpen
+        if (writes.any { it is Write.Command }) answerConfirmation()
+        return isOpen
     }
 
     override suspend fun readRemoteOpenEnabled(address: LockAddress): Boolean {
@@ -53,6 +63,17 @@ internal class FakeLockRepository(
     override suspend fun changeVolume(address: LockAddress, volume: VolumeLevel) {
         writes += Write.Volume(address, volume)
         answerWrite()
+    }
+
+    /**
+     * The door moves only if the call succeeded **and** the lock was told to obey: a real
+     * `controle-fechadura` acknowledges the command, and whether the hardware follows is a separate
+     * question (SPEC L3).
+     */
+    override suspend fun command(address: LockAddress, command: LockCommand) {
+        writes += Write.Command(address, command)
+        answerWrite()
+        if (obeysCommands) isOpen = command.opensTheDoor
     }
 
     /**
@@ -96,5 +117,8 @@ internal class FakeLockRepository(
         data class Volume(override val address: LockAddress, val level: VolumeLevel) : Write
 
         data class RemoteOpen(override val address: LockAddress) : Write
+
+        /** `controle-fechadura` — the only call in the app that moves something physical. */
+        data class Command(override val address: LockAddress, val command: LockCommand) : Write
     }
 }

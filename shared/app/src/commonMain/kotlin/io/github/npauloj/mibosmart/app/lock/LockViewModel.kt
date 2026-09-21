@@ -2,9 +2,12 @@ package io.github.npauloj.mibosmart.app.lock
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +21,9 @@ import kotlinx.coroutines.launch
  * and a lock that refuses commands is still a lock whose state is worth seeing (SPEC L2, L5).
  * What is genuinely exclusive gets its own subtype — which is how L-02's command states
  * (`CommandSent`, `Confirmed`, `CommandExpired`, `CommandFailed`) arrive: as new subtypes, never as
- * a refactor of these.
+ * a refactor of these. They are grouped under [Commanding], which carries the [Ready] they are
+ * happening to; `Confirmed` is transient in SPEC §4 and has no subtype, because there is nothing to
+ * sit in — the screen goes straight back to [Ready] with the door the lock confirmed.
  */
 sealed interface LockUiState {
 
@@ -65,7 +70,76 @@ sealed interface LockUiState {
          * of `status-abrir-remoto` — no other intent in this class touches it.
          */
         val isRemoteOpenDisabled: Boolean get() = !lock.isRemoteOpenEnabled
+
+        /**
+         * Whether an open/close command may be sent at all (SPEC L2, L5, and the build's switch).
+         *
+         * Three independent reasons to refuse, in one place so the screen and the ViewModel cannot
+         * disagree about them: the build does not write, the lock has not granted remote opening, or
+         * the hub last saw it some time ago and what is on screen is a memory (SPEC L5).
+         */
+        val canCommand: Boolean
+            get() = areWritesEnabled && !isRemoteOpenDisabled && !isOffline && writeInFlight == null
     }
+
+    /**
+     * A command the user sent, in one of the phases where the door has not settled (SPEC §4).
+     *
+     * Each phase is *about* a lock rather than instead of one: [before] is the last set of readings
+     * the app trusts, so the state, the volume and the precondition stay on screen the whole time —
+     * a command in flight is not a reason to stop showing the door.
+     */
+    sealed interface Commanding : LockUiState {
+
+        /** The lock as it was last read: what a failed command restores to (SPEC L5). */
+        val before: Ready
+
+        /** What was asked of the door, so every phase can name it in the user's own words. */
+        val command: LockCommand
+
+        override val deviceName: String get() = before.deviceName
+
+        override val lastSeen: LastSeen? get() = before.lastSeen
+    }
+
+    /** `controle-fechadura` is in flight, or its confirmation is: the control is dead (SPEC L3, L6). */
+    data class CommandSent(
+        override val before: Ready,
+        override val command: LockCommand,
+    ) : Commanding
+
+    /**
+     * The command was taken and the device never agreed — a disagreeing read, or none in 10 s
+     * (SPEC L4).
+     *
+     * This is the state the slice exists for: the app says what it knows and offers the only honest
+     * next step, one more read, on a tap. Nothing here is on a timer.
+     *
+     * @property isChecking a "Verificar" read is in flight; the action is disabled while it is.
+     * @property checkFailure why the last "Verificar" could not answer (SPEC U6). A check that
+     *   answered — even disagreeing — clears it. It is the category only, with no room for the
+     *   partner's own sentence: a refused credential has already reached the session guard by the
+     *   time this is drawn (ADR-018), and the user is on their way to the token screen.
+     */
+    data class CommandExpired(
+        override val before: Ready,
+        override val command: LockCommand,
+        val isChecking: Boolean = false,
+        val checkFailure: LockError? = null,
+    ) : Commanding
+
+    /**
+     * The command did not reach the lock, so the screen goes back to what it was showing (SPEC L5).
+     *
+     * It is deliberately short-lived: [LockViewModel] restores [before] after the notice has been on
+     * screen long enough to read, which is what "for the duration of a retry snackbar" means here.
+     */
+    data class CommandFailed(
+        override val before: Ready,
+        override val command: LockCommand,
+        val error: LockError,
+        val serverMessage: String? = null,
+    ) : Commanding
 
     /**
      * No reading: one named cause and one action (SPEC U6).
@@ -119,6 +193,7 @@ data class WriteFailure(
  */
 class LockViewModel(
     private val loadLock: LoadLock,
+    private val toggleLock: ToggleLock,
     private val changeLockVolume: ChangeVolume,
     private val enableLockRemoteOpen: EnableRemoteOpen,
     private val lockWrites: LockWritesSwitch,
@@ -149,6 +224,49 @@ class LockViewModel(
     /** The one action the error state offers (SPEC U6); it is the user's choice, never a timer (E5). */
     suspend fun onRetry() {
         read(current ?: return)
+    }
+
+    fun command(command: LockCommand) {
+        viewModelScope.launch { onCommand(command) }
+    }
+
+    /**
+     * SPEC L3–L6: the whole confirmation path, in the order the user experiences it.
+     *
+     * `CommandSent` goes up **before** the request leaves, so the control is dead from the tap
+     * onwards rather than from the first answer; then the use case sends the command, reads
+     * `status-abertura` once and comes back with what the lock said. Nothing on this path starts a
+     * timer that asks again (SPEC L4, ADR-006) — the only second read in the app is [onVerify], and
+     * only a tap reaches it.
+     */
+    suspend fun onCommand(command: LockCommand) {
+        val address = current?.address ?: return
+        val ready = commandableLock() ?: return
+        mutableState.value = LockUiState.CommandSent(ready, command)
+        announce(LockUiMapper.afterCommand(ready, command, toggleLock(address, command, ready.lock)))
+    }
+
+    fun verify() {
+        viewModelScope.launch { onVerify() }
+    }
+
+    /**
+     * SPEC L4's "Verificar": **exactly one** more `status-abertura`, and only from an unconfirmed
+     * command.
+     *
+     * The guard is the state itself — there is no other state this intent does anything from, and a
+     * second tap while the read is in flight finds [LockUiState.CommandExpired.isChecking] set.
+     */
+    suspend fun onVerify() {
+        val address = current?.address ?: return
+        val expired = mutableState.value as? LockUiState.CommandExpired ?: return
+        if (expired.isChecking) return
+        val checking = expired.copy(isChecking = true, checkFailure = null)
+        mutableState.value = checking
+        mutableState.value = LockUiMapper.afterVerifying(
+            checking,
+            toggleLock.verify(address, checking.command, checking.before.lock),
+        )
     }
 
     fun changeVolume(level: VolumeLevel) {
@@ -200,9 +318,53 @@ class LockViewModel(
     private fun writableLock(): LockUiState.Ready? =
         (mutableState.value as? LockUiState.Ready)?.takeIf { it.writeInFlight == null }
 
+    /**
+     * The lock a command may act on — the re-entrancy guard of SPEC L6, in the ViewModel's state.
+     *
+     * [LockUiState.CommandSent] is the one phase that answers `null`: a door is the last place a
+     * second tap should be able to reach, and the screen disabling its control is an affordance, not
+     * a guarantee. The other two phases are notices *about* a lock, not a lock in motion, so the
+     * readings under them are commandable — the whole point of `CommandFailed` is that the user can
+     * try again, and an unconfirmed command must not leave the screen with nothing to do.
+     */
+    private fun commandableLock(): LockUiState.Ready? {
+        val readings = when (val state = mutableState.value) {
+            is LockUiState.Ready -> state
+            is LockUiState.CommandFailed -> state.before
+            is LockUiState.CommandExpired -> state.before.takeIf { !state.isChecking }
+            else -> null
+        }
+        return readings?.takeIf { it.canCommand }
+    }
+
+    /**
+     * Publishes [next] and, when it is a failure notice, takes it back down (SPEC L5).
+     *
+     * The identity check is what makes the restore safe: if the user has already sent another
+     * command, or changed the volume, the state on screen is no longer the notice this call put
+     * there, and overwriting it would undo whatever replaced it.
+     */
+    private suspend fun announce(next: LockUiState) {
+        mutableState.value = next
+        if (next !is LockUiState.CommandFailed) return
+        delay(FAILURE_NOTICE)
+        if (mutableState.value === next) mutableState.value = next.before
+    }
+
     private suspend fun read(destination: LockDestination) {
         mutableState.value = LockUiMapper.loading(destination, clock.now())
         val result = loadLock(destination.address)
         mutableState.value = LockUiMapper.toUiState(destination, result, clock.now(), lockWrites.isOn)
+    }
+
+    private companion object {
+
+        /**
+         * How long [LockUiState.CommandFailed] stays on screen before the readings come back.
+         *
+         * It is Material's short snackbar — the duration SPEC L5 names the notice by — spent here as
+         * a state rather than as a host the lock screen does not own.
+         */
+        val FAILURE_NOTICE = 4.seconds
     }
 }

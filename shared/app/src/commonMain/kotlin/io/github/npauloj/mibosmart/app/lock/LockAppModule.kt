@@ -14,5 +14,6 @@ internal val lockAppModule: Module = module {
     factoryOf(::LoadLock)
     factoryOf(::ChangeVolume)
     factoryOf(::EnableRemoteOpen)
+    factoryOf(::ToggleLock)
     viewModelOf(::LockViewModel)
 }

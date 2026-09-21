@@ -5,6 +5,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import io.github.npauloj.mibosmart.app.ui.AppTheme
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 
@@ -26,6 +27,9 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
             Loading,
             Locked,
             Unlocked,
+            CommandSent,
+            CommandExpired,
+            CommandFailed,
             RemoteOpenDisabled,
             VolumeChanging,
             VolumeFailed,
@@ -48,6 +52,26 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
             deviceName = LOCK_NAME,
             lock = LockState(isOpen = true, isRemoteOpenEnabled = true, volume = VolumeLevel.High),
         )
+
+        /**
+         * SPEC L3: the command is out and nothing has confirmed it.
+         *
+         * The state above still reads "Fechada" and every control is dead. That gap is the
+         * acceptance criterion made visible: the screen is waiting on hardware, not on itself.
+         */
+        val CommandSent = LockUiState.CommandSent(Locked, LockCommand.Open)
+
+        /**
+         * SPEC L4: the command was taken and the device never agreed.
+         *
+         * The single most important frame in this screen — the one that stops the app from claiming
+         * a door opened. The only way forward is the "Verificar" tap beside it.
+         */
+        val CommandExpired = LockUiState.CommandExpired(Locked, LockCommand.Open)
+
+        /** SPEC L5: the command never left; the readings under the notice are untouched. */
+        val CommandFailed =
+            LockUiState.CommandFailed(Locked, LockCommand.Open, LockError.Offline)
 
         /** SPEC L2: the precondition explained, with the one action that grants it. */
         val RemoteOpenDisabled = LockUiState.Ready(
@@ -100,6 +124,21 @@ private fun LockScreenLockedPreview() = LockScreenPreview(LockUiStateProvider.Lo
 @Composable
 private fun LockScreenUnlockedPreview() = LockScreenPreview(LockUiStateProvider.Unlocked)
 
+@Preview(name = "LockScreen_CommandSent")
+@Preview(name = "LockScreen_CommandSent_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LockScreenCommandSentPreview() = LockScreenPreview(LockUiStateProvider.CommandSent)
+
+@Preview(name = "LockScreen_CommandExpired")
+@Preview(name = "LockScreen_CommandExpired_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LockScreenCommandExpiredPreview() = LockScreenPreview(LockUiStateProvider.CommandExpired)
+
+@Preview(name = "LockScreen_CommandFailed")
+@Preview(name = "LockScreen_CommandFailed_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LockScreenCommandFailedPreview() = LockScreenPreview(LockUiStateProvider.CommandFailed)
+
 @Preview(name = "LockScreen_RemoteOpenDisabled")
 @Preview(name = "LockScreen_RemoteOpenDisabled_Dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
@@ -143,6 +182,8 @@ private fun LockScreenPreview(state: LockUiState) {
         LockScreenContent(
             state = state,
             onRetry = {},
+            onCommand = {},
+            onVerify = {},
             onChangeVolume = {},
             onEnableRemoteOpen = {},
             onBack = {},

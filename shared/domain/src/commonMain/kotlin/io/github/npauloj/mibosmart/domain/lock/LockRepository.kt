@@ -26,6 +26,16 @@ interface LockRepository {
     suspend fun changeVolume(address: LockAddress, volume: VolumeLevel)
 
     /**
+     * Asks the door to open or close (`controle-fechadura`, SPEC L3).
+     *
+     * Returning normally means **the partner accepted the command**, not that the door moved: the API
+     * acknowledges the request and the hardware answers later, if at all. The only evidence that the
+     * lock obeyed is a fresh [readOpenState] that agrees, which is why this returns nothing — there
+     * is nothing here worth believing.
+     */
+    suspend fun command(address: LockAddress, command: LockCommand)
+
+    /**
      * Grants the app permission to command this lock (`habilitar-abrir-remoto`, SPEC L2).
      *
      * **There is no parameter, and that is the contract.** The wire call takes `habilitar: true|false`

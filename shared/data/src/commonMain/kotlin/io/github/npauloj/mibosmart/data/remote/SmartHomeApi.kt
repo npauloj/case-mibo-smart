@@ -79,6 +79,16 @@ internal class SmartHomeApi(
     suspend fun readLockVolume(token: Token, request: LockVolumeRequestDto): JsonElement =
         post(LOCK_VOLUME_PATH, token) { setBody(request) }
 
+    /**
+     * `POST /fechaduras/controle-fechadura/v1` — opens or locks the door (SPEC L3).
+     *
+     * The only call in the app that moves a physical thing. It answers as soon as the partner has
+     * taken the command, which is why every caller re-reads `status-abertura` afterwards instead of
+     * believing this return.
+     */
+    suspend fun commandLock(token: Token, request: LockCommandRequestDto): JsonElement =
+        post(LOCK_COMMAND_PATH, token) { setBody(request) }
+
     /** `POST /fechaduras/mudar-volume/v1` — the first write of the lock screen (SPEC L7). */
     suspend fun changeLockVolume(token: Token, request: LockChangeVolumeRequestDto): JsonElement =
         post(LOCK_CHANGE_VOLUME_PATH, token) { setBody(request) }
@@ -145,6 +155,7 @@ internal class SmartHomeApi(
         private const val LOCK_OPEN_STATE_PATH = "/fechaduras/status-abertura/v1"
         private const val LOCK_REMOTE_OPEN_PATH = "/fechaduras/status-abrir-remoto/v1"
         private const val LOCK_VOLUME_PATH = "/fechaduras/volume/v1"
+        private const val LOCK_COMMAND_PATH = "/fechaduras/controle-fechadura/v1"
         private const val LOCK_CHANGE_VOLUME_PATH = "/fechaduras/mudar-volume/v1"
         private const val LOCK_ENABLE_REMOTE_OPEN_PATH = "/fechaduras/habilitar-abrir-remoto/v1"
     }

@@ -27,6 +27,9 @@ class ErrorMappingTest {
             SmartHomeException.DeviceNotFound() to DeviceListResult.DeviceNotFound,
             SmartHomeException.Offline(cause = null) to DeviceListResult.Offline,
             SmartHomeException.UnexpectedResponse("not an envelope") to DeviceListResult.UnexpectedResponse,
+            // Only `criar-fluxo-video` can answer this (SPEC V6); listing devices cannot, so the list
+            // has nothing better to say than its catch-all — but it still has to say something.
+            SmartHomeException.QuotaExceeded() to DeviceListResult.Failed,
             // The only category that may carry the server's words — and it keeps them in the
             // exception, never in the result the screen renders (SPEC U6).
             SmartHomeException.ApiError("Erro desconhecido") to DeviceListResult.Failed,

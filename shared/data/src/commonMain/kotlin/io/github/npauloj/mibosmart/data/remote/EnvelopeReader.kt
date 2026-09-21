@@ -24,6 +24,10 @@ internal class EnvelopeReader(private val json: Json) {
         when (statusCode) {
             HTTP_UNAUTHORIZED -> throw SmartHomeException.TokenRejected()
             HTTP_FORBIDDEN -> throw SmartHomeException.TokenExpired(serverMessageOrNull(rawBody))
+            // The one status the Swagger documents for a business outcome that the app must tell apart
+            // without reading a sentence (§6, SPEC V6). It is classified here, beside the other two
+            // statuses that mean something, rather than by matching words later.
+            HTTP_PAYMENT_REQUIRED -> throw SmartHomeException.QuotaExceeded()
         }
         val envelope = try {
             json.decodeFromString<ApiEnvelopeDto>(rawBody)
@@ -67,6 +71,7 @@ internal class EnvelopeReader(private val json: Json) {
         const val STATUS_ERROR = "erro"
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403
+        const val HTTP_PAYMENT_REQUIRED = 402
         const val ENVELOPE_NOT_FOUND = 404
     }
 }

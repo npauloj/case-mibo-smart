@@ -32,7 +32,13 @@ kotlin {
         androidResources {
             enable = true
         }
-        withHostTestBuilder {}
+        withHostTestBuilder {}.configure {
+            // Compose's runtime logs through `android.util.Log` while composing, and on the JVM host
+            // the unmocked stub throws — which is enough to abort any composition, even an empty one.
+            // `LiveVideoScreenLifecycleTest` composes the screen's lifecycle wiring without a device,
+            // so the stubs answer with defaults instead of throwing. Test-only, no production effect.
+            isReturnDefaultValues = true
+        }
     }
 
     sourceSets {
@@ -59,6 +65,11 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
+            // The live-video actual of `camera.platform` lives in this source set, and `:androidApp`
+            // depends on this module rather than the other way round — declared there, Media3 would
+            // be invisible to the code that uses it (ADR-005).
+            implementation(libs.media3.exoplayer)
+            implementation(libs.media3.ui)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

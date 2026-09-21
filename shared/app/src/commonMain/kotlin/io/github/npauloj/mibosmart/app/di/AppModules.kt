@@ -1,6 +1,9 @@
 package io.github.npauloj.mibosmart.app.di
 
+import io.github.npauloj.mibosmart.app.AppCoroutineScope
 import io.github.npauloj.mibosmart.app.AppViewModel
+import io.github.npauloj.mibosmart.app.camera.LiveVideoSwitch
+import io.github.npauloj.mibosmart.app.camera.cameraAppModule
 import io.github.npauloj.mibosmart.app.devices.deviceAppModule
 import io.github.npauloj.mibosmart.app.lock.lockAppModule
 import io.github.npauloj.mibosmart.app.session.sessionAppModule
@@ -20,13 +23,23 @@ import org.koin.dsl.module
  *
  * @param apiHost the partner host. It is configured per machine (`local.properties` → `BuildConfig`)
  *   and never versioned (ADR-008), so it can only arrive from the platform entry point.
+ * @param liveVideoEnabled the live-video kill switch (`smarthome.liveVideoEnabled`). It arrives the
+ *   same way and for the same reason: off, the app can be run on the shared account without opening
+ *   a streaming session (SPEC V1, ADR-006).
  */
-fun appModule(apiHost: String): Module = module {
+fun appModule(apiHost: String, liveVideoEnabled: Boolean = true): Module = module {
     includes(dataModule(apiHost))
 
     // The one clock of the app: "última atualização há X" is read against it (SPEC U3), and a test
     // that has to assert those words needs to choose what "now" is. It belongs to no single feature.
     single<Clock> { Clock.System }
+
+    // Work that must outlive the screen that started it — closing a streaming session, today
+    // (SPEC V8). It belongs to no single feature either.
+    single { AppCoroutineScope() }
+
+    // Configured at the entry point like the host, and read by the camera feature alone.
+    single { LiveVideoSwitch(liveVideoEnabled) }
 
     // Routing between features, so it belongs to none of them.
     viewModelOf(::AppViewModel)
@@ -42,14 +55,19 @@ fun appModule(apiHost: String): Module = module {
  * both", never a judgement call.
  */
 private val featureModules: List<Module> = listOf(
+    cameraAppModule,
     deviceAppModule,
     lockAppModule,
     sessionAppModule,
 )
 
-fun initKoin(apiHost: String, appDeclaration: KoinAppDeclaration = {}) {
+fun initKoin(
+    apiHost: String,
+    liveVideoEnabled: Boolean = true,
+    appDeclaration: KoinAppDeclaration = {},
+) {
     startKoin {
         appDeclaration()
-        modules(appModule(apiHost))
+        modules(appModule(apiHost, liveVideoEnabled))
     }
 }

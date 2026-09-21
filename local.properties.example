@@ -6,3 +6,7 @@ sdk.dir=C:\\Android\\Sdk
 # tests use Ktor MockEngine and never reach the network.
 smarthome.apiHost=https://api.example.invalid
 smarthome.portalHost=https://portal.example.invalid
+
+# Live-video kill switch (SPEC V1). Default true. Set to false to run the app on the shared account
+# without ever opening a streaming session — the camera screen goes straight to "não anuncia vídeo".
+smarthome.liveVideoEnabled=true

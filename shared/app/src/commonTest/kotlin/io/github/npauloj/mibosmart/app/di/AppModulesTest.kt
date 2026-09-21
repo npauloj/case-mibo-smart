@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.di
 
+import io.github.npauloj.mibosmart.app.camera.WatchLiveVideo
 import io.github.npauloj.mibosmart.app.devices.ListDevices
 import io.github.npauloj.mibosmart.app.lock.LoadLock
 import io.github.npauloj.mibosmart.app.session.AuthenticateToken
@@ -27,6 +28,15 @@ class AppModulesTest {
         val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
 
         assertNotNull(koin.get<LoadLock>())
+
+        koin.close()
+    }
+
+    @Test
+    fun theLiveVideoUseCaseResolvesFromTheRealGraph() {
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+
+        assertNotNull(koin.get<WatchLiveVideo>())
 
         koin.close()
     }

@@ -68,4 +68,22 @@
     <string name="device_error_device_not_found">Dispositivo não encontrado</string>
     <string name="device_error_unexpected">Resposta inesperada</string>
     <string name="device_error_failed">Não foi possível carregar os dispositivos</string>
+
+    <string name="live_back">Voltar</string>
+    <string name="live_step_capability">Verificando a câmera…</string>
+    <string name="live_step_session">Criando sessão…</string>
+    <string name="live_step_connecting">Conectando…</string>
+    <string name="live_badge">AO VIVO</string>
+    <string name="live_quota">Esta sessão pode usar até %1$s GB</string>
+    <string name="live_no_capability">Esta câmera não anuncia vídeo ao vivo</string>
+    <string name="live_quota_exceeded">Cota de streaming esgotada</string>
+    <string name="live_camera_offline">Câmera offline</string>
+    <string name="live_expired">A transmissão foi encerrada</string>
+    <string name="live_retry">Tentar novamente</string>
+    <string name="live_error_rejected">Sua sessão não é mais válida</string>
+    <string name="live_error_expired">Sua sessão expirou (tokens valem 2 h)</string>
+    <string name="live_error_offline">Sem conexão</string>
+    <string name="live_error_unexpected">Resposta inesperada</string>
+    <string name="live_error_failed">Não foi possível abrir o vídeo ao vivo</string>
+    <string name="live_ios_placeholder">Vídeo ao vivo chega na próxima entrega</string>
 </resources>

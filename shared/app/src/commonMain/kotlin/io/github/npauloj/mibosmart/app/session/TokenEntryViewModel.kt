@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.app.session
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import io.github.npauloj.mibosmart.domain.session.Token
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /** Everything the token screen shows, in one immutable value (ADR-003). */
 data class TokenEntryUiState(
@@ -46,8 +48,20 @@ class TokenEntryViewModel(private val authenticateToken: AuthenticateToken) : Vi
     }
 
     /**
+     * What "Validar" does, launched in `viewModelScope` (ADR-003).
+     *
+     * The scope matters: `viewModelScope` outlives a configuration change, while the composition's
+     * scope dies with it and would cancel the request halfway through [onValidate] — before the line
+     * that clears `isValidating`, leaving the restored screen locked on a request already paid for.
+     */
+    fun validate() {
+        viewModelScope.launch { onValidate() }
+    }
+
+    /**
      * Validates what was typed: exactly one partner call, then either the navigation event or a named
-     * error with the input untouched (SPEC S2–S4).
+     * error with the input untouched (SPEC S2–S4). Screens call [validate]; this is the same intent as
+     * a suspend function, so a test can await it.
      *
      * A second call while one is in flight is ignored — the screen already locks the field and the
      * button, and the account pays for every request (ADR-006).

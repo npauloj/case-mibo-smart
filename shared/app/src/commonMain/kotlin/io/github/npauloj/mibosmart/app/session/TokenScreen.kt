@@ -15,7 +15,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.contentDescription
@@ -34,7 +33,6 @@ import io.github.npauloj.mibosmart.app.resources.token_subtitle
 import io.github.npauloj.mibosmart.app.resources.token_title
 import io.github.npauloj.mibosmart.app.resources.token_validate
 import io.github.npauloj.mibosmart.app.resources.token_validating
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -52,7 +50,6 @@ fun TokenScreen(
     viewModel: TokenEntryViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(viewModel) {
         viewModel.openDeviceList.collect { onAuthenticated() }
@@ -61,7 +58,7 @@ fun TokenScreen(
     TokenScreenContent(
         state = state,
         onTokenChange = viewModel::onTokenChange,
-        onValidate = { scope.launch { viewModel.onValidate() } },
+        onValidate = viewModel::validate,
         modifier = modifier,
     )
 }

@@ -8,7 +8,6 @@ import io.github.npauloj.mibosmart.domain.device.DeviceStatus
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
-import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -54,9 +53,4 @@ internal object LockSamples {
         status: DeviceStatus = DeviceStatus.Online,
         lastSeen: Instant? = null,
     ): LockDestination = LockDestination(device(status, lastSeen), Address)
-}
-
-/** A clock that does not move, so a relative time can be asserted (SPEC U3). */
-internal class FixedClock(private val instant: Instant = LockSamples.Now) : Clock {
-    override fun now(): Instant = instant
 }

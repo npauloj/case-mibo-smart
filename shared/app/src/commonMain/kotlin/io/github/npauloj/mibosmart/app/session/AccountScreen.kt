@@ -23,6 +23,9 @@ import io.github.npauloj.mibosmart.app.resources.account_expires_in_hours
 import io.github.npauloj.mibosmart.app.resources.account_expires_in_minutes
 import io.github.npauloj.mibosmart.app.resources.account_logout
 import io.github.npauloj.mibosmart.app.resources.account_logout_failed
+import io.github.npauloj.mibosmart.app.resources.account_renew
+import io.github.npauloj.mibosmart.app.resources.account_renew_failed
+import io.github.npauloj.mibosmart.app.resources.account_renewing
 import io.github.npauloj.mibosmart.app.resources.account_requests
 import io.github.npauloj.mibosmart.app.resources.account_title
 import io.github.npauloj.mibosmart.app.resources.account_token_label
@@ -52,6 +55,7 @@ fun AccountScreen(
 
     AccountScreenContent(
         state = state,
+        onRenew = viewModel::renew,
         onSignOut = viewModel::signOut,
         onBack = onBack,
         modifier = modifier,
@@ -62,6 +66,7 @@ fun AccountScreen(
 @Composable
 fun AccountScreenContent(
     state: AccountUiState,
+    onRenew: () -> Unit,
     onSignOut: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -74,6 +79,10 @@ fun AccountScreenContent(
         Text(text = stringResource(Res.string.account_title), style = MaterialTheme.typography.headlineSmall)
 
         SessionCard(state)
+
+        // Only inside the last 10 minutes (SPEC S10). Renewing earlier would spend a request to buy
+        // time the session already has.
+        if (state.canRenew) RenewAction(state, onRenew)
 
         // Only in a debug build: outside one the counter is null and the line does not exist
         // (ADR-006).
@@ -96,6 +105,36 @@ fun AccountScreenContent(
         Button(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.account_logout))
         }
+    }
+}
+
+/**
+ * "Renovar", and what to say when it did not work (SPEC S10).
+ *
+ * The failure line stays deliberately calm: nothing was lost. The previous credential is still the
+ * session and still valid — renewal adds one rather than replacing one (measured 2026-09-21) — so the
+ * worst outcome of tapping is the state the screen was already in.
+ */
+@Composable
+private fun RenewAction(state: AccountUiState, onRenew: () -> Unit) {
+    if (state.renewFailed) {
+        Text(
+            text = stringResource(Res.string.account_renew_failed),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+
+    Button(
+        onClick = onRenew,
+        enabled = !state.renewing,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            stringResource(
+                if (state.renewing) Res.string.account_renewing else Res.string.account_renew,
+            ),
+        )
     }
 }
 

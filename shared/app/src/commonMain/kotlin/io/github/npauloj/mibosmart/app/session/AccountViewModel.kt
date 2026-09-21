@@ -59,23 +59,42 @@ sealed interface SessionExpiry {
  * @property requestCount the ADR-006 budget counter, `null` outside a debug build.
  * @property signOutFailed the vault refused to clear. The user stays signed in and is told so,
  *   because the alternative is an app that says "you are out" over a token still on the device.
+ * @property renewing a renewal is in flight. It disables the action rather than only spinning: a
+ *   second tap is a second request out of the ~300 the account has (ADR-006).
+ * @property renewFailed the last renewal did not happen. The session it would have replaced is
+ *   untouched and still valid, which is why this is a line on the card and not a route away (S10).
  */
 data class AccountUiState(
     val tokenSuffix: String = "",
     val expiry: SessionExpiry = SessionExpiry.Unknown,
     val requestCount: Int? = null,
     val signOutFailed: Boolean = false,
-)
+    val renewing: Boolean = false,
+    val renewFailed: Boolean = false,
+) {
+
+    /**
+     * Whether "Renovar" is on screen (SPEC S10).
+     *
+     * Only inside SPEC S7's last ten minutes: renewing earlier spends a request to buy time the
+     * session already has, and an action that is always there is one the user has to decide about
+     * every time they open the screen. It is derived rather than stored so it cannot disagree with
+     * the countdown beside it.
+     */
+    val canRenew: Boolean get() = (expiry as? SessionExpiry.Remaining)?.soon == true
+}
 
 /**
- * The account screen: what the session is, and the one way out of it (SPEC S8, S9, ADR-006).
+ * The account screen: what the session is, how to extend it, and the one way out of it (S8, S9, S10).
  *
- * It costs the account nothing — every value on it comes from the vault, the local clock and a
- * counter (SPEC E5, ADR-006). That is why it can be opened as often as the user likes.
+ * Opening it costs the account nothing — everything it shows comes from the vault, the local clock and
+ * a counter (SPEC E5, ADR-006), which is why it can be opened as often as the user likes. Exactly one
+ * thing on it reaches the partner, and only when the user asks for it: "Renovar".
  */
 class AccountViewModel(
     private val sessionStartup: SessionStartup,
     private val logout: Logout,
+    private val renewToken: RenewToken,
     private val requestCounter: RequestCounter,
     private val debugBuild: DebugBuild,
     private val clock: Clock,
@@ -117,6 +136,32 @@ class AccountViewModel(
             // to watch for (ADR-006).
             requestCount = requestCounter.requests.value.takeIf { debugBuild.isOn },
         )
+    }
+
+    /** "Renovar", launched on the ViewModel's scope so a rotation cannot lose the answer mid-flight. */
+    fun renew() {
+        viewModelScope.launch { onRenew() }
+    }
+
+    /**
+     * The same intent as a suspend function, so a test can await it (ADR-003).
+     *
+     * A renewal already in flight is not started again: the second call would spend a second request
+     * of the account's budget to obtain a third credential nobody asked for (ADR-006).
+     */
+    suspend fun onRenew() {
+        if (mutableState.value.renewing) return
+        mutableState.update { it.copy(renewing = true, renewFailed = false) }
+
+        when (renewToken()) {
+            // The card is rebuilt from the vault rather than patched: the suffix, the deadline and the
+            // request count have all changed, and `onOpen` is already the one description of how the
+            // screen reads a session. The user does not move — this screen *is* where they were.
+            RenewalResult.Success -> onOpen()
+            RenewalResult.Failed -> mutableState.update { it.copy(renewing = false, renewFailed = true) }
+            // The vault was emptied while the tap was in flight; there is no session left to show.
+            RenewalResult.NoSession -> mutableSignedOut.emit(Unit)
+        }
     }
 
     /** "Sair", launched on the ViewModel's scope so a rotation cannot leave the vault half-cleared. */

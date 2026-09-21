@@ -8,6 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -27,6 +28,21 @@ class VaultSessionStoreTest {
             store.read(),
             "the credential and the instant it started counting down travel together (SPEC S7)",
         )
+    }
+
+    /**
+     * A renewed session's deadline is the partner's, and it survives a cold start (SPEC S10).
+     *
+     * The value is deliberately not the 2 h default: a store that dropped it would still round trip
+     * a session that *looks* right, and the test would pass while the app invented its own deadline.
+     */
+    @Test
+    fun roundTripsTheServerSuppliedLifetime() = runTest {
+        val store = VaultSessionStore(FakeSecureTokenStore())
+
+        store.write(Token(TOKEN), ISSUED_AT, RENEWED_LIFETIME)
+
+        assertEquals(Session(Token(TOKEN), ISSUED_AT, RENEWED_LIFETIME), store.read())
     }
 
     @Test
@@ -92,6 +108,20 @@ class VaultSessionStoreTest {
         assertNull(VaultSessionStore(vault).read())
     }
 
+    /**
+     * The same fail-safe one contract later: an entry with an `issuedAt` but no lifetime (ADR-020).
+     *
+     * It is what a build from before S-03 wrote. Reading it as a 2 h session would be a guess about a
+     * credential that may have been renewed for something else entirely, so it goes the same way as
+     * any other value this store cannot decode.
+     */
+    @Test
+    fun anEntryWithoutALifetimeIsTreatedAsNoSession() = runTest {
+        val vault = FakeSecureTokenStore().apply { write("${ISSUED_AT.toEpochMilliseconds()}:$TOKEN") }
+
+        assertNull(VaultSessionStore(vault).read())
+    }
+
     @Test
     fun readFailureIsTreatedAsNoSession() = runTest {
         val store = VaultSessionStore(FakeSecureTokenStore(IllegalStateException("invalidated key")))
@@ -111,5 +141,8 @@ class VaultSessionStoreTest {
         const val TOKEN = "um-token"
         const val RENEWED_TOKEN = "outro-token"
         val ISSUED_AT = SessionSamples.IssuedAt
+
+        /** A `tempoExpiracao` that is not the 2 h default, so an ignored value cannot pass (S10). */
+        val RENEWED_LIFETIME = 900.seconds
     }
 }

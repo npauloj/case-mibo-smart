@@ -93,7 +93,7 @@ class SmartHomeSessionRepositoryTest {
         requests: MutableList<HttpRequestData>,
         answer: MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ) = SmartHomeSessionRepository(
-        SmartHomeApi(
+        api = SmartHomeApi(
             httpClient = HttpClientFactory.create(
                 MockEngine { request ->
                     requests += request
@@ -105,5 +105,6 @@ class SmartHomeSessionRepositoryTest {
             requestCounter = RequestCounter(),
             refusedRequests = SessionRefusals(),
         ),
+        json = smartHomeJson,
     )
 }

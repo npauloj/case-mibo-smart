@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.data.session
 
 import io.github.npauloj.mibosmart.data.platform.vault.secureTokenStore
+import io.github.npauloj.mibosmart.data.remote.smartHomeJson
 import io.github.npauloj.mibosmart.domain.session.RefusedRequests
 import io.github.npauloj.mibosmart.domain.session.SessionRepository
 import io.github.npauloj.mibosmart.domain.session.SessionStore
@@ -13,7 +14,7 @@ import org.koin.dsl.module
  * `:shared:data`'s aggregate lists this module in `di/DataModule.kt`; nothing else references it.
  */
 internal val sessionDataModule: Module = module {
-    single<SessionRepository> { SmartHomeSessionRepository(get()) }
+    single<SessionRepository> { SmartHomeSessionRepository(api = get(), json = smartHomeJson) }
     single<SessionStore> { VaultSessionStore(secureTokenStore()) }
     // One stream for the whole run: the transport reports into it and the guard above collects from
     // it, so a second instance would be a guard that hears nothing (SPEC S6).

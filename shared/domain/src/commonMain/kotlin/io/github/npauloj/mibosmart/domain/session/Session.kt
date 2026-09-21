@@ -19,15 +19,25 @@ value class Token(val value: String) {
 }
 
 /**
- * A stored session: the credential and when it started counting down (SPEC S7).
+ * A stored session: the credential, when it started counting down, and how long it was given (S7).
  *
  * [issuedAt] is the moment the partner first accepted the token, not the moment it was written to the
  * vault — the two are the same call, and counting from acceptance is what `[ASSUMED]` in SPEC S7
  * states. It is stored beside the token rather than derived, because a cold start has no other way to
- * know how much of the 2 h window is left: nothing on the wire says so, and asking would be an API
+ * know how much of the window is left: nothing on the wire says so, and asking would be an API
  * call on a timer (SPEC E5, ADR-006).
+ *
+ * [lifetime] is the other half, and the two sessions the app can hold differ exactly there: a pasted
+ * token has no lifetime on the wire and falls back to [LIFETIME], while a **renewed** one is given
+ * `tempoExpiracao` by the partner and counts that instead (SPEC S10, measured 2026-09-21). Carrying it
+ * per session rather than reading a constant is what stops the app from inventing a deadline the
+ * server never promised.
  */
-data class Session(val token: Token, val issuedAt: Instant) {
+data class Session(
+    val token: Token,
+    val issuedAt: Instant,
+    val lifetime: Duration = LIFETIME,
+) {
 
     /**
      * How the session reads on a given clock — the one input the expiry banner has (SPEC S7).
@@ -44,37 +54,45 @@ data class Session(val token: Token, val issuedAt: Instant) {
      * This is what lets the app warn *while it is open* without polling anything: the caller waits
      * this one duration out and wakes up once, instead of asking the clock on a tick (ADR-006).
      */
-    fun remainingUntilWarning(now: Instant): Duration = WARN_AFTER - (now - issuedAt)
+    fun remainingUntilWarning(now: Instant): Duration = (lifetime - WARN_MARGIN) - (now - issuedAt)
 
     /**
-     * How much of the 2 h window is left; zero or negative once the partner will refuse the token.
+     * How much of the window is left; zero or negative once the partner will refuse the token.
      *
      * The account screen is the one surface that has to say a number rather than raise a banner
      * (SPEC S6's "Sessão expirada" and the "expira em …" beside it), and it is the same arithmetic as
      * [remainingUntilWarning] against the other deadline — so it is stated once, here, instead of
-     * being re-derived from [WARN_AFTER] plus the 10 min the warning is early by.
+     * being re-derived from the warning plus the 10 min it is early by.
      */
-    fun remainingLife(now: Instant): Duration = LIFETIME - (now - issuedAt)
+    fun remainingLife(now: Instant): Duration = lifetime - (now - issuedAt)
 
     companion object {
 
         /**
-         * How long the partner's tokens last (SPEC S7).
+         * How long a **pasted** token lasts (SPEC S7).
          *
-         * Counted from the acceptance this app witnessed, not from a field on the wire: a session
-         * started by pasting a token has no `tempoExpiracao` to read (only `renovar-token` returns
-         * one, which is S-03's).
+         * Counted from the acceptance this app witnessed, because that path has no field on the wire
+         * to read: only `renovar-token` answers `tempoExpiracao`, and a session that came from it
+         * carries that value in [lifetime] instead of falling back here (SPEC S10).
          */
         val LIFETIME: Duration = 2.hours
 
         /**
-         * The app warns 10 min before [LIFETIME] (SPEC S7).
+         * How early the app warns, measured back from whatever deadline the session has (SPEC S7).
          *
-         * Ten minutes is the margin S-03's "Renovar" needs to be a choice rather than a race; until
-         * renewal exists the warning is still the difference between a session that ends in the
-         * user's hands and one that ends mid-tap.
+         * Ten minutes is the margin "Renovar" needs to be a choice rather than a race, which is why
+         * it is a distance from the end and not an age: a renewed session with a shorter
+         * `tempoExpiracao` still gets its ten minutes of warning.
          */
-        val WARN_AFTER: Duration = LIFETIME - 10.minutes
+        val WARN_MARGIN: Duration = 10.minutes
+
+        /**
+         * When a session of the default [LIFETIME] starts warning — 1 h 50 min in.
+         *
+         * Kept as a named constant because it is the boundary SPEC S7 states in words, and the one a
+         * test can assert to the millisecond without re-deriving it.
+         */
+        val WARN_AFTER: Duration = LIFETIME - WARN_MARGIN
     }
 }
 
@@ -99,8 +117,14 @@ interface SessionStore {
     /** The current session, or `null` when there is none. */
     suspend fun read(): Session?
 
-    /** Stores [token] as the session's credential, replacing any previous one. */
-    suspend fun write(token: Token, issuedAt: Instant)
+    /**
+     * Stores [token] as the session's credential, replacing any previous one.
+     *
+     * @param lifetime how long the partner gave this credential. The default is the 2 h a pasted
+     *   token is assumed to last (SPEC S7); a renewal passes the `tempoExpiracao` it was answered
+     *   with instead, so the deadline on screen is the server's and not this app's arithmetic (S10).
+     */
+    suspend fun write(token: Token, issuedAt: Instant, lifetime: Duration = Session.LIFETIME)
 
     /**
      * Removes the session, so the next [read] answers `null` (SPEC S6, S8).
@@ -122,4 +146,22 @@ interface SessionRepository {
 
     /** Validates [token] with exactly one partner call (SPEC S2); returns normally when accepted. */
     suspend fun validateToken(token: Token)
+
+    /**
+     * Exchanges [token] for a fresh credential with exactly one partner call (SPEC S10).
+     *
+     * It **adds** a credential rather than replacing one: measured 46 s after a renewal, the old
+     * token, the new one and an unrelated third all still answered `200` (`docs/api-contract.md` §2).
+     * So a caller that fails here has lost nothing — [token] is still the session.
+     */
+    suspend fun renewToken(token: Token): RenewedSession
 }
+
+/**
+ * What the partner answers a renewal with: the new credential and the life it was given (SPEC S10).
+ *
+ * [lifetime] is `tempoExpiracao` turned into a [Duration] by `:shared:data` — the domain never learns
+ * that the wire counts seconds (ADR-004). It is carried rather than assumed because it is the whole
+ * point of the endpoint: the server states the deadline, so the app stops estimating one.
+ */
+data class RenewedSession(val token: Token, val lifetime: Duration)

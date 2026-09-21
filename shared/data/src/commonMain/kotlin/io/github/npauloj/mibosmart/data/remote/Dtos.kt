@@ -22,6 +22,28 @@ internal data class ApiEnvelopeDto(
 )
 
 /**
+ * `renovar-token` request (`docs/api-contract.md` §2, probed 2026-09-21).
+ *
+ * The token travels **twice** — here in the body and again in the `Authorization` header. That is what
+ * the endpoint was measured to want, not a redundancy worth tidying away.
+ */
+@Serializable
+internal data class RenewTokenRequestDto(@SerialName("token") val token: String)
+
+/**
+ * `renovar-token` → the new credential and the life the partner gave it (`docs/api-contract.md` §2).
+ *
+ * [lifetimeSeconds] is `tempoExpiracao`, **in seconds** — 7199 ≈ 2 h on the probe. It has no default:
+ * a response without it is not this endpoint's answer, and silently falling back to a local 2 h count
+ * is exactly the guess SPEC S10 exists to remove.
+ */
+@Serializable
+internal data class RenewedTokenDto(
+    @SerialName("token") val token: String,
+    @SerialName("tempoExpiracao") val lifetimeSeconds: Long,
+)
+
+/**
  * `listar-dispositivos` request; both paging fields are required (`docs/api-contract.md` §3).
  *
  * No property here has a default: `kotlinx.serialization` omits defaults from the encoded body, and

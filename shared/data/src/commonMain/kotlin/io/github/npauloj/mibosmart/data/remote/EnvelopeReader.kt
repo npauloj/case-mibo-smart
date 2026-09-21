@@ -30,6 +30,10 @@ internal class EnvelopeReader(private val json: Json) {
         } catch (malformed: SerializationException) {
             throw SmartHomeException.UnexpectedResponse("response body is not a partner envelope", malformed)
         }
+        // The wrapped shape carries its own outcome code while HTTP still says 200 (api-contract §1.1):
+        // `statusCode: 404` is the partner saying the device is not there, and it must not arrive on a
+        // screen as a generic API error (SPEC E2).
+        if (envelope.statusCode == ENVELOPE_NOT_FOUND) throw SmartHomeException.DeviceNotFound()
         val payload = envelope.body ?: envelope
         return when (payload.status) {
             STATUS_SUCCESS -> payload.data
@@ -63,5 +67,6 @@ internal class EnvelopeReader(private val json: Json) {
         const val STATUS_ERROR = "erro"
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403
+        const val ENVELOPE_NOT_FOUND = 404
     }
 }

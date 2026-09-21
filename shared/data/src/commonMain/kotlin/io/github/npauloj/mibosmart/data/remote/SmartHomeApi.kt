@@ -24,13 +24,24 @@ internal class SmartHomeApi(
     private val envelopeReader: EnvelopeReader,
 ) {
 
-    /** `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the envelope. */
-    suspend fun listDevices(token: Token, pageSize: Int, page: Int): JsonElement {
+    /**
+     * `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the envelope.
+     *
+     * @param origin the `origem` filter on the wire — `"todos"`, `"vinculados"` or `"compartilhados"`
+     *   (`docs/api-contract.md` §3). The default is the one the partner documents, so a caller that
+     *   only wants "whatever the account has" does not have to know the vocabulary.
+     */
+    suspend fun listDevices(
+        token: Token,
+        pageSize: Int,
+        page: Int,
+        origin: String = ALL_ORIGINS,
+    ): JsonElement {
         val response = try {
             httpClient.post("${baseUrl.trimEnd('/')}$LIST_DEVICES_PATH") {
                 contentType(ContentType.Application.Json)
                 bearerAuth(token.value)
-                setBody(ListDevicesRequestDto(pageSize = pageSize, page = page))
+                setBody(ListDevicesRequestDto(pageSize = pageSize, page = page, origin = origin))
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -44,7 +55,8 @@ internal class SmartHomeApi(
         return envelopeReader.read(response.status.value, response.bodyAsText())
     }
 
-    private companion object {
-        const val LIST_DEVICES_PATH = "/produtos/listar-dispositivos/v1"
+    internal companion object {
+        const val ALL_ORIGINS = "todos"
+        private const val LIST_DEVICES_PATH = "/produtos/listar-dispositivos/v1"
     }
 }

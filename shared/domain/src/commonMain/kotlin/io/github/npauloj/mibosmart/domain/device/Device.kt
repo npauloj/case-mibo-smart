@@ -1,7 +1,7 @@
 package io.github.npauloj.mibosmart.domain.device
 
 import kotlin.jvm.JvmInline
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Opaque identity of a device as the partner needs it back.
@@ -43,4 +43,27 @@ data class Device(
     val origin: DeviceOrigin,
     val kind: DeviceKind,
     val parent: DeviceId?,
-)
+) {
+    val isOnline: Boolean get() = status == DeviceStatus.Online
+
+    /** Cameras and locks are the two kinds a row can open; hubs and the rest are informational (SPEC D6). */
+    val isActionable: Boolean get() = kind == DeviceKind.Camera || kind == DeviceKind.Lock
+}
+
+/**
+ * The partner-side half of the device list: the domain states the intent, `:shared:data` knows the
+ * wire and where the credential comes from (ADR-004).
+ *
+ * Failures are the typed exceptions of `domain.error` rather than return values (ADR-002); the use
+ * case that calls this turns them into a result the UI can render.
+ */
+interface DeviceRepository {
+
+    /**
+     * The first page of the account's devices, already classified and ordered (SPEC D1, D5, U8).
+     *
+     * Exactly one partner call (ADR-006) and no retry of its own. Paging beyond page 1 and the origin
+     * filter arrive with the slice that has a control for them.
+     */
+    suspend fun firstPage(): List<Device>
+}

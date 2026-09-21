@@ -30,10 +30,18 @@ import androidx.media3.ui.PlayerView
  * The player is created by `remember(url)` and released by `DisposableEffect`, so leaving the screen,
  * a configuration change, or a new url all release the decoder — the half of SPEC V8 the ViewModel
  * cannot do, because it does not own a player.
+ *
+ * `monitorUrl` is the partner's own player page and this actual ignores it: Android decodes the
+ * stream itself. It is on the surface because iOS plays that page instead (SPEC V10).
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-actual fun LiveVideoPlayer(url: String, onEvent: (PlayerEvent) -> Unit, modifier: Modifier) {
+actual fun LiveVideoPlayer(
+    url: String,
+    @Suppress("UNUSED_PARAMETER") monitorUrl: String?,
+    onEvent: (PlayerEvent) -> Unit,
+    modifier: Modifier,
+) {
     if (LocalInspectionMode.current) {
         Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant))
         return

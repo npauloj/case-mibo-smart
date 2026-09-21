@@ -32,7 +32,14 @@ private fun DeviceListDestinationValidPreview() = DeviceListDestinationPreview(e
 private fun DeviceListDestinationPreview(expiringSoon: Boolean) {
     AppTheme {
         DeviceListDestination(expiringSoon, onOpenAccount = {}) {
-            DeviceListScreenContent(state = DeviceListUiStateProvider.Success, onRetry = {})
+            DeviceListScreenContent(
+                state = DeviceListUiStateProvider.Success,
+                onRetry = {},
+                onRefresh = {},
+                onSelectFilter = {},
+                onLoadMore = {},
+                onCameraTap = {},
+            )
         }
     }
 }

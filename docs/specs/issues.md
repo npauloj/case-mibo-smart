@@ -818,38 +818,76 @@ graph TD
   showed); rule 8 covers the fallback surface.
 
 ### [S-03] Renew the session token without leaving the screen
-- **Problem:** tokens last two hours. Without renewal a demo that runs long drops the evaluator back to
-  the token screen mid-flow.
-- **Scope:** the "Renovar" action offered as expiry approaches; replacing the stored token in place;
-  keeping the current token when renewal fails.
-- **Non-goals:** changing the expiry guard's identity comparison (S-02 owns it); background or
-  automatic renewal; multi-account.
+- **Problem:** tokens last two hours — **measured**, not assumed: a token answered `200` at 115 minutes
+  and `403` at 119. Without renewal a demo that runs long drops the evaluator back to the token screen
+  mid-flow.
+- **Scope:** the "Renovar" action offered as expiry approaches; storing the returned token; **using the
+  server's `tempoExpiracao` as the renewed session's deadline** instead of counting two hours from a
+  local clock; keeping the current session when renewal fails.
+- **Non-goals:** changing the expiry guard's identity comparison (S-02b owns it); background or
+  automatic renewal; multi-account; revoking the previous token — the API does not, and neither does
+  the app.
 - **Expected behaviour:** as the session nears expiry the user is offered "Renovar". On success the
-  vault holds the new token and the user stays exactly where they were. On failure the current token is
-  kept and the S6 error state is shown.
-- **Technical detail:** `[ASSUMED: POST /autenticacao/renovar-token/v1 on the api host, body {token},
-  new token in data]` (SPEC S10, `docs/api-contract.md` §2) — this is **non-blocking but must be
-  verified with exactly one real call at the start of this wave, never earlier, because the call
-  rotates the working token**. Renewal must leave S-02's guard able to tell the old token from the new
-  one (`SessionGuardTest.rejectionOfRotatedTokenDoesNotClearVault` must still pass).
-- **Files:** `shared/data/.../data/remote/` (renovar-token request + DTO),
-  `shared/app/.../app/session/RenewToken.kt`, `.../app/session/AccountScreenContent.kt` (extend),
-  `shared/app/src/commonMain/composeResources/values/strings.xml`, `docs/api-contract.md` (record what
-  the one real call returned), `docs/adr/` (new ADR only if the endpoint contradicts the assumption).
+  vault holds the new token with the deadline the server gave, and the user stays exactly where they
+  were. On failure the current session is kept untouched and the S6 error state is shown.
+- **Technical detail — probed 2026-09-21, nothing here is assumed** (`docs/api-contract.md` §2):
+
+  ```
+  POST /autenticacao/renovar-token/v1        (the Swagger's /autenticacao/renovarToken is NOT the path)
+  Authorization: Bearer <current token>
+  body: {"token": "<current token>"}
+  → 200  {"status":"sucesso","data":{"token":"<new>","tempoExpiracao":7199}}
+  ```
+
+  The envelope is the **flat** shape; `tempoExpiracao` is the new session's lifetime **in seconds**
+  (7199 ≈ 2 h); the new token has the same shape as any other, `Ot_` + 32 alphanumerics.
+
+  **The measured invariant that matters most: renewal ADDS a credential and revokes nothing.** Forty-six
+  seconds after renewing, the new token, the token used to renew, and an unrelated third all answered
+  `200`. So a request already in flight with the old token **succeeds** rather than failing. S-02b's
+  guard compares token identity and must keep doing so — but for that reason, not because the old token
+  dies. `SessionGuardTest.rejectionOfRotatedTokenDoesNotClearVault` must still pass, and its premise is
+  now the measured one.
+
+  **Do not call the real API.** That probe was run on 2026-09-21 and its result is committed above;
+  repeating it spends the account's ~300-request budget (ADR-006) to learn what the repo already
+  states. Every test here uses `MockEngine`.
+- **Files:** `shared/data/.../data/remote/` (renovar-token request + DTO — the DTO **must** carry
+  `tempoExpiracao`), `shared/data/.../data/session/` (the repository call),
+  `shared/domain/.../domain/session/` (renewal result type),
+  `shared/app/.../app/session/RenewToken.kt`,
+  `shared/app/.../app/session/AccountScreen.kt` (the action; the composable lives in this file, there
+  is no `AccountScreenContent.kt`), `.../app/session/AccountScreenPreviews.kt`,
+  `shared/app/src/commonMain/composeResources/values/strings.xml` and `values-en/strings.xml`.
 - **Depends on:** S-02b
+  _(logical dependency: the session guard, the vault's `clear()` and the account screen are all S-02b's.
+  Base branch: `main` — S-03 is the bottom of the stack (ADR-019); V-02 branches from it.)_
 - **Issue:** #23
 - **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
-- **Acceptance criteria (EARS):** SPEC **S10**. Tests: `RenewTokenTest.replacesStoredToken`,
-  `RenewTokenTest.failureKeepsCurrentToken`. Preview: `AccountScreen_ExpiringSoon` gains the action.
-- **Test scenarios:** successful renewal replacing the token in the vault; a failed renewal keeping the
-  old one; a rejection carrying the pre-renewal token not clearing the vault.
-- **Rollout / kill switch:** the action is user-initiated and optional — if the endpoint does not
-  behave as assumed, the slice is dropped and the app keeps S-02's expiry behaviour. Per
-  `docs/PROCESS.md`, this is the second item in the cut list.
-- **Events / metrics:** one counter increment per renewal attempt.
-- **i18n / LGPD / factories:** strings in Compose resources; the new token is never displayed beyond
-  its last 4 characters.
-- **Applies to / ADRs:** commonMain. ADR-008; amends `docs/api-contract.md` §2 with the verified path.
+- **Acceptance criteria (EARS):** SPEC **S10**, and the renewed half of **S7**.
+  - WHEN the session is about to expire, THE SYSTEM SHALL offer "Renovar" and, on success, replace the
+    stored token without leaving the current screen _(test: `RenewTokenTest.replacesStoredToken`)_
+  - IF renewal fails, THE SYSTEM SHALL keep the current session and show the error state of S6
+    _(test: `RenewTokenTest.failureKeepsCurrentToken`)_
+  - WHEN renewal succeeds, THE SYSTEM SHALL take the new session's deadline from the response's
+    `tempoExpiracao` rather than from a local two-hour count
+    _(test: `RenewTokenTest.usesServerSuppliedDeadline` — a response with a deliberately non-default
+    `tempoExpiracao` produces that expiry, proving the value is read and not ignored)_
+  - THE SYSTEM SHALL send the exact documented request _(test: `RenewTokenTest.exactRequest` — path,
+    body and `Authorization`, asserted through `MockEngine`)_
+  Preview: `AccountScreen_ExpiringSoon` gains the action, with its dark variant through the same
+  `uiMode`-parameterised function.
+- **Test scenarios:** successful renewal storing token and deadline; a failed renewal keeping the old
+  session; a refusal carrying the pre-renewal token not clearing the vault; the exact request body.
+- **Rollout / kill switch:** the action is user-initiated and optional, and renewal cannot lose a
+  session — the previous token stays valid either way, so the worst outcome of a failure is the state
+  the app would have had anyway. Per `docs/PROCESS.md`'s circuit breaker this slice is the second item
+  in the cut list; cutting it leaves S-02b's expiry behaviour intact.
+- **Events / metrics:** one ADR-006 counter increment per renewal attempt.
+- **i18n / LGPD / factories:** strings in Compose resources, pt-BR default with en fallback (E6); the
+  new token is never displayed beyond its last 4 characters (ADR-008, S9).
+- **Applies to / ADRs:** commonMain. ADR-008; ADR-012 for the refusal shapes. No ADR is needed for the
+  endpoint itself — `docs/api-contract.md` §2 already records it as measured.
 
 ### [P-01] Consume a legacy Java partner catalogue from Kotlin on the history screen
 - **Problem:** the brief names Java twice — as a ★ deliverable and inside the interoperability

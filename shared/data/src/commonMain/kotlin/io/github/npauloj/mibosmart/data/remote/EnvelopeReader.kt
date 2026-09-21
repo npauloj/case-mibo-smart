@@ -6,16 +6,25 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
 /**
- * Turns a partner response body into its `data` payload, or into a typed failure (ADR-002).
+ * Turns a partner response into its `data` payload, or into a typed failure (ADR-002, ADR-012).
  *
- * The HTTP status is always 200, so this is the single place that decides whether a call succeeded
- * (`docs/api-contract.md` §1.1). Token rejection is a business reading of a deliberately generic
- * message and only holds for the flat shape — the one every authentication failure uses (§1.2); the
- * same text inside a wrapped envelope is a server error, not a verdict on the credential.
+ * **The status is read before the body.** Authentication failures answer `401` and `403` with a bare
+ * JSON string rather than the documented envelope (`docs/api-contract.md` §1.2, probed 2026-09-21), so
+ * a reader that parsed first would turn a rejected token into "resposta inesperada" — which is exactly
+ * what the previous version did. Business outcomes still live inside a `2xx` body, where `status`
+ * decides.
  */
 internal class EnvelopeReader(private val json: Json) {
 
-    fun read(rawBody: String): JsonElement {
+    /**
+     * @param statusCode the HTTP status of the response, which classifies authentication on its own.
+     * @param rawBody the response body; on `401`/`403` it is advisory and may fail to parse.
+     */
+    fun read(statusCode: Int, rawBody: String): JsonElement {
+        when (statusCode) {
+            HTTP_UNAUTHORIZED -> throw SmartHomeException.TokenRejected()
+            HTTP_FORBIDDEN -> throw SmartHomeException.TokenExpired(serverMessageOrNull(rawBody))
+        }
         val envelope = try {
             json.decodeFromString<ApiEnvelopeDto>(rawBody)
         } catch (malformed: SerializationException) {
@@ -26,20 +35,33 @@ internal class EnvelopeReader(private val json: Json) {
             STATUS_SUCCESS -> payload.data
                 ?: throw SmartHomeException.UnexpectedResponse("envelope reports success without `data`")
 
-            STATUS_ERROR -> throw payload.toFailure(wrapped = envelope.body != null)
+            STATUS_ERROR -> throw SmartHomeException.ApiError(payload.msg.orEmpty())
             else -> throw SmartHomeException.UnexpectedResponse("envelope without a known `status`")
         }
     }
 
-    private fun ApiEnvelopeDto.toFailure(wrapped: Boolean): SmartHomeException {
-        val serverMessage = msg.orEmpty()
-        val rejectsToken = !wrapped && serverMessage.startsWith(UNKNOWN_ERROR_PREFIX)
-        return if (rejectsToken) SmartHomeException.TokenRejected() else SmartHomeException.ApiError(serverMessage)
+    /**
+     * The partner's own sentence from a `403` body, or null when it is not there.
+     *
+     * A `403` is already classified by the time this runs, so an unparseable body must never change the
+     * verdict — it only costs the nicer message (SPEC S3.1). The observed body is a normal envelope
+     * (`{"status":"erro","msg":"Token expirado, …"}`), but a bare JSON string is accepted too, since
+     * that is the shape `401` uses and nothing guarantees `403` will not switch to it.
+     */
+    private fun serverMessageOrNull(rawBody: String): String? = try {
+        json.decodeFromString<ApiEnvelopeDto>(rawBody).let { it.body ?: it }.msg?.takeIf { it.isNotBlank() }
+    } catch (_: SerializationException) {
+        try {
+            json.decodeFromString<String>(rawBody).takeIf { it.isNotBlank() }
+        } catch (_: SerializationException) {
+            null
+        }
     }
 
     private companion object {
         const val STATUS_SUCCESS = "sucesso"
         const val STATUS_ERROR = "erro"
-        const val UNKNOWN_ERROR_PREFIX = "Erro desconhecido"
+        const val HTTP_UNAUTHORIZED = 401
+        const val HTTP_FORBIDDEN = 403
     }
 }

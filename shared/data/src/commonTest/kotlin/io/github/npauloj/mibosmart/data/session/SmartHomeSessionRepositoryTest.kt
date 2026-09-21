@@ -13,6 +13,7 @@ import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlin.test.Test
@@ -44,16 +45,40 @@ class SmartHomeSessionRepositoryTest {
         assertTrue(body.contains("\"pagina\":1"), "unexpected request body: $body")
     }
 
+    /**
+     * A 401 with a bare JSON string — what the API really answers for an unknown token (ADR-012).
+     *
+     * This test asserted a 200 with "Erro desconhecido" before, a body the partner never sends; it
+     * passed while the app was incapable of recognising a rejected token.
+     */
     @Test
     fun aRefusedTokenSurfacesAsTokenRejected() = runTest {
         val repository = repositoryAnswering(mutableListOf()) {
             respond(
-                content = """{"status":"erro","msg":"Erro desconhecido, por favor tente novamente mais tarde"}""",
-                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                content = "\"Não autorizado\"",
+                status = HttpStatusCode.Unauthorized,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Text.Plain.toString()),
             )
         }
 
         assertFailsWith<SmartHomeException.TokenRejected> { repository.validateToken(Token("um-token")) }
+    }
+
+    /** A 403 is an expired session, and it carries a message worth showing (SPEC S3.1). */
+    @Test
+    fun anExpiredTokenSurfacesAsTokenExpiredWithItsMessage() = runTest {
+        val repository = repositoryAnswering(mutableListOf()) {
+            respond(
+                content = """{"status":"erro","msg":"Token expirado, por favor gere um novo token"}""",
+                status = HttpStatusCode.Forbidden,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Text.Plain.toString()),
+            )
+        }
+
+        val failure = assertFailsWith<SmartHomeException.TokenExpired> {
+            repository.validateToken(Token("um-token"))
+        }
+        assertEquals("Token expirado, por favor gere um novo token", failure.serverMessage)
     }
 
     @Test

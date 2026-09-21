@@ -80,16 +80,24 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
   `listar-dispositivos` call (`tamanhoPagina: 1, pagina: 1`) and, on success, persist it in secure
   storage and navigate to the device list. _(test: `AuthenticateTokenTest.validTokenIsStoredAndSucceeds` — fake repository counts exactly one call)_
   Applies to: androidMain and iosMain (`SecureTokenStore` actuals — Keystore / Keychain, ADR-008).
-- **S3** IF the validation call returns token-rejected (flat envelope, `status: "erro"`, `msg` starting
-  "Erro desconhecido"), THE SYSTEM SHALL keep the user on the token screen with the message
-  "Token inválido ou expirado" and SHALL NOT store the token. _(test: `AuthenticateTokenTest.rejectedTokenIsNotStored`, `EnvelopeReaderTest.flatErrorUnknownBecomesTokenRejected`)_
+- **S3** IF the validation call answers **HTTP 401**, THE SYSTEM SHALL keep the user on the token screen
+  with the message "Token inválido ou expirado" and SHALL NOT store the token.
+  _(test: `AuthenticateTokenTest.rejectedTokenIsNotStored`, `EnvelopeReaderTest.unauthorizedIsTokenRejected`)_
+- **S3.1** IF the call answers **HTTP 403**, THE SYSTEM SHALL keep the user on the token screen with the
+  server's own message when the body parses (`"Token expirado, por favor gere um novo token"`) and with
+  "Sua sessão expirou (tokens valem 2 h)" when it does not, and SHALL NOT store the token.
+  _(test: `EnvelopeReaderTest.forbiddenIsTokenExpiredWithServerMessage`,
+  `EnvelopeReaderTest.forbiddenWithUnparseableBodyStillExpires`)_
+  The platform distinguishes an unknown token from an expired one — verified 2026-09-21, ADR-012. The
+  old rule (`msg` starting "Erro desconhecido") never fired against the real API and is gone.
 - **S4** IF the validation call fails for network reasons, THE SYSTEM SHALL show "Sem conexão" with a
   retry action and SHALL NOT discard the typed token. _(test: `AuthenticateTokenTest.networkFailureKeepsInput`)_
 - **S5** WHEN the app starts WITH a stored token, THE SYSTEM SHALL open the device list directly using
   the cached list if present (no validation call). _(test: `SessionStartTest.storedTokenSkipsEntry`)_
-- **S6** WHILE a session is valid, WHEN any use case receives token-rejected **for a request that was
-  sent with the currently stored token**, THE SYSTEM SHALL clear the stored token and route to the token
-  screen with "Sua sessão expirou (tokens valem 2 h)"; IF the rejected request was sent with a token
+- **S6** WHILE a session is valid, WHEN any use case receives **a 401 or a 403** (token-rejected or
+  token-expired) **for a request that was sent with the currently stored token**, THE SYSTEM SHALL clear
+  the stored token and route to the token screen — with the server's message on a 403 and with
+  "Sua sessão expirou (tokens valem 2 h)" otherwise; IF the rejected request was sent with a token
   that has since been replaced (renewal, S10), THE SYSTEM SHALL drop the rejection and keep the stored
   token. Every request carries the token it was sent with in its failure, so the guard compares
   identities, not timestamps. _(test: `SessionGuardTest.rejectionClearsAndRoutes`,
@@ -309,11 +317,18 @@ _EARS adapted to the lock domain vocabulary because no market standard for EARS 
 
 ## 5. Cross-cutting error handling & UX (RF04)
 
-- **E1** THE SYSTEM SHALL parse both envelope shapes (`{statusCode, body}` and flat `{status}`) and
-  treat `status != "sucesso"` as an error even with HTTP 200. _(test: `EnvelopeReaderTest.wrappedSuccess`, `.flatSuccess`, `.wrappedError404`, `.flatErrorMissingToken`)_
+- **E1** THE SYSTEM SHALL classify on the **HTTP status first** — `401` is token-rejected and `403` is
+  token-expired, whatever the body looks like — and only for a `2xx` SHALL it parse the body, accepting
+  both envelope shapes (`{statusCode, body}` and flat `{status}`) and treating `status != "sucesso"` as
+  an error even with HTTP 200. A body it cannot deserialise SHALL NOT downgrade a `401`/`403` into
+  "unexpected response": on those statuses the body is optional, and a **bare JSON string** is an
+  accepted shape (ADR-012).
+  _(test: `EnvelopeReaderTest.unauthorizedIsTokenRejected`, `.forbiddenIsTokenExpiredWithServerMessage`,
+  `.forbiddenWithUnparseableBodyStillExpires`, `.bareJsonStringIsNotUnexpectedResponse`,
+  `.wrappedSuccess`, `.flatSuccess`, `.wrappedError404`, `.flatErrorMissingToken`)_
 - **E2** THE SYSTEM SHALL map transport failures to at most these user-facing categories: token
-  rejected, offline/no network, device not found, quota exceeded, operation rejected (with server
-  message), unexpected response. _(test: `ErrorMappingTest.exhaustive`)_
+  rejected, **token expired**, offline/no network, device not found, quota exceeded, operation rejected
+  (with server message), unexpected response. _(test: `ErrorMappingTest.exhaustive`)_
 - **E3** THE SYSTEM SHALL never crash on malformed JSON or missing `data`; it SHALL surface
   "Resposta inesperada" with a retry. _(test: `EnvelopeReaderTest.malformedJsonIsUnexpectedResponse`)_
 - **E4** THE SYSTEM SHALL rethrow `CancellationException` before any error mapping.

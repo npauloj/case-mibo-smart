@@ -12,6 +12,7 @@
     <string name="token_counter_description">%1$s de %2$s caracteres</string>
     <string name="token_error_format">Token incompleto ou em formato inválido</string>
     <string name="token_error_rejected">Token inválido ou expirado</string>
+    <string name="token_error_expired">Sua sessão expirou (tokens valem 2 h)</string>
     <string name="token_error_offline">Sem conexão</string>
     <string name="token_error_unexpected">Resposta inesperada</string>
     <string name="token_error_failed">Não foi possível validar o token</string>

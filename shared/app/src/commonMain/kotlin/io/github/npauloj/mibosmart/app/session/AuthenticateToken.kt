@@ -31,6 +31,7 @@ class AuthenticateToken(
 
     private fun Throwable.toResult(): AuthenticationResult = when (this) {
         is SmartHomeException.TokenRejected -> AuthenticationResult.TokenRejected
+        is SmartHomeException.TokenExpired -> AuthenticationResult.TokenExpired(serverMessage)
         is SmartHomeException.Offline -> AuthenticationResult.Offline
         is SmartHomeException.UnexpectedResponse -> AuthenticationResult.UnexpectedResponse
         else -> AuthenticationResult.Failed
@@ -46,8 +47,16 @@ sealed interface AuthenticationResult {
     /** The partner accepted the token and it is now the session's credential. */
     data object Success : AuthenticationResult
 
-    /** The partner refused the credential (SPEC S3). */
+    /** The partner does not recognise the credential — HTTP 401 (SPEC S3). */
     data object TokenRejected : AuthenticationResult
+
+    /**
+     * The credential was recognised and has expired — HTTP 403 (SPEC S3.1).
+     *
+     * [serverMessage] is the partner's own sentence and is shown as-is when present: unlike a generic
+     * API error it tells the user precisely what to do (SPEC U6, ADR-012).
+     */
+    data class TokenExpired(val serverMessage: String?) : AuthenticationResult
 
     /** The call never reached the partner (SPEC S4). */
     data object Offline : AuthenticationResult

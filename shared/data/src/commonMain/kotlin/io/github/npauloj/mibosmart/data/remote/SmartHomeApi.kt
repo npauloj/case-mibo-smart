@@ -41,6 +41,18 @@ internal class SmartHomeApi(
         setBody(ListDevicesRequestDto(pageSize = pageSize, page = page, origin = origin))
     }
 
+    /** `POST /produtos/funcoes/v1` — what a device announces it can do (SPEC V1). */
+    suspend fun readDeviceFunctions(token: Token, request: CameraNamespaceRequestDto): JsonElement =
+        post(FUNCTIONS_PATH, token) { setBody(request) }
+
+    /** `POST /cameras/criar-fluxo-video/v1` — opens a session and spends streaming quota (SPEC V2). */
+    suspend fun createVideoStream(token: Token, request: CreateStreamRequestDto): JsonElement =
+        post(CREATE_STREAM_PATH, token) { setBody(request) }
+
+    /** `POST /streaming/encerrar-sessao/v1` — gives the quota back (SPEC V8). */
+    suspend fun endStreamSession(token: Token, request: EndSessionRequestDto): JsonElement =
+        post(END_SESSION_PATH, token) { setBody(request) }
+
     /** `POST /fechaduras/status-abertura/v1` — whether the door is open (SPEC L1). */
     suspend fun readLockOpenState(token: Token, request: LockReadRequestDto): JsonElement =
         post(LOCK_OPEN_STATE_PATH, token) { setBody(request) }
@@ -84,6 +96,9 @@ internal class SmartHomeApi(
         /** The documented default of the `origem` filter, read by the device slice (SPEC D1). */
         const val ALL_ORIGINS = "todos"
         private const val LIST_DEVICES_PATH = "/produtos/listar-dispositivos/v1"
+        private const val FUNCTIONS_PATH = "/produtos/funcoes/v1"
+        private const val CREATE_STREAM_PATH = "/cameras/criar-fluxo-video/v1"
+        private const val END_SESSION_PATH = "/streaming/encerrar-sessao/v1"
         private const val LOCK_OPEN_STATE_PATH = "/fechaduras/status-abertura/v1"
         private const val LOCK_REMOTE_OPEN_PATH = "/fechaduras/status-abrir-remoto/v1"
         private const val LOCK_VOLUME_PATH = "/fechaduras/volume/v1"

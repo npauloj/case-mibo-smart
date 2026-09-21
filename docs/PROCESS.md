@@ -70,7 +70,13 @@ enfraquecer uma verificação, a entrada correspondente no `AI-LOG.md`.
 
 - `main` — sempre verde, sempre demonstrável. Nada é commitado direto nela depois do commit 0.
 - `slice/<id>` — uma por fatia, criada de `origin/main` atualizado (convenção do orquestrador).
-  Nunca empilhar sobre trabalho não mesclado.
+  **Exceção, e só ela** ([ADR-015](adr/ADR-015-stack-slices-that-share-a-ui-surface.md)): fatias que
+  editam **a mesma tela ou a mesma superfície de plataforma** empilham — `L-01b` de `main`, `L-02` de
+  `slice/l-01b`, `L-03` de `slice/l-02` — porque despachá-las em paralelo garante conflito nos mesmos
+  dois arquivos. A aresta empilhada entra no `Depends on:` do ticket dizendo que é acoplamento de
+  superfície, não dependência lógica. Fatias de features diferentes **nunca** empilham: continuam
+  saindo de `main` e mescláveis em qualquer ordem. O preço está no ADR — dentro de um stack a revisão
+  serializa, e o verde da CI é contra o stack, não contra `main`.
 - `chore/<tema>` / `docs/<tema>` — trabalho fora de fatia.
 - Sem `develop`: GitHub Flow. Branch apagada após o merge.
 

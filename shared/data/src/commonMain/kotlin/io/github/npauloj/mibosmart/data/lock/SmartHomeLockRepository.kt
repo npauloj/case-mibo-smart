@@ -1,19 +1,23 @@
 package io.github.npauloj.mibosmart.data.lock
 
 import io.github.npauloj.mibosmart.data.remote.LockOpenStateDto
+import io.github.npauloj.mibosmart.data.remote.LockOpeningEventDto
 import io.github.npauloj.mibosmart.data.remote.LockRemoteOpenDto
 import io.github.npauloj.mibosmart.data.remote.LockRequests
 import io.github.npauloj.mibosmart.data.remote.LockVolumeDto
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
+import io.github.npauloj.mibosmart.data.remote.toOpeningEvent
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockRepository
+import io.github.npauloj.mibosmart.domain.lock.OpeningEvent
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
@@ -41,6 +45,18 @@ internal class SmartHomeLockRepository(
         return VolumeLevel.ofLevel(level)
             ?: throw SmartHomeException.UnexpectedResponse("the lock reported a volume outside 0..3")
     }
+
+    /**
+     * `historico-abertura` (SPEC L9): one request, and the `data` payload is a JSON **array**.
+     *
+     * The entries are returned in the partner's own order — sorting them is a product rule and lives
+     * in the use case, which is the one place that can say what "newest first" is worth.
+     */
+    override suspend fun readOpeningHistory(address: LockAddress, entries: Int): List<OpeningEvent> =
+        decode(
+            ListSerializer(LockOpeningEventDto.serializer()),
+            api.readLockOpeningHistory(token(), LockRequests.openingHistory(address, entries)),
+        ).map { it.toOpeningEvent() }
 
     /**
      * `mudar-volume` (SPEC L7).

@@ -58,6 +58,16 @@ internal object LockRequests {
         )
 
     /**
+     * The opening history: the only lock call that does **not** carry `idProduto` (SPEC L9).
+     *
+     * The missing field is the contract, not an omission (`docs/api-contract.md` §5): the endpoint
+     * takes `{ ns, quantidade }` and nothing else, and [LockHistoryRequestDto] is the only lock
+     * request type with no product id, so no caller can add one back by accident.
+     */
+    fun openingHistory(address: LockAddress, entries: Int): LockHistoryRequestDto =
+        LockHistoryRequestDto(namespace = compositeNamespace(address), quantity = entries)
+
+    /**
      * `<lockNs>_<hubNs>_<hubIdProduto>` — the lock addressed as a sub-device of its hub (SPEC L1).
      *
      * The order is the contract's and is not a detail: the same three strings in any other order
@@ -132,6 +142,32 @@ internal data class LockEnableRemoteOpenRequestDto(
     @SerialName("habilitar")
     val enable: Boolean = true
 }
+
+/**
+ * `historico-abertura`: `{ ns, quantidade }` — **no `idProduto`** (`docs/api-contract.md` §5).
+ *
+ * The history belongs to the hub's namespace rather than to one product under it, which is why the
+ * field every other lock request carries is absent here. Adding it is not a harmless extra.
+ */
+@Serializable
+internal data class LockHistoryRequestDto(
+    @SerialName("ns") val namespace: String,
+    @SerialName("quantidade") val quantity: Int,
+)
+
+/**
+ * One entry of `historico-abertura` → `{ "tempoLocal", "nome", "tipo" }` (SPEC L9).
+ *
+ * [name] is nullable **and** defaulted: the observed payload sends `""` for an opening nobody
+ * performed, and nothing promises the key is always there. Both shapes have to land on the same
+ * domain value, and [toOpeningEvent] is where that happens.
+ */
+@Serializable
+internal data class LockOpeningEventDto(
+    @SerialName("tempoLocal") val localTime: String,
+    @SerialName("tipo") val type: String,
+    @SerialName("nome") val name: String? = null,
+)
 
 /** `status-abertura` → `{ "aberto": true }`. */
 @Serializable

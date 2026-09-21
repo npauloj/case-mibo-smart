@@ -12,11 +12,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -53,6 +58,8 @@ import io.github.npauloj.mibosmart.app.resources.lock_retry
 import io.github.npauloj.mibosmart.app.resources.lock_state_label
 import io.github.npauloj.mibosmart.app.resources.lock_state_locked
 import io.github.npauloj.mibosmart.app.resources.lock_state_unlocked
+import io.github.npauloj.mibosmart.app.resources.lock_tab_history
+import io.github.npauloj.mibosmart.app.resources.lock_tab_lock
 import io.github.npauloj.mibosmart.app.resources.lock_volume_changing
 import io.github.npauloj.mibosmart.app.resources.lock_volume_failed
 import io.github.npauloj.mibosmart.app.resources.lock_volume_high
@@ -80,9 +87,18 @@ import org.koin.compose.viewmodel.koinViewModel
 data class LockDestination(val device: Device, val address: LockAddress)
 
 /**
- * The lock screen (SPEC L1–L8): three parallel reads on entry, then the door's state with the
- * control that opens and closes it, a volume the user can change, and — when remote opening is off —
- * what that means plus the one action that grants it.
+ * The two halves of one lock: what it is doing now, and what it has been doing.
+ *
+ * They are tabs and not two destinations because they are two views of the same device — and
+ * because each has its own request budget to keep: switching tabs must never re-read either side
+ * (SPEC L9, ADR-006), which is what makes the two ViewModels behind them worth having.
+ */
+private enum class LockTab { Lock, History }
+
+/**
+ * The lock screen (SPEC L1–L10): three parallel reads on entry, then the door's state with the
+ * control that opens and closes it, a volume the user can change, — when remote opening is off —
+ * what that means plus the one action that grants it, and the history of its openings on a tab.
  *
  * Every control here follows the partner rather than leading it: nothing on screen moves until the
  * call it stands for has answered, and a command moves it only once `status-abertura` has agreed
@@ -103,17 +119,51 @@ fun LockScreen(
     // reads nothing again — the ViewModel keeps that guard.
     LaunchedEffect(destination) { viewModel.open(destination) }
 
-    LockScreenContent(
-        state = state,
-        onRetry = viewModel::retry,
-        onCommand = viewModel::command,
-        onVerify = viewModel::verify,
-        onChangeVolume = viewModel::changeVolume,
-        onEnableRemoteOpen = viewModel::enableRemoteOpen,
-        onBack = onBack,
-        modifier = modifier,
-    )
+    var tab by remember { mutableStateOf(LockTab.Lock) }
+    Column(modifier = modifier.fillMaxSize()) {
+        LockTabs(selected = tab, onSelect = { tab = it })
+        when (tab) {
+            LockTab.Lock -> LockScreenContent(
+                state = state,
+                onRetry = viewModel::retry,
+                onCommand = viewModel::command,
+                onVerify = viewModel::verify,
+                onChangeVolume = viewModel::changeVolume,
+                onEnableRemoteOpen = viewModel::enableRemoteOpen,
+                onBack = onBack,
+                modifier = Modifier.weight(1f),
+            )
+
+            // SPEC L9: entering this tab is what spends the one `historico-abertura` request, and
+            // coming back to it spends none — the guard is in `OpeningHistoryViewModel`.
+            LockTab.History -> OpeningHistoryScreen(
+                address = destination.address,
+                onBack = onBack,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }
+
+/** Which half of the lock is on screen (SPEC L9). */
+@Composable
+private fun LockTabs(selected: LockTab, onSelect: (LockTab) -> Unit) {
+    PrimaryTabRow(selectedTabIndex = selected.ordinal) {
+        LockTab.entries.forEach { tab ->
+            Tab(
+                selected = tab == selected,
+                onClick = { onSelect(tab) },
+                text = { Text(stringResource(tab.label)) },
+            )
+        }
+    }
+}
+
+private val LockTab.label: StringResource
+    get() = when (this) {
+        LockTab.Lock -> Res.string.lock_tab_lock
+        LockTab.History -> Res.string.lock_tab_history
+    }
 
 /** The screen as a pure function of its state, so every state has a preview and no ViewModel. */
 @Composable
@@ -139,7 +189,7 @@ fun LockScreenContent(
         }
 
         when (state) {
-            is LockUiState.Loading -> LoadingRow()
+            is LockUiState.Loading -> LoadingRow(Res.string.lock_loading)
             is LockUiState.Ready ->
                 LockReadings(state, null, onCommand, onVerify, onChangeVolume, onEnableRemoteOpen)
 
@@ -153,14 +203,21 @@ fun LockScreenContent(
     }
 }
 
+/**
+ * A spinner and the sentence that says what is being waited for.
+ *
+ * [label] is a parameter because both tabs of this screen wait on the partner and neither may say
+ * the other's sentence: "Lendo o estado da fechadura" while the history loads would name the wrong
+ * request (SPEC L1, L9).
+ */
 @Composable
-private fun LoadingRow() {
+internal fun LoadingRow(label: StringResource) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-        Text(text = stringResource(Res.string.lock_loading), style = MaterialTheme.typography.bodyMedium)
+        Text(text = stringResource(label), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -463,8 +520,13 @@ private val VolumeLevel.label: StringResource
 private val LockError.writeMessage: StringResource
     get() = if (this == LockError.Failed) Res.string.lock_error_write_refused else message
 
-/** One friendly sentence per category, never the server's own words (SPEC U6). */
-private val LockError.message: StringResource
+/**
+ * One friendly sentence per category, never the server's own words (SPEC U6).
+ *
+ * Internal rather than private because the history tab fails in exactly these five ways and has to
+ * say the same five things: a read of the same lock, refused for the same reasons (SPEC L9).
+ */
+internal val LockError.message: StringResource
     get() = when (this) {
         LockError.TokenRejected -> Res.string.lock_error_rejected
         LockError.TokenExpired -> Res.string.lock_error_expired

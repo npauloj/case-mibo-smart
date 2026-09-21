@@ -8,8 +8,13 @@ import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.DeviceStatus
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.LockState
+import io.github.npauloj.mibosmart.domain.lock.OpeningEvent
+import io.github.npauloj.mibosmart.domain.lock.OpeningKind
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * The lock the lock tests talk about.
@@ -35,6 +40,19 @@ internal object LockSamples {
 
     /** The moment the tests call "now", so "há 3 h" is a fact and not a function of the test machine. */
     val Now: Instant = Instant.parse("2026-09-21T12:00:00Z")
+
+    /**
+     * The zone the history tests read `tempoLocal` in.
+     *
+     * It is UTC so that a wall-clock time in a test lines up with [Now] by reading, not by
+     * arithmetic: the partner sends no offset (SPEC L9) and the app uses the device's zone, which is
+     * exactly the input a test must pin down.
+     */
+    val Zone: TimeZone = TimeZone.UTC
+
+    /** An opening at [Now] minus [minutesAgo], in [Zone] — the shape `historico-abertura` returns. */
+    fun opening(minutesAgo: Int, kind: OpeningKind, actor: String? = null): OpeningEvent =
+        OpeningEvent(at = (Now - minutesAgo.minutes).toLocalDateTime(Zone), kind = kind, actor = actor)
 
     fun device(
         status: DeviceStatus = DeviceStatus.Online,
@@ -77,3 +95,17 @@ internal fun lockViewModel(
         clock = FixedClock(LockSamples.Now),
     )
 }
+
+/**
+ * The history tab wired to [repository], on a clock and a zone that do not move.
+ *
+ * Both are pinned for the same reason: "há 5 min" and "21/09/2026 11:55" are the acceptance
+ * criterion (SPEC U4), and either the machine's clock or its time zone would otherwise decide what
+ * the test asserts.
+ */
+internal fun openingHistoryViewModel(repository: FakeLockRepository): OpeningHistoryViewModel =
+    OpeningHistoryViewModel(
+        openingHistory = OpeningHistory(repository),
+        clock = FixedClock(LockSamples.Now),
+        timeZone = LockSamples.Zone,
+    )

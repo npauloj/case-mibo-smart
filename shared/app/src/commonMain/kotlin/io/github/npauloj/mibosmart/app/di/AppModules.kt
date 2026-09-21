@@ -1,15 +1,31 @@
 package io.github.npauloj.mibosmart.app.di
 
+import io.github.npauloj.mibosmart.app.session.AuthenticateToken
+import io.github.npauloj.mibosmart.app.session.TokenEntryViewModel
+import io.github.npauloj.mibosmart.data.di.dataModule
+import org.koin.core.module.Module
+import org.koin.core.module.dsl.factoryOf
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.context.startKoin
 import org.koin.dsl.KoinAppDeclaration
 import org.koin.dsl.module
 
-val appModule = module {
+/**
+ * Use cases and ViewModels; the partner implementation comes from `:shared:data`.
+ *
+ * @param apiHost the partner host. It is configured per machine (`local.properties` → `BuildConfig`)
+ *   and never versioned (ADR-008), so it can only arrive from the platform entry point.
+ */
+fun appModule(apiHost: String): Module = module {
+    includes(dataModule(apiHost))
+
+    factoryOf(::AuthenticateToken)
+    viewModelOf(::TokenEntryViewModel)
 }
 
-fun initKoin(appDeclaration: KoinAppDeclaration = {}) {
+fun initKoin(apiHost: String, appDeclaration: KoinAppDeclaration = {}) {
     startKoin {
         appDeclaration()
-        modules(appModule)
+        modules(appModule(apiHost))
     }
 }

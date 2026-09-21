@@ -68,6 +68,13 @@ kotlin {
     }
 }
 
+// Every user-facing string is a Compose resource (SPEC E6); the generated accessor is pinned to a
+// package of ours so the import does not depend on how the plugin derives one.
+compose.resources {
+    publicResClass = false
+    packageOfResClass = "io.github.npauloj.mibosmart.app.resources"
+}
+
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 }

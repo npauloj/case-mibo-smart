@@ -7,7 +7,7 @@ import org.koin.android.ext.koin.androidContext
 class MiboSmartApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        initKoin {
+        initKoin(apiHost = BuildConfig.SMARTHOME_API_HOST) {
             androidContext(this@MiboSmartApplication)
         }
     }

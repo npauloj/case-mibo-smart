@@ -1,6 +1,12 @@
 # ADR-015. Slices that share a UI surface stack; everything else branches from `main`
 
-Status: Accepted (2026-09-21) — amends `docs/PROCESS.md` §3
+Status: Accepted (2026-09-21) — amends `docs/PROCESS.md` §3; **scope widened by [ADR-019](ADR-019-stacking-is-the-default-for-the-rest-of-the-case.md) (2026-09-21)**
+
+> The reasoning below stands. What did not survive ten merges of `main` into slice branches is
+> the *scope*: "slices that share a screen" turned out to describe nearly every remaining slice,
+> because `App.kt`, both `strings.xml` and `AI-LOG.md` are edited by all of them. The exception
+> had quietly become the rule, so ADR-019 writes it down and makes stacking the default for the
+> rest of the case.
 
 ## Context
 

@@ -80,7 +80,14 @@ enfraquecer uma verificação, a entrada correspondente no `AI-LOG.md`.
 
 - `main` — sempre verde, sempre demonstrável. Nada é commitado direto nela depois do commit 0.
 - `slice/<id>` — uma por fatia, criada de `origin/main` atualizado (convenção do orquestrador).
-  **Exceção, e só ela** ([ADR-015](adr/ADR-015-stack-slices-that-share-a-ui-surface.md)): fatias que
+  **Desde 21/09 o padrão é empilhar** ([ADR-019](adr/ADR-019-stacking-is-the-default-for-the-rest-of-the-case.md)):
+  as fatias restantes saem umas das outras, uma por vez, na ordem `S-03` → `V-02` → `L-02` →
+  `L-03` → `P-01`, e cada PR declara sua base e que **o verde da CI é contra o stack, não contra
+  `main`**. Dez merges de `main` em branch de fatia nesta sessão mostraram que o conflito não era
+  eventual: `App.kt`, os dois `strings.xml` e o `AI-LOG.md` são tocados por praticamente toda
+  fatia. Merge de baixo para cima, sempre humano.
+
+  A regra anterior ([ADR-015](adr/ADR-015-stack-slices-that-share-a-ui-surface.md)) dizia: fatias que
   editam **a mesma tela ou a mesma superfície de plataforma** empilham — `L-01b` de `main`, `L-02` de
   `slice/l-01b`, `L-03` de `slice/l-02` — porque despachá-las em paralelo garante conflito nos mesmos
   dois arquivos. A aresta empilhada entra no `Depends on:` do ticket dizendo que é acoplamento de

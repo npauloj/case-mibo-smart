@@ -703,8 +703,8 @@ graph TD
   `shared/app/.../app/lock/ToggleLock.kt`, `shared/app/.../app/lock/LockViewModel.kt` (extend),
   `shared/app/.../app/lock/LockScreenContent.kt` (extend + previews),
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
-- **Depends on:** L-01b
-  _(**stacked edge, ADR-015**: L-02 needs only L-01a logically, but it extends the same `LockScreen` and `LockViewModel` as L-01b. Branch from `slice/l-01b`, not `main`, and say so in the PR body — the CI green is against the stack.)_
+- **Depends on:** V-02
+  _(**stacked edge, ADR-019**: L-02 needs only L-01b logically; it branches from `slice/v-02` so the shared files arrive already merged. Base branch: `slice/v-02`; say so in the PR body, and that the CI green is against the stack.)_
 - **Issue:** #20
 - **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈400 executable production lines + ≈350 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **L3, L4, L6** and the command half of **L5**. Tests named in
@@ -747,7 +747,7 @@ graph TD
   `.../app/lock/OpeningHistoryContent.kt` + `PreviewParameterProvider`,
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
 - **Depends on:** L-02
-  _(**stacked edge, ADR-015**: same `LockScreen` and `LockViewModel` as L-02. Branch from `slice/l-02`, not `main`, and say so in the PR body — the CI green is against the stack.)_
+  _(**stacked edge, ADR-015/019**: same `LockScreen` and `LockViewModel` as L-02, and the same shared files as every other slice. Base branch: `slice/l-02`; say so in the PR body, and that the CI green is against the stack.)_
 - **Issue:** #21
 - **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **L9, L10** and **U4**. Tests named in the SPEC:
@@ -793,7 +793,8 @@ graph TD
   `shared/app/.../app/camera/LiveVideoScreenContent.kt` (extend + previews),
   `shared/app/.../app/camera/platform/` (WebView fallback surface, androidMain/iosMain),
   `shared/app/src/commonMain/composeResources/values/strings.xml`, `docs/adr/ADR-005-live-video-native-players.md`.
-- **Depends on:** V-01b
+- **Depends on:** S-03
+  _(**stacked edge, ADR-019**: V-02 needs only V-01b logically. It branches from `slice/s-03` because every remaining slice edits `App.kt`, both `strings.xml` and `AI-LOG.md`. Base branch: `slice/s-03`; say so in the PR body, and that the CI green is against the stack.)_
   _(**stacked edge, ADR-015**: V-02 needs only V-01a logically, but it rewrites the same
   `LiveVideoViewModel`, `LiveVideoScreen` and `app/camera/platform` surface as V-01b. Branch from
   `slice/v-01b`, not `main`, and say so in the PR body — the CI green is against the stack.)_
@@ -873,6 +874,7 @@ graph TD
   `shared/data/src/androidMain/kotlin/.../data/catalog/` (the adapter),
   `shared/data/build.gradle.kts`, `shared/app/.../app/lock/OpeningHistoryContent.kt` (labels).
 - **Depends on:** L-03
+  _(logical dependency (the Java catalogue labels the history rows) **and** the stack position: it is the last slice. Base branch: `slice/l-03`; say so in the PR body, and that the CI green is against the stack.)_
 - **Issue:** #24
 - **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):**

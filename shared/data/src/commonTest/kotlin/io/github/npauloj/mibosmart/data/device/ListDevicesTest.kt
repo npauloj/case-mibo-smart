@@ -1,5 +1,7 @@
 package io.github.npauloj.mibosmart.data.device
 
+import io.github.npauloj.mibosmart.data.local.DeviceCache
+import io.github.npauloj.mibosmart.data.local.FakeDeviceCache
 import io.github.npauloj.mibosmart.data.remote.EnvelopeReader
 import io.github.npauloj.mibosmart.data.remote.HttpClientFactory
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
@@ -28,6 +30,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -119,6 +122,19 @@ class ListDevicesTest {
         assertFailsWith<SmartHomeException.UnexpectedResponse> { repository.firstPage() }
     }
 
+    /** SPEC D10: a page that arrives is written to the cache, dated, so the next start is free. */
+    @Test
+    fun aSuccessfulPageIsCachedWithItsTimestamp() = runTest {
+        val cache = FakeDeviceCache()
+        val repository = repositoryAnswering(mutableListOf(), cache = cache) { respondWithDevices(PAGE) }
+
+        repository.firstPage()
+
+        val cached = assertNotNull(repository.cachedPage(), "nothing was written to the cache")
+        assertEquals(listOf("MFR 1001", "MCA 1002", "iM3-C"), cached.devices.map { it.name })
+        assertEquals(FETCHED_AT, cached.fetchedAt)
+    }
+
     /** ADR-006: with no session there is nothing to authenticate with, so no request is spent. */
     @Test
     fun withoutASessionNoRequestIsSpent() = runTest {
@@ -138,6 +154,7 @@ class ListDevicesTest {
     private suspend fun repositoryAnswering(
         requests: MutableList<HttpRequestData>,
         token: Token? = Token("um-token"),
+        cache: DeviceCache = FakeDeviceCache(),
         answer: MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ): DeviceRepository = SmartHomeDeviceRepository(
         api = SmartHomeApi(
@@ -151,9 +168,14 @@ class ListDevicesTest {
             envelopeReader = EnvelopeReader(smartHomeJson),
         ),
         sessionStore = InMemorySessionStore().apply { token?.let { write(it, SessionSamples.IssuedAt) } },
+        cache = cache,
+        now = { FETCHED_AT },
     )
 
     private companion object {
+        /** The clock the repository dates a cached page with (SPEC D10). */
+        val FETCHED_AT = Instant.parse("2026-09-21T12:00:00Z")
+
         /**
          * A page shaped like `docs/api-contract.md` §3, returned out of order on purpose: a lock under
          * its hub, the hub itself, and an offline camera with a compact `ultimaVezOnline`.

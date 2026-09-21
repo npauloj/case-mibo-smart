@@ -40,6 +40,31 @@ sealed interface LastSeen {
 
 enum class ElapsedUnit { Minutes, Hours, Days }
 
+/**
+ * How long ago something happened, rounded to the largest unit that still reads as a number.
+ *
+ * Two sentences in this screen count time — "visto pela última vez há X" on a row (SPEC U3) and
+ * "última atualização há X" on the stale banner (SPEC D8) — and they round the same way because
+ * they round here. The composable picks the words.
+ */
+data class Elapsed(val amount: Int, val unit: ElapsedUnit)
+
+/**
+ * 45 min, 3 h, 12 d.
+ *
+ * "há 0 min" is not a sentence, so anything more recent than a minute is reported as one; a clock
+ * that runs ahead of ours would otherwise report a negative age, so the duration is clamped by the
+ * callers before it gets here.
+ */
+internal fun Duration.rounded(): Elapsed = when {
+    this < 1.hours -> Elapsed(inWholeMinutes.coerceAtLeast(1).toInt(), ElapsedUnit.Minutes)
+    this < 1.days -> Elapsed(inWholeHours.toInt(), ElapsedUnit.Hours)
+    else -> Elapsed(inWholeDays.toInt(), ElapsedUnit.Days)
+}
+
+/** The age of [this] as of [now], never negative — a device or a cache cannot be from the future. */
+internal fun Instant.ageAt(now: Instant): Elapsed = (now - this).coerceAtLeast(Duration.ZERO).rounded()
+
 /** Domain devices as rows (SPEC D6, U3). [now] is a parameter so the elapsed text is testable. */
 fun List<Device>.toRows(now: Instant): List<DeviceRow> {
     val namesById = associate { it.id to it.name }
@@ -60,18 +85,6 @@ fun List<Device>.toRows(now: Instant): List<DeviceRow> {
     }
 }
 
-/**
- * Rounds down to the largest unit that still reads as a number: 45 min, 3 h, 12 d.
- *
- * A device offline for a week does not need minutes, and "há 0 min" is not a sentence — anything more
- * recent than a minute is reported as one.
- */
-private fun Instant?.toLastSeen(now: Instant): LastSeen {
-    // A device clock ahead of ours would otherwise report a negative age: clamp, never subtract.
-    val elapsed = (now - (this ?: return LastSeen.Never)).coerceAtLeast(Duration.ZERO)
-    return when {
-        elapsed < 1.hours -> LastSeen.Ago(elapsed.inWholeMinutes.coerceAtLeast(1).toInt(), ElapsedUnit.Minutes)
-        elapsed < 1.days -> LastSeen.Ago(elapsed.inWholeHours.toInt(), ElapsedUnit.Hours)
-        else -> LastSeen.Ago(elapsed.inWholeDays.toInt(), ElapsedUnit.Days)
-    }
-}
+/** A device offline for a week does not need minutes — [rounded] decides which unit reads best. */
+private fun Instant?.toLastSeen(now: Instant): LastSeen =
+    (this ?: return LastSeen.Never).ageAt(now).let { LastSeen.Ago(it.amount, it.unit) }

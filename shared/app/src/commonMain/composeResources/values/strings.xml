@@ -63,6 +63,9 @@
     <string name="device_last_seen_minutes">Visto pela última vez há %1$s min</string>
     <string name="device_last_seen_hours">Visto pela última vez há %1$s h</string>
     <string name="device_last_seen_days">Visto pela última vez há %1$s d</string>
+    <string name="device_stale_minutes">Sem conexão — última atualização há %1$s min</string>
+    <string name="device_stale_hours">Sem conexão — última atualização há %1$s h</string>
+    <string name="device_stale_days">Sem conexão — última atualização há %1$s d</string>
     <string name="device_error_rejected">Token inválido ou expirado</string>
     <string name="device_error_expired">Sua sessão expirou (tokens valem 2 h)</string>
     <string name="device_error_offline">Sem conexão</string>

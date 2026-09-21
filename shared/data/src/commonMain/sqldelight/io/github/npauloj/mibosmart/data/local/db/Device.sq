@@ -1,0 +1,41 @@
+-- The device-list cache (ADR-006, SPEC D8/D10/U2).
+--
+-- `kind` is deliberately absent: it is derived from `model` + `isSubDevice` by the domain classifier
+-- (SPEC D5), so storing it would let a cached row disagree with a freshly fetched one after a rule
+-- change. Order is absent for the same reason — `orderedForList()` is applied on read.
+--
+-- Booleans and instants are plain INTEGERs (0/1 and epoch milliseconds) rather than SQLDelight
+-- adapters: the mapping lives in DeviceCache.kt, in Kotlin, where the test can see it.
+CREATE TABLE cachedDevice (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  model TEXT NOT NULL,
+  online INTEGER NOT NULL,
+  lastSeen INTEGER,
+  origin TEXT NOT NULL,
+  parentId TEXT,
+  isSubDevice INTEGER NOT NULL,
+  fetchedAt INTEGER NOT NULL
+);
+
+-- One row, id 0: the schema version the rows above were written with (see SchemaVersion.kt).
+CREATE TABLE cacheMeta (
+  id INTEGER NOT NULL PRIMARY KEY,
+  schemaVersion INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM cachedDevice;
+
+insert:
+INSERT OR REPLACE INTO cachedDevice(id, name, model, online, lastSeen, origin, parentId, isSubDevice, fetchedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAll:
+DELETE FROM cachedDevice;
+
+schemaVersion:
+SELECT schemaVersion FROM cacheMeta WHERE id = 0;
+
+setSchemaVersion:
+INSERT OR REPLACE INTO cacheMeta(id, schemaVersion) VALUES (0, ?);

@@ -9,9 +9,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.npauloj.mibosmart.app.camera.LiveVideoScreen
 import io.github.npauloj.mibosmart.app.devices.DeviceListScreen
 import io.github.npauloj.mibosmart.app.lock.LockDestination
 import io.github.npauloj.mibosmart.app.lock.LockScreen
+import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.app.session.TokenScreen
 import io.github.npauloj.mibosmart.app.ui.AppTheme
 import org.koin.compose.viewmodel.koinViewModel
@@ -36,21 +38,25 @@ fun App(viewModel: AppViewModel = koinViewModel()) {
 }
 
 /**
- * The destinations reachable with a session: the device list, and the lock screen it opens.
+ * The destinations reachable with a session: the device list, the lock screen, and the live video of
+ * one camera.
  *
- * The edge from a row to [LockScreen] is still missing on purpose — making a lock row tappable is the
- * device slice's follow-up (D-02), not this one's. The destination stays declared here so the row has
- * somewhere to go, and so [LockDestination] states in one place what it has to hand over: the device
- * it was opened from and the composite address of `docs/api-contract.md` §5.
+ * The edges from a row are still missing on purpose — making a row tappable is the device slice's
+ * follow-up (D-02), not this one's. The destinations stay declared here so the rows have somewhere to
+ * go, and so each states in one place what it has to hand over: [LockDestination] the composite
+ * address of `docs/api-contract.md` §5, and the camera its own [Device], whose `ns` is what
+ * `criar-fluxo-video` addresses and whose `status` decides SPEC V7 without a request.
  */
 @Composable
 private fun SignedIn() {
     var lock: LockDestination? by remember { mutableStateOf(null) }
+    var camera: Device? by remember { mutableStateOf(null) }
 
+    val watching = camera
     val selected = lock
-    if (selected == null) {
-        DeviceListScreen()
-    } else {
-        LockScreen(destination = selected, onBack = { lock = null })
+    when {
+        watching != null -> LiveVideoScreen(camera = watching, onBack = { camera = null })
+        selected != null -> LockScreen(destination = selected, onBack = { lock = null })
+        else -> DeviceListScreen()
     }
 }

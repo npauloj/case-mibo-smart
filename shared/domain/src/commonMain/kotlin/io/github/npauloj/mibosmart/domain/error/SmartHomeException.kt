@@ -41,6 +41,16 @@ sealed class SmartHomeException(message: String, cause: Throwable? = null) : Exc
      */
     class DeviceNotFound : SmartHomeException("the partner does not know this device")
 
+    /**
+     * The account has no streaming quota left: **HTTP 402**, or a `criar-fluxo-video` body that says
+     * so (SPEC V6, `docs/api-contract.md` §6).
+     *
+     * It joins the taxonomy with the video slice, which is the first code that can receive it — the
+     * arrival ADR-002 predicted. It is deliberately not an [ApiError]: quota is the one failure with
+     * no retry, and a screen must be able to tell it apart without reading a sentence.
+     */
+    class QuotaExceeded : SmartHomeException("the account has no streaming quota left")
+
     /** The request never produced an answer: no connectivity, timeout, DNS or TLS failure (SPEC S4). */
     class Offline(cause: Throwable?) : SmartHomeException("the partner API could not be reached", cause)
 

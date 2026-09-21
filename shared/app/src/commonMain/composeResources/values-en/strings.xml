@@ -68,4 +68,22 @@
     <string name="device_error_device_not_found">Device not found</string>
     <string name="device_error_unexpected">Unexpected response</string>
     <string name="device_error_failed">The devices could not be loaded</string>
+
+    <string name="live_back">Back</string>
+    <string name="live_step_capability">Checking the camera…</string>
+    <string name="live_step_session">Creating the session…</string>
+    <string name="live_step_connecting">Connecting…</string>
+    <string name="live_badge">LIVE</string>
+    <string name="live_quota">This session may use up to %1$s GB</string>
+    <string name="live_no_capability">This camera does not announce live video</string>
+    <string name="live_quota_exceeded">Streaming quota exhausted</string>
+    <string name="live_camera_offline">Camera offline</string>
+    <string name="live_expired">The stream has ended</string>
+    <string name="live_retry">Try again</string>
+    <string name="live_error_rejected">Your session is no longer valid</string>
+    <string name="live_error_expired">Your session has expired (tokens last 2 h)</string>
+    <string name="live_error_offline">No connection</string>
+    <string name="live_error_unexpected">Unexpected response</string>
+    <string name="live_error_failed">The live video could not be opened</string>
+    <string name="live_ios_placeholder">Live video arrives in the next delivery</string>
 </resources>

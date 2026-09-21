@@ -7,7 +7,10 @@ import org.koin.android.ext.koin.androidContext
 class MiboSmartApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        initKoin(apiHost = BuildConfig.SMARTHOME_API_HOST) {
+        initKoin(
+            apiHost = BuildConfig.SMARTHOME_API_HOST,
+            liveVideoEnabled = BuildConfig.SMARTHOME_LIVE_VIDEO_ENABLED,
+        ) {
             androidContext(this@MiboSmartApplication)
         }
     }

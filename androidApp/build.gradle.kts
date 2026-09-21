@@ -9,10 +9,17 @@ plugins {
 // The partner host is a local setting, never a versioned one (ADR-008): it comes from
 // `local.properties` (see local.properties.example) and reaches the app through BuildConfig. CI and a
 // fresh clone have no such file and fall back to a fictitious host — tests never reach the network.
-val smartHomeApiHost: String =
+val localProperties: Properties? =
     providers.fileContents(rootProject.layout.projectDirectory.file("local.properties")).asText.orNull
-        ?.let { contents -> Properties().apply { load(contents.reader()) }.getProperty("smarthome.apiHost") }
-        ?: "https://api.example.invalid"
+        ?.let { contents -> Properties().apply { load(contents.reader()) } }
+
+val smartHomeApiHost: String =
+    localProperties?.getProperty("smarthome.apiHost") ?: "https://api.example.invalid"
+
+// The live-video kill switch (SPEC V1, ADR-006). Default on; set `smarthome.liveVideoEnabled=false`
+// to run the app on the shared account without ever opening a streaming session.
+val liveVideoEnabled: String =
+    localProperties?.getProperty("smarthome.liveVideoEnabled") ?: "true"
 
 dependencies {
     implementation(projects.shared.app)
@@ -31,6 +38,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         buildConfigField("String", "SMARTHOME_API_HOST", "\"$smartHomeApiHost\"")
+        buildConfigField("boolean", "SMARTHOME_LIVE_VIDEO_ENABLED", liveVideoEnabled)
     }
     buildFeatures {
         buildConfig = true

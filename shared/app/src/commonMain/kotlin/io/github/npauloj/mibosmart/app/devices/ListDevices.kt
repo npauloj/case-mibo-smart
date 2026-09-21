@@ -77,6 +77,9 @@ private fun SmartHomeException.toResult(): DeviceListResult = when (this) {
     is SmartHomeException.DeviceNotFound -> DeviceListResult.DeviceNotFound
     is SmartHomeException.Offline -> DeviceListResult.Offline
     is SmartHomeException.UnexpectedResponse -> DeviceListResult.UnexpectedResponse
+    // Streaming quota, which only `criar-fluxo-video` can answer (SPEC V6). Listing devices cannot
+    // produce it; the branch exists because the taxonomy is sealed and this `when` has no `else`.
+    is SmartHomeException.QuotaExceeded -> DeviceListResult.Failed
     // The one category that carries the server's own words: they stay in the exception, for the log,
     // and the screen gets a sentence of its own (SPEC U6).
     is SmartHomeException.ApiError -> DeviceListResult.Failed

@@ -17,6 +17,19 @@
     <string name="token_error_unexpected">Resposta inesperada</string>
     <string name="token_error_failed">Não foi possível validar o token</string>
     <string name="session_expiring_soon">Token expira em breve</string>
+    <string name="session_ended">Sua sessão expirou (tokens valem 2 h)</string>
+
+    <string name="account_open">Conta</string>
+    <string name="account_title">Conta</string>
+    <string name="account_back">Voltar</string>
+    <string name="account_token_label">Token de acesso</string>
+    <string name="account_token_value">•••• %1$s</string>
+    <string name="account_expires_in_hours">Expira em %1$s h %2$s min</string>
+    <string name="account_expires_in_minutes">Expira em %1$s min</string>
+    <string name="account_expired">Sessão expirada</string>
+    <string name="account_requests">%1$s requisições nesta sessão</string>
+    <string name="account_logout">Sair</string>
+    <string name="account_logout_failed">Não foi possível apagar o token deste aparelho</string>
 
     <string name="device_list_title">Dispositivos</string>
     <string name="device_list_placeholder">A lista de dispositivos chega na próxima entrega.</string>

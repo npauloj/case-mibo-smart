@@ -2,6 +2,7 @@ package io.github.npauloj.mibosmart.app.session
 
 import io.github.npauloj.mibosmart.app.AppViewModel
 import io.github.npauloj.mibosmart.app.FixedClock
+import io.github.npauloj.mibosmart.app.appViewModel
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
 import io.github.npauloj.mibosmart.domain.session.Session
 import io.github.npauloj.mibosmart.domain.session.SessionState
@@ -101,7 +102,7 @@ class SessionStateTest {
     private suspend fun viewModelFor(issuedAt: Instant, now: Instant): AppViewModel {
         val store = InMemorySessionStore().apply { write(Token(TokenSamples.Valid), issuedAt) }
 
-        return AppViewModel(SessionStartup(store), FixedClock(now))
+        return appViewModel(store, FixedClock(now))
     }
 
     private companion object {

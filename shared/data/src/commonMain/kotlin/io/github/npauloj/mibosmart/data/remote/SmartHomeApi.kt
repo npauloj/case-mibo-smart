@@ -1,7 +1,9 @@
 package io.github.npauloj.mibosmart.data.remote
 
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
+import io.github.npauloj.mibosmart.domain.session.RefusedRequests
 import io.github.npauloj.mibosmart.domain.session.Token
+import io.github.npauloj.mibosmart.domain.session.asTokenRefusal
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
@@ -23,6 +25,8 @@ internal class SmartHomeApi(
     private val httpClient: HttpClient,
     private val baseUrl: String,
     private val envelopeReader: EnvelopeReader,
+    private val requestCounter: RequestCounter,
+    private val refusedRequests: RefusedRequests,
 ) {
 
     /**
@@ -68,12 +72,19 @@ internal class SmartHomeApi(
     /**
      * One call: the shared shape of every partner request (`docs/api-contract.md` §1) — the token in
      * the `Authorization` header, a JSON body, and an answer that only [EnvelopeReader] may interpret.
+     *
+     * It is also the only place that knows **which token a given request was sent with**, which is
+     * what SPEC S6 needs and why the refusal is announced from here rather than from each repository:
+     * a guard wired per use case would miss the next slice's endpoint (ADR-018).
      */
     private suspend fun post(
         path: String,
         token: Token,
         body: HttpRequestBuilder.() -> Unit,
     ): JsonElement {
+        // Counted before the wire, not after: an answer that never comes has still spent a request
+        // from the account's budget (ADR-006).
+        requestCounter.increment()
         val response = try {
             httpClient.post("${baseUrl.trimEnd('/')}$path") {
                 contentType(ContentType.Application.Json)
@@ -89,7 +100,14 @@ internal class SmartHomeApi(
             throw SmartHomeException.Offline(transport)
         }
         // Status first, body second (ADR-012): a 401/403 body is a bare JSON string, not an envelope.
-        return envelopeReader.read(response.status.value, response.bodyAsText())
+        return try {
+            envelopeReader.read(response.status.value, response.bodyAsText())
+        } catch (failure: SmartHomeException) {
+            // Only a 401/403 about the session produces a refusal; a forbidden endpoint or a business
+            // error produces none, and the credential is left alone (ADR-012 amended, SPEC S6).
+            failure.asTokenRefusal(token)?.let(refusedRequests::report)
+            throw failure
+        }
     }
 
     internal companion object {

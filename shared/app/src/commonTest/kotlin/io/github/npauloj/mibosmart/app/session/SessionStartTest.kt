@@ -1,8 +1,8 @@
 package io.github.npauloj.mibosmart.app.session
 
 import io.github.npauloj.mibosmart.app.AppDestination
-import io.github.npauloj.mibosmart.app.AppViewModel
 import io.github.npauloj.mibosmart.app.FixedClock
+import io.github.npauloj.mibosmart.app.appViewModel
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
 import kotlin.test.AfterTest
@@ -49,7 +49,7 @@ class SessionStartTest {
     fun storedTokenSkipsEntry() = runTest(dispatcher) {
         val repository = FakeSessionRepository()
         val store = InMemorySessionStore().apply { write(Token(TOKEN), TokenSamples.Now) }
-        val viewModel = AppViewModel(SessionStartup(store), FixedClock(TokenSamples.Now))
+        val viewModel = appViewModel(store, FixedClock(TokenSamples.Now))
 
         runCurrent()
 
@@ -59,7 +59,7 @@ class SessionStartTest {
 
     @Test
     fun noStoredTokenOpensTokenScreen() = runTest(dispatcher) {
-        val viewModel = AppViewModel(SessionStartup(InMemorySessionStore()), FixedClock(TokenSamples.Now))
+        val viewModel = appViewModel(InMemorySessionStore(), FixedClock(TokenSamples.Now))
 
         runCurrent()
 
@@ -71,7 +71,7 @@ class SessionStartTest {
     @Test
     fun anAcceptedTokenOpensTheDeviceList() = runTest(dispatcher) {
         val store = InMemorySessionStore()
-        val viewModel = AppViewModel(SessionStartup(store), FixedClock(TokenSamples.Now))
+        val viewModel = appViewModel(store, FixedClock(TokenSamples.Now))
         runCurrent()
         assertEquals(AppDestination.TokenEntry, viewModel.state.value.destination)
 

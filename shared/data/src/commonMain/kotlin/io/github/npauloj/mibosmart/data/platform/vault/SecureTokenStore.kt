@@ -25,6 +25,14 @@ internal interface SecureTokenStore {
 
     /** Stores [token], replacing any value written before. */
     fun write(token: String)
+
+    /**
+     * Removes the stored token, so [read] answers `null` again (SPEC S8).
+     *
+     * Clearing what is not there is not an error: "Sair" on a session the vault already lost must
+     * still end on the token screen rather than on a crash.
+     */
+    fun clear()
 }
 
 /**

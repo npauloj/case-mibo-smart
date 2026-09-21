@@ -1,11 +1,13 @@
 package io.github.npauloj.mibosmart.data.session
 
+import io.github.npauloj.mibosmart.domain.session.Session
 import io.github.npauloj.mibosmart.domain.session.Token
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -15,22 +17,40 @@ import kotlinx.coroutines.test.runTest
 class VaultSessionStoreTest {
 
     @Test
-    fun roundTripsToken() = runTest {
+    fun roundTripsSession() = runTest {
         val store = VaultSessionStore(FakeSecureTokenStore())
 
-        store.write(Token(TOKEN))
+        store.write(Token(TOKEN), ISSUED_AT)
 
-        assertEquals(Token(TOKEN), store.read())
+        assertEquals(
+            Session(Token(TOKEN), ISSUED_AT),
+            store.read(),
+            "the credential and the instant it started counting down travel together (SPEC S7)",
+        )
     }
 
     @Test
     fun overwriteKeepsLatest() = runTest {
         val store = VaultSessionStore(FakeSecureTokenStore())
 
-        store.write(Token(TOKEN))
-        store.write(Token(RENEWED_TOKEN))
+        store.write(Token(TOKEN), ISSUED_AT)
+        store.write(Token(RENEWED_TOKEN), ISSUED_AT + 1.hours)
 
-        assertEquals(Token(RENEWED_TOKEN), store.read(), "a second write replaces the credential")
+        assertEquals(
+            Session(Token(RENEWED_TOKEN), ISSUED_AT + 1.hours),
+            store.read(),
+            "a second write replaces the credential and restarts the countdown",
+        )
+    }
+
+    /** The token's own alphabet is not relied on: the first separator ends the timestamp, not the last. */
+    @Test
+    fun tokenContainingTheSeparatorSurvives() = runTest {
+        val store = VaultSessionStore(FakeSecureTokenStore())
+
+        store.write(Token("um:token:esquisito"), ISSUED_AT)
+
+        assertEquals(Session(Token("um:token:esquisito"), ISSUED_AT), store.read())
     }
 
     @Test
@@ -38,6 +58,19 @@ class VaultSessionStoreTest {
         val store = VaultSessionStore(FakeSecureTokenStore())
 
         assertNull(store.read(), "a vault that was never written is an app without a session")
+    }
+
+    /**
+     * A bare token is what a build from before the `issuedAt` contract left behind (ADR-010).
+     *
+     * Without an `issuedAt` there is no expiry policy to apply, so the session is not one the app can
+     * reason about: it fails safe towards the token screen rather than warning at the wrong moment.
+     */
+    @Test
+    fun undecodableValueIsTreatedAsNoSession() = runTest {
+        val vault = FakeSecureTokenStore().apply { write(TOKEN) }
+
+        assertNull(VaultSessionStore(vault).read())
     }
 
     @Test
@@ -58,5 +91,6 @@ class VaultSessionStoreTest {
     private companion object {
         const val TOKEN = "um-token"
         const val RENEWED_TOKEN = "outro-token"
+        val ISSUED_AT = SessionSamples.IssuedAt
     }
 }

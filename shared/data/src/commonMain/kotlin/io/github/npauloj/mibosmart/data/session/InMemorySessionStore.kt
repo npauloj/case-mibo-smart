@@ -1,22 +1,24 @@
 package io.github.npauloj.mibosmart.data.session
 
+import io.github.npauloj.mibosmart.domain.session.Session
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
+import kotlin.time.Instant
 
 /**
- * Keeps the validated token for the lifetime of the process (SPEC S2, first half).
+ * Keeps the validated session for the lifetime of the process (SPEC S2, first half).
  *
- * Volatile on purpose: this slice writes nothing to disk, so a killed process asks for the token
- * again. S-01b puts the Keystore / Keychain vault behind the same interface (ADR-008) and this
- * implementation stays as the one tests use.
+ * Volatile on purpose: it writes nothing to disk, so a killed process asks for the token again.
+ * [VaultSessionStore] is what the app is wired to (ADR-008); this implementation stays as the one
+ * tests use, which is why it keeps the same `issuedAt` contract rather than inventing one.
  */
 class InMemorySessionStore : SessionStore {
 
-    private var token: Token? = null
+    private var session: Session? = null
 
-    override suspend fun read(): Token? = token
+    override suspend fun read(): Session? = session
 
-    override suspend fun write(token: Token) {
-        this.token = token
+    override suspend fun write(token: Token, issuedAt: Instant) {
+        session = Session(token, issuedAt)
     }
 }

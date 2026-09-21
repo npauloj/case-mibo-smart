@@ -64,7 +64,8 @@ internal class SmartHomeStreamingRepository(
      * The session's credential — a video screen reached without one is, to everything above, the same
      * thing as a refused token: there is nothing to retry but a new one (SPEC S6).
      */
-    private suspend fun token(): Token = sessionStore.read() ?: throw SmartHomeException.TokenRejected()
+    private suspend fun token(): Token =
+        sessionStore.read()?.token ?: throw SmartHomeException.TokenRejected()
 
     private fun StreamSessionDto.toSession(): StreamSession =
         StreamSession(id = sessionId, url = url, monitorUrl = monitorUrl, quotaGb = quotaGb)

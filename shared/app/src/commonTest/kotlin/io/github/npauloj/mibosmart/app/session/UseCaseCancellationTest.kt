@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.session
 
+import io.github.npauloj.mibosmart.app.FixedClock
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
 import kotlin.test.Test
@@ -26,6 +27,7 @@ class UseCaseCancellationTest {
         val authenticateToken = AuthenticateToken(
             FakeSessionRepository { awaitCancellation() },
             InMemorySessionStore(),
+            FixedClock(TokenSamples.Now),
         )
         var result: AuthenticationResult? = null
 

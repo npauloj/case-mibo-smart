@@ -1,5 +1,7 @@
 package io.github.npauloj.mibosmart.app.session
 
+import kotlin.time.Instant
+
 /**
  * The token fixtures every session test shares.
  *
@@ -23,4 +25,12 @@ internal object TokenSamples {
 
     /** The same token as a clipboard that dropped the second half. */
     val Truncated: String = Valid.take(20)
+
+    /**
+     * The instant the session tests call "now".
+     *
+     * Fixed so the expiry boundary of SPEC S7 can be asserted to the second instead of raced against
+     * the wall clock.
+     */
+    val Now: Instant = Instant.fromEpochMilliseconds(1_758_456_000_000)
 }

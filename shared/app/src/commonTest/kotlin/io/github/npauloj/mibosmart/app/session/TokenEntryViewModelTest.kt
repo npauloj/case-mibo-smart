@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.session
 
+import io.github.npauloj.mibosmart.app.FixedClock
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,7 +19,7 @@ class TokenEntryViewModelTest {
     @Test
     fun emptyInputKeepsSubmitDisabled() = runTest {
         val repository = FakeSessionRepository()
-        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore()))
+        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore(), FixedClock(TokenSamples.Now)))
 
         assertFalse(viewModel.state.value.canSubmit, "a cold start has nothing to validate")
 
@@ -36,7 +37,7 @@ class TokenEntryViewModelTest {
     @Test
     fun malformedTokenCostsNoRequest() = runTest {
         val repository = FakeSessionRepository()
-        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore()))
+        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore(), FixedClock(TokenSamples.Now)))
 
         viewModel.onTokenChange(TokenSamples.Truncated)
         advanceUntilIdle()
@@ -55,7 +56,7 @@ class TokenEntryViewModelTest {
     @Test
     fun aPastedTokenIsAcceptedWithItsTrailingNewline() = runTest {
         val repository = FakeSessionRepository()
-        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore()))
+        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore(), FixedClock(TokenSamples.Now)))
 
         viewModel.onTokenChange("${TokenSamples.Valid}\n")
         advanceUntilIdle()
@@ -73,7 +74,7 @@ class TokenEntryViewModelTest {
     fun validationLocksTheScreenAndCostsOneRequest() = runTest {
         val partnerAnswered = CompletableDeferred<Unit>()
         val repository = FakeSessionRepository { partnerAnswered.await() }
-        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore()))
+        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore(), FixedClock(TokenSamples.Now)))
         viewModel.onTokenChange(TokenSamples.Valid)
 
         val validation = launch { viewModel.onValidate() }

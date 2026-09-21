@@ -53,7 +53,9 @@ Option 2.
   the token screen with a specific message (RF04). Renewal via `renovarToken` is offered if the
   endpoint proves usable (`docs/api-contract.md` open question 3).
 - Repository hygiene: `.gitignore` covers `local.properties`, `*.keystore`, `.env*`; CI greps the
-  tree for the token prefix pattern `Ot_[0-9a-f]{20,}` and fails the build on a match.
+  tree for the token prefix pattern `Ot_[0-9A-Za-z]{20,}` and fails the build on a match. The class
+  is alphanumeric, not hexadecimal: a real token carries letters beyond `a`-`f`, so the original
+  `[0-9a-f]` could not match one and the gate would have passed a leaked credential (ADR-012).
 
 ## Consequences
 
@@ -63,7 +65,8 @@ Option 2.
 
 ## Confirmation
 
-- CI step: `rg -n "Ot_[0-9a-f]{20,}"` over the repository returns nothing.
+- CI step: `rg -n "Ot_[0-9A-Za-z]{20,}"` over the repository returns nothing. Verified against a
+  synthetic token whose body uses letters beyond `a`-`f` — the class the old pattern missed.
 - Unit test on the Ktor logger sanitizer: a request with an `Authorization` header logs `Bearer ***`.
 - Manual: after force-stopping the app the session survives; after logout the Keystore/Keychain entry
   is gone (`read()` returns null in a debug screen).

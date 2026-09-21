@@ -35,7 +35,9 @@ jobs:
 
       - name: No access token in the repository
         run: |
-          if git grep -nE 'Ot_[0-9a-f]{20,}' -- . ':!docs/api-contract.md'; then
+          # Alphanumeric, not hex: a real token carries letters beyond a-f, so the original
+          # [0-9a-f] class could not match one (ADR-012). Narrowing it again reopens the hole.
+          if git grep -nE 'Ot_[0-9A-Za-z]{20,}' -- . ':!docs/api-contract.md'; then
             echo "::error::An access token pattern was found in a versioned file"; exit 1
           fi
 

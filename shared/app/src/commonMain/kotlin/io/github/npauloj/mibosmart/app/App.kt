@@ -9,30 +9,32 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.npauloj.mibosmart.app.resources.Res
 import io.github.npauloj.mibosmart.app.resources.device_list_placeholder
 import io.github.npauloj.mibosmart.app.resources.device_list_title
 import io.github.npauloj.mibosmart.app.session.TokenScreen
 import io.github.npauloj.mibosmart.app.ui.AppTheme
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
+/**
+ * Startup routing (stored token, expiry guard) is the session slice that follows; here the app always
+ * starts on the token screen and the accepted token opens the destination below. Where the flag lives,
+ * and why it is not `rememberSaveable`, is in [AppViewModel].
+ */
 @Composable
-fun App() {
+fun App(viewModel: AppViewModel = koinViewModel()) {
     AppTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            // Startup routing (stored token, expiry guard) is the session slice that follows; here the
-            // app always starts on the token screen and the accepted token opens the destination below.
-            var authenticated by rememberSaveable { mutableStateOf(false) }
+            val authenticated by viewModel.authenticated.collectAsStateWithLifecycle()
             if (authenticated) {
                 DeviceListPlaceholder()
             } else {
-                TokenScreen(onAuthenticated = { authenticated = true })
+                TokenScreen(onAuthenticated = viewModel::onAuthenticated)
             }
         }
     }

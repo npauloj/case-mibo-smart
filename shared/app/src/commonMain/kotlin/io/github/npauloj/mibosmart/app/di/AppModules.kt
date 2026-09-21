@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.di
 
+import io.github.npauloj.mibosmart.app.AppViewModel
 import io.github.npauloj.mibosmart.app.session.AuthenticateToken
 import io.github.npauloj.mibosmart.app.session.TokenEntryViewModel
 import io.github.npauloj.mibosmart.data.di.dataModule
@@ -20,6 +21,7 @@ fun appModule(apiHost: String): Module = module {
     includes(dataModule(apiHost))
 
     factoryOf(::AuthenticateToken)
+    viewModelOf(::AppViewModel)
     viewModelOf(::TokenEntryViewModel)
 }
 

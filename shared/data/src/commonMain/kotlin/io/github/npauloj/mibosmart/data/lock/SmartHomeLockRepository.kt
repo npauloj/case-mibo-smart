@@ -49,7 +49,7 @@ internal class SmartHomeLockRepository(
      * reported as such rather than as a new error category nothing else could produce.
      */
     private suspend fun token(): Token =
-        sessionStore.read() ?: throw SmartHomeException.TokenRejected()
+        sessionStore.read()?.token ?: throw SmartHomeException.TokenRejected()
 
     /** The partner's `data` payload as [T], or [SmartHomeException.UnexpectedResponse] (SPEC E3). */
     private fun <T> decode(strategy: DeserializationStrategy<T>, payload: JsonElement): T = try {

@@ -12,5 +12,6 @@ import org.koin.dsl.module
  */
 internal val sessionAppModule: Module = module {
     factoryOf(::AuthenticateToken)
+    factoryOf(::SessionStartup)
     viewModelOf(::TokenEntryViewModel)
 }

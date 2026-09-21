@@ -16,6 +16,7 @@
     <string name="token_error_offline">Sem conexão</string>
     <string name="token_error_unexpected">Resposta inesperada</string>
     <string name="token_error_failed">Não foi possível validar o token</string>
+    <string name="session_expiring_soon">Token expira em breve</string>
 
     <string name="device_list_title">Dispositivos</string>
     <string name="device_list_placeholder">A lista de dispositivos chega na próxima entrega.</string>

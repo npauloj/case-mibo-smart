@@ -4,6 +4,7 @@ import io.github.npauloj.mibosmart.app.camera.WatchLiveVideo
 import io.github.npauloj.mibosmart.app.devices.ListDevices
 import io.github.npauloj.mibosmart.app.lock.LoadLock
 import io.github.npauloj.mibosmart.app.session.AuthenticateToken
+import io.github.npauloj.mibosmart.app.session.SessionStartup
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import org.koin.dsl.koinApplication
@@ -19,6 +20,16 @@ class AppModulesTest {
         val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
 
         assertNotNull(koin.get<AuthenticateToken>())
+
+        koin.close()
+    }
+
+    /** The first thing the app resolves: a missing binding here is a crash before any screen. */
+    @Test
+    fun theStartupUseCaseResolvesFromTheRealGraph() {
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+
+        assertNotNull(koin.get<SessionStartup>())
 
         koin.close()
     }

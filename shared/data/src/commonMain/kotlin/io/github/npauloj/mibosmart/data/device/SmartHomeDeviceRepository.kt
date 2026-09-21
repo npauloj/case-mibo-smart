@@ -27,7 +27,7 @@ internal class SmartHomeDeviceRepository(
     override suspend fun firstPage(): List<Device> {
         // No session, no call: spending a request to be told 401 is the one outcome already known
         // (ADR-006). The guard that routes back to the token screen reacts to the same type (SPEC D9).
-        val token = sessionStore.read() ?: throw SmartHomeException.TokenRejected()
+        val token = sessionStore.read()?.token ?: throw SmartHomeException.TokenRejected()
         val payload = api.listDevices(token, pageSize = PAGE_SIZE, page = FIRST_PAGE)
         val devices = try {
             smartHomeJson.decodeFromJsonElement(ListSerializer(DeviceDto.serializer()), payload)

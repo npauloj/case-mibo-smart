@@ -2,6 +2,7 @@ package io.github.npauloj.mibosmart.data.remote
 
 import io.github.npauloj.mibosmart.data.lock.SmartHomeLockRepository
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
+import io.github.npauloj.mibosmart.data.session.SessionSamples
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
@@ -100,7 +101,7 @@ class LockRequestsTest {
     }
 
     private suspend fun signedIn(): SessionStore =
-        InMemorySessionStore().apply { write(Token("um-token")) }
+        InMemorySessionStore().apply { write(Token("um-token"), SessionSamples.IssuedAt) }
 
     private fun HttpRequestData.bodyText(): String = (body as TextContent).text
 

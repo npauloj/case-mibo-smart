@@ -17,15 +17,19 @@ code and the numbers here are advisory.
 graph TD
   S01a["S-01a token entry + transport"] --> S01b["S-01b platform vault"]
   S01a --> S01c["S-01c token entry ergonomics"]
-  S01a --> S02["S-02 session lifetime"]
-  S01a --> D01["D-01 device list"]
-  S01a --> V01["V-01 live video"]
-  S01a --> L01["L-01 lock status + volume"]
-  S02 --> S03["S-03 token renewal"]
-  D01 --> D02["D-02 filter + pagination"]
-  L01 --> L02["L-02 open/close state machine"]
-  L01 --> L03["L-03 opening history"]
-  V01 --> V02["V-02 retry + web fallback"]
+  S01a --> S02a["S-02a startup + expiry banner"]
+  S01a --> D01a["D-01a device list"]
+  S01a --> V01a["V-01a live video, Android"]
+  S01a --> L01a["L-01a lock reads"]
+  S02a --> S02b["S-02b guard + logout + account"]
+  S02b --> S03["S-03 token renewal"]
+  D01a --> D01b["D-01b device cache"]
+  D01b --> D02["D-02 filter + pagination"]
+  V01a --> V01b["V-01b live video, iOS"]
+  V01a --> V02["V-02 retry + web fallback"]
+  L01a --> L01b["L-01b volume + enable remote open"]
+  L01a --> L02["L-02 open/close state machine"]
+  L01a --> L03["L-03 opening history"]
   L03 --> P01["P-01 Java interop module"]
 ```
 
@@ -115,326 +119,462 @@ graph TD
 ## Wave 2
 
 ### [S-01b] Persist the session in the platform vault  [P]
-- **Problem:** S-01a keeps the validated token in memory, so it dies with the process and the user
-  re-types it on every cold start. ADR-008 requires the credential to live in the platform's secure
-  storage, and S-02 cannot route from a stored session until one exists.
-- **Scope:** the `SecureTokenStore` `expect` with **both** actuals — Android Keystore-backed storage
-  and iOS Keychain — a `VaultSessionStore` implementing S-01a's `SessionStore` interface, and the DI
-  binding swap.
+- **Problem:** the validated token lives in `InMemorySessionStore`, so it dies with the process and the
+  user re-types it on every cold start. ADR-008 requires the credential to sit in the platform's secure
+  storage, and S-02a cannot route from a stored session until one survives.
+- **Scope:** the `SecureTokenStore` `expect` with both actuals (Android Keystore, iOS Keychain), a
+  `VaultSessionStore` that implements the existing `SessionStore` interface on top of it, and the
+  one-line DI binding swap.
 - **Non-goals:** any change to the token screen, the envelope reader, the typed errors or the HTTP
-  client from S-01a; startup routing, the expiry guard, logout or the account screen (S-02); renewal
-  (S-03). This slice changes **where** the token lives, not what the app does with it.
+  client; startup routing, the expiry guard, logout and the account screen (S-02a/S-02b); renewal
+  (S-03); widening `SessionStore` with `issuedAt` or `clear()` — ADR-010 assigns that to the slice that
+  has a caller for them. This slice changes **where** the token lives, not what the app does with it.
 - **Expected behaviour:** a token validated before the app is killed is still there when it starts
-  again. Nothing else the user sees changes — the same screen, the same states, the same flow.
+  again. Nothing the user sees changes: same screen, same states, same flow.
 - **Technical detail:** the `expect` lives in `:shared:data` under a package named `platform`
-  (rule 8, ADR-001/008) — never in `:androidApp` or `iosApp`. Android uses the Keystore-backed path of
-  ADR-008; iOS uses Keychain through the `platform.Security` cinterop. Writing an existing key
-  overwrites it; reading an absent key returns null rather than throwing. The binding change in
-  `AppModules.kt` is one line — **do not reformat or re-order the rest of the module**, because S-02,
-  D-01, V-01 and L-01 are editing the same file in this wave.
+  (rule 8, ADR-001/008) — never in `:androidApp`/`iosApp`. Android: AES/GCM key in `AndroidKeyStore`
+  with ciphertext + IV in a private `SharedPreferences`; iOS: `kSecClassGenericPassword` with
+  `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` via the `Security` cinterop. Writing an existing
+  key overwrites it; reading an absent key returns null rather than throwing.
+  **`AppModules.kt` changes by one binding line — do not reformat or re-order the rest**, because
+  S-01b, S-02a, D-01a, V-01a and L-01a all touch that file in this wave.
 - **Files:** `shared/data/src/commonMain/kotlin/io/github/npauloj/mibosmart/data/platform/vault/SecureTokenStore.kt`
   (expect), `shared/data/src/androidMain/kotlin/.../data/platform/vault/SecureTokenStore.android.kt`,
   `shared/data/src/iosMain/kotlin/.../data/platform/vault/SecureTokenStore.ios.kt`,
-  `shared/data/.../data/session/VaultSessionStore.kt`, `shared/app/.../app/di/AppModules.kt` (binding only).
+  `shared/data/src/commonMain/kotlin/.../data/session/VaultSessionStore.kt`,
+  `shared/data/src/commonTest/kotlin/.../data/session/VaultSessionStoreTest.kt`,
+  `shared/data/src/commonTest/kotlin/.../data/session/FakeSecureTokenStore.kt`,
+  `shared/data/src/commonMain/kotlin/.../data/di/DataModule.kt` (binding only).
 - **Depends on:** S-01a
 - **Issue:** #25
+- **Size:** ~2 points. ≈120 executable production lines + ≈60 test (ADR-011). Stop and return blocked
+  past ~200 executable.
 - **Acceptance criteria (EARS):** the persistence half of SPEC **S2** and the storage half of **S9**.
-  - WHEN a token is validated, THE SYSTEM SHALL write it to the platform vault, and WHEN the app is
-    started again, THE SYSTEM SHALL read the same token back
-    _(test: `SecureTokenStoreTest.roundTripsToken` on the Android host target and on the iOS simulator target)_
+  **Every criterion below is provable by `./gradlew :shared:data:testAndroidHostTest`** — the Keystore
+  and Keychain actuals cannot run there (no Robolectric, no instrumented source set, and the macOS CI
+  job does not run on PRs), so the platform proof is the manual step named under "Evidence", exactly as
+  ADR-008 §Confirmation already prescribes. **Do not add a test dependency to change this**; if you
+  believe one is required, return blocked and say which.
+  - WHEN a token is written and read back, THE SYSTEM SHALL return the same token
+    _(test: `VaultSessionStoreTest.roundTripsToken`, against `FakeSecureTokenStore`)_
   - WHEN a token is written over an existing one, THE SYSTEM SHALL keep only the newer value
-    _(test: `SecureTokenStoreTest.overwriteKeepsLatest`)_
-  - IF no token was ever stored, THE SYSTEM SHALL return null instead of throwing
-    _(test: `SecureTokenStoreTest.absentKeyReturnsNull`)_
-  - THE SYSTEM SHALL keep every behaviour of S-01a green after the store is swapped
-    _(test: the whole `AuthenticateTokenTest` suite passes unchanged against `VaultSessionStore`)_
-- **Test scenarios:** round trip; overwrite; absent key; S-01a's suite still green behind the new
-  implementation.
-- **Rollout / kill switch:** the `SessionStore` interface is the switch — reverting the one-line DI
-  binding restores S-01a's in-memory behaviour without touching any other code.
+    _(test: `VaultSessionStoreTest.overwriteKeepsLatest`)_
+  - IF nothing was ever stored, THE SYSTEM SHALL return null instead of throwing
+    _(test: `VaultSessionStoreTest.absentKeyReturnsNull`)_
+  - IF the platform store throws while reading, THE SYSTEM SHALL surface no session rather than crash
+    the app _(test: `VaultSessionStoreTest.readFailureIsTreatedAsNoSession`)_
+  - THE SYSTEM SHALL keep every S-01a behaviour green behind the new implementation
+    _(test: the existing `AuthenticateTokenTest` suite, unchanged, with `VaultSessionStore` bound)_
+- **Test scenarios:** round trip; overwrite; absent key; the platform store throwing; S-01a's suite
+  still green.
+- **Evidence — manual, named, and required in the PR body (ADR-008 §Confirmation):**
+  1. validate a token, force-stop the app, cold start → the app does **not** ask for the token again;
+  2. `adb shell run-as io.github.npauloj.mibosmart cat shared_prefs/*.xml` → the token does not appear
+     in plaintext;
+  3. state plainly that the **iOS Keychain actual was not executed** — the macOS job does not run on
+     PRs. Claiming otherwise is the failure mode this line exists to prevent.
+- **Rollout / kill switch:** the `SessionStore` interface is the switch — reverting the one binding
+  line restores the in-memory behaviour without touching any other code.
 - **Events / metrics:** n/a — no API calls.
-- **i18n / LGPD / factories:** the token never leaves the vault except as the `Authorization` header
-  and its last 4 characters (ADR-008).
-- **Applies to / ADRs:** androidMain + iosMain (`expect/actual`). Implements ADR-008; rule 8 covers the
-  `platform` package. **The iOS actual is only fully proven by the macOS CI job**, which does not run
-  on pull requests — say so in the PR body rather than claiming a green iOS build.
+- **i18n / LGPD / factories:** the token never leaves the vault except as the `Authorization` header and
+  its last 4 characters (ADR-008).
+- **Applies to / ADRs:** androidMain + iosMain (`expect/actual`). Implements ADR-008, follows ADR-010;
+  rule 8 covers the `platform` package.
 
-### [S-01c] Make the pasted token verifiable and reject a malformed one before it costs a request  [P]
-- **Problem:** S-01a shipped a paste button next to a fully masked field, so the user cannot tell a good
-  paste from a truncated one. The only way to find out is to submit — which spends one request from an
-  account budget of ~300 (ADR-006) and comes back as the same "Token inválido ou expirado" a genuinely
-  expired token produces. `docs/guides/token.md` §2 also claimed the app validated the format locally,
-  which was never true of the SPEC or the code.
-- **Scope:** a `VisualTransformation` that shows the public `Ot_` prefix and the last 4 characters in
-  clear and masks the middle; a character counter against the expected length; local validation of the
-  documented format (`Ot_` + 32 hex, whitespace trimmed) gating the "Validar" button; the
-  invalid-format field message and its preview.
-- **Non-goals:** any control that reveals the whole token — S9 forbids it and this slice deliberately
-  does not add an eye toggle; debug pre-fill from `local.properties`, closed as not adopted in
-  `docs/guides/token.md` §7; the vault (S-01b); startup routing, the expiry guard, logout and the
-  account screen (S-02); the device list (D-01); changing the envelope reader, the typed errors, the
-  HTTP client or the one-call validation built in S-01a.
-- **Expected behaviour:** as the user pastes or types, the field reads `Ot_••…••3a7f` with a counter
-  showing progress toward 35 characters. A token that does not match the documented format leaves
-  "Validar" disabled and, once something has been entered, shows "Token incompleto ou em formato
-  inválido" — with no API call at all. A well-formed token enables the button and behaves exactly as it
-  does today.
-- **Technical detail:** the format is `Ot_` + exactly 32 **alphanumeric** characters, 35 in total
-  (`docs/guides/token.md` §2). Trim surrounding whitespace before matching — clipboard content often
-  carries a trailing newline. The mask is a `VisualTransformation` with a correct `OffsetMapping`, or
-  the cursor lands in the wrong place; mask by codepoint count, never by byte. A field holding fewer
-  than 8 characters is masked **whole** — showing "the last 4" of a 5-character string would leak most
-  of it. The `Ot_` prefix is public (it is the documented format, not a secret); the middle 28
-  characters are never rendered.
-- **Files:** `shared/app/src/commonMain/kotlin/io/github/npauloj/mibosmart/app/session/TokenMask.kt`
-  (new — the `VisualTransformation` and its `OffsetMapping`),
-  `.../app/session/TokenFormat.kt` (new — the format predicate, or in `:shared:domain` beside `Token`
-  if it reads better there), `.../app/session/TokenEntryViewModel.kt` (extend `canSubmit` and the error
-  state), `.../app/session/TokenScreen.kt` (wire the transformation, the counter and the new message),
-  `.../app/session/TokenScreenPreviews.kt` (add `TokenScreen_Typing`, `TokenScreen_InvalidFormat`),
-  `shared/app/src/commonMain/composeResources/values/strings.xml` and `values-en/strings.xml`.
-- **Depends on:** S-01a
-- **Issue:** #27
-- **Size:** ~2 points. Target diff ≈ 250 lines total (≈ 120 production, ≈ 130 test). Stop and return
-  blocked past ~350 — this is a refinement of one screen, not a rewrite of it.
-- **Acceptance criteria (EARS):** SPEC **S1.1**, **S1.2**, and the entry-field half of **S9**. Tests:
-  `TokenMaskTest.showsPrefixAndLastFourOnly`, `TokenMaskTest.shortInputIsFullyMasked`,
-  `TokenMaskTest.offsetMappingRoundTrips` (cursor position survives the transformation both ways),
-  `TokenFormatTest.acceptsTheDocumentedFormat`, `.rejectsTruncatedPaste`, `.rejectsNonHexCharacters`,
-  `.trimsSurroundingWhitespace`, `TokenEntryViewModelTest.malformedTokenCostsNoRequest` (fake
-  repository call counter stays at **0**).
-  Previews: `TokenScreen_Typing` and `TokenScreen_InvalidFormat`, each with its dark variant through the
-  same `uiMode`-parameterised function; rule 11 fails the build without them.
-- **Test scenarios:** a full valid token; a paste truncated mid-way; a token with a trailing newline; a
-  token with a non-hex character; a 5-character fragment (masked whole, nothing leaked); the counter at
-  0, partial and 35; a malformed token proving the call counter never moves.
-- **Rollout / kill switch:** n/a — the change is confined to one screen's input handling and adds no
-  storage, no dependency and no network path. If the platform ever issues a different token format, the
-  predicate is one function and one test.
-- **Events / metrics:** n/a — the point of this slice is the request that is **not** made; that is
-  asserted by the call counter in `TokenEntryViewModelTest.malformedTokenCostsNoRequest`.
-- **i18n / LGPD / factories:** the new field message and the counter label go in Compose resources,
-  pt-BR default with en fallback (E6). The token is a credential — the middle is never rendered, never
-  logged, never copied anywhere (ADR-008).
-- **Applies to / ADRs:** commonMain only. Respects ADR-003 (one state per screen), ADR-006 (the budget
-  is the reason this exists) and ADR-008 / S9 (no reveal control anywhere).
-
-### [S-02] Start from the stored session, warn before expiry, and log out  [P]
-- **Problem:** S-01 stores a token but nothing reads it back. The app still asks for a token on every
-  cold start, an expired session fails silently in whichever screen hits it, and there is no way out.
-- **Scope:** startup routing from the vault; the session clock and the "expira em breve" banner; the
-  session guard that clears the vault on token-rejected and routes back with a reason and a return
-  destination; the account screen with token suffix, expiry and "Sair".
-- **Non-goals:** token renewal (S-03); the device list itself, its cache or its requests (D-01) — this
-  slice only routes to that destination and reads the cache if one exists; any change to the envelope
-  reader, the typed errors or the vault actuals built in S-01.
-- **Expected behaviour:** a cold start with a stored token opens the device list directly, with no
-  validation call. After 1 h 50 min a non-blocking banner warns that the token expires soon. When any
-  use case is token-rejected for a request sent with the *currently stored* token, the vault is cleared
-  and the user returns to the token screen with "Sua sessão expirou (tokens valem 2 h)"; after
-  re-validating, the app returns to the screen they were on. A rejection carrying a token that has
-  since been replaced is dropped and the vault is left alone. "Sair" clears the vault and returns to
-  the token screen. The account screen shows only the last 4 characters of the token.
-- **Technical detail:** the guard compares **token identity**, not timestamps — every failure carries
-  the token the request was sent with, so a renewal completing while an old request is in flight cannot
-  clear the new token (SPEC S6). Expiry is counted from the first successful validation
-  (`[ASSUMED]`, SPEC S7) with an injected clock so the tests use virtual time. No API call on a timer
-  (E5). The return destination travels with the rejection (U5).
-- **Files:** `shared/domain/.../domain/session/` (SessionState, expiry policy, Clock port);
-  `shared/data/.../data/session/` (session guard wiring on the repository layer);
-  `shared/app/.../app/session/` (SessionViewModel or startup coordinator, AccountScreen,
-  AccountScreenContent + `PreviewParameterProvider`, logout use case),
-  `shared/app/.../app/App.kt` and the navigation graph (start destination + the account route only —
-  do not reformat or re-order other destinations), `.../app/di/AppModules.kt`,
-  `shared/app/src/commonMain/composeResources/values/strings.xml`.
+### [S-02a] Start the app from a stored session and warn before it expires  [P]
+- **Problem:** S-01b will make the token survive a restart, but nothing reads it back: the app still
+  opens on the token screen every cold start, and a session that is about to die gives no warning.
+- **Scope:** startup routing from the stored session; the session clock and expiry policy in the
+  domain; the "Token expira em breve" banner on the device-list destination.
+- **Non-goals:** the token-identity session guard, logout and the account screen — those are **S-02b**;
+  renewal (S-03); the real device list, its cache or its requests (D-01a/D-01b) — this slice routes to
+  the **placeholder** destination S-01a created and does not render devices; any change to the vault
+  (S-01b) or to the token screen.
+- **Expected behaviour:** a cold start with a stored session opens the device-list destination directly,
+  with **no validation call**. A cold start without one opens the token screen, as today. Once the
+  session passes 1 h 50 min, a non-blocking banner appears on the device-list destination; it never
+  blocks interaction and has no action of its own yet.
+- **Technical detail:** the expiry clock is an injected `Clock` port in `:shared:domain` so tests use
+  virtual time; expiry counts from the first successful validation (`[ASSUMED]`, SPEC S7). **No API
+  call on a timer** (SPEC E5). The destination is the constant `AppDestination.DeviceList` that S-01a
+  already navigates to — **use that constant, do not introduce a second route name**; D-01a replaces
+  what it renders, not its name. `issuedAt` reaches `SessionStore` here, which is the widening ADR-010
+  assigns to the first slice with a caller for it — coordinate with S-01b, which is editing the same
+  interface in this wave: **S-01b owns the vault, this slice owns the `issuedAt` parameter.**
+- **Files:** `shared/domain/src/commonMain/kotlin/.../domain/session/Session.kt` (SessionState, expiry
+  policy, `Clock` port, `issuedAt` on the store),
+  `shared/app/src/commonMain/kotlin/.../app/session/SessionStartup.kt`,
+  `shared/app/src/commonMain/kotlin/.../app/AppViewModel.kt` (extend: route from the stored session),
+  `shared/app/src/commonMain/kotlin/.../app/App.kt` (banner slot on the placeholder destination only),
+  `shared/app/src/commonMain/kotlin/.../app/di/AppModules.kt` (registrations only),
+  `shared/app/src/commonMain/composeResources/values/strings.xml` and `values-en/strings.xml`,
+  `shared/app/src/commonTest/kotlin/.../app/session/SessionStartTest.kt`,
+  `shared/app/src/commonTest/kotlin/.../app/session/SessionStateTest.kt`.
 - **Depends on:** S-01a
 - **Issue:** #15
-- **Acceptance criteria (EARS):** SPEC **S5, S6, S7, S8**, the UI half of **S9**, and **U5**. Tests
-  named in the SPEC: `SessionStartTest.storedTokenSkipsEntry`,
-  `SessionGuardTest.rejectionClearsAndRoutes` / `.rejectionOfRotatedTokenDoesNotClearVault` /
-  `.rejectionCarriesReasonAndReturnDestination`, `SessionStateTest.warnsBeforeExpiry`,
-  `LogoutTest.clearsSecureStore`, `AccountViewModelTest.exposesSuffixOnly`,
-  `AuthenticateTokenTest.successNavigatesToReturnDestination`.
-  Previews: `AccountScreen_Valid`, `AccountScreen_ExpiringSoon`, `AccountScreen_Expired` + `_Dark`.
-- **Test scenarios:** stored token skips the entry screen; rejection of the current token clears and
-  routes; rejection of a rotated token does not; the banner appears exactly at 1 h 50 min on a fake
-  clock; logout empties the vault and a following cold start asks for a token again.
-- **Rollout / kill switch:** n/a — the guard fails safe (clearing a token only ever sends the user to
-  the entry screen).
-- **Events / metrics:** this slice **owns** the ADR-006 request counter end to end — the counter itself
-  (incremented once per API call in the HTTP client) and the account-screen surface that displays it in
-  debug builds. S-01a deliberately left it out, having no screen to show it on.
+- **Size:** ~2 points. ≈110 executable production lines + ≈70 test (ADR-011). Stop and return blocked
+  past ~200 executable.
+- **Acceptance criteria (EARS):** SPEC **S5** and **S7**.
+  - `SessionStartTest.storedTokenSkipsEntry` — a stored session opens the device-list destination and
+    the fake repository's call counter stays at **0**
+  - `SessionStartTest.noStoredTokenOpensTokenScreen`
+  - `SessionStateTest.warnsBeforeExpiry` — on a fake clock, the banner appears at 1 h 50 min and not before
+  - `SessionStateTest.freshSessionShowsNoBanner`
+  Preview: the placeholder destination with and without the banner, dark variant through the same
+  `uiMode`-parameterised function.
+- **Test scenarios:** stored session skips entry with zero calls; no session opens the token screen;
+  the banner at exactly 1 h 50 min on virtual time; a fresh session with no banner.
+- **Rollout / kill switch:** n/a — routing only, fails safe towards the token screen.
+- **Events / metrics:** n/a — the ADR-006 counter is S-02b's, with the account screen that shows it.
+- **i18n / LGPD / factories:** banner text in Compose resources, pt-BR default with en fallback (E6).
+- **Applies to / ADRs:** commonMain. ADR-003 (one state per screen), ADR-010 (`SessionStore` widens
+  here), ADR-006 (no polling).
+
+### [S-02b] Clear an expired session, log out, and show the account screen
+- **Problem:** when the partner rejects a request mid-session the app has nowhere to put that fact: the
+  user stays on a screen backed by a dead token, with no way out and no way to see what is going on.
+- **Scope:** the session guard that clears the stored session on 401/403 and routes back with a reason
+  and a return destination; "Sair"; the account screen with token suffix, expiry and the ADR-006
+  request counter in debug builds.
+- **Non-goals:** renewal (S-03); startup routing and the expiry banner (S-02a); the real device list
+  (D-01a); any change to the vault (S-01b) or to the envelope reader and error taxonomy, which are
+  already correct after ADR-012.
+- **Expected behaviour:** when any use case is refused for a request sent with the **currently stored**
+  token, the session is cleared and the user returns to the token screen — with the partner's own
+  sentence on a 403 and "Sua sessão expirou (tokens valem 2 h)" otherwise — and after re-validating,
+  the app returns to the screen they were on. A refusal carrying a token that has since been replaced
+  is dropped and the stored session is left alone. "Sair" clears the session and returns to the token
+  screen. The account screen shows only the last 4 characters of the token.
+- **Technical detail:** the guard compares **token identity**, never timestamps: every failure carries
+  the token its request was sent with, so a renewal completing while an old request is in flight cannot
+  wipe the new session (SPEC S6). Both `TokenRejected` (401) and `TokenExpired` (403) trigger it, and
+  the 403's `serverMessage` is shown as-is — the one category SPEC U6 allows quoting (ADR-012). The
+  return destination travels with the refusal (U5).
+- **Files:** `shared/domain/src/commonMain/kotlin/.../domain/session/SessionGuard.kt`,
+  `shared/data/src/commonMain/kotlin/.../data/session/` (carry the request's token on failure),
+  `shared/data/src/commonMain/kotlin/.../data/remote/RequestCounter.kt` (increment per API call),
+  `shared/app/src/commonMain/kotlin/.../app/session/Logout.kt`,
+  `shared/app/src/commonMain/kotlin/.../app/session/AccountViewModel.kt`,
+  `shared/app/src/commonMain/kotlin/.../app/session/AccountScreen.kt` + `AccountScreenPreviews.kt`,
+  `shared/app/src/commonMain/kotlin/.../app/App.kt` (account route only),
+  `.../app/di/AppModules.kt`, both `strings.xml`.
+- **Depends on:** S-02a
+- **Issue:** #32
+- **Size:** ~3 points. ≈190 executable production lines + ≈120 test (ADR-011). Stop and return blocked
+  past ~320 executable.
+- **Acceptance criteria (EARS):** SPEC **S6**, **S8**, the UI half of **S9**, and **U5**.
+  - `SessionGuardTest.rejectionClearsAndRoutes` (401) and `.expiryClearsAndRoutesWithServerMessage` (403)
+  - `SessionGuardTest.rejectionOfRotatedTokenDoesNotClearVault` — a refusal carrying a replaced token
+  - `SessionGuardTest.rejectionCarriesReasonAndReturnDestination`
+  - `LogoutTest.clearsSecureStore`
+  - `AccountViewModelTest.exposesSuffixOnly` — never more than the last 4 characters
+  - `AccountViewModelTest.showsRequestCount` — the ADR-006 counter in debug builds
+  Previews: `AccountScreen_Valid`, `_ExpiringSoon`, `_Expired`, each with its dark variant through the
+  same `uiMode`-parameterised function.
+- **Test scenarios:** 401 clears and routes; 403 clears and shows the server's sentence; a refusal of a
+  rotated token changes nothing; logout empties the store and a following cold start asks for a token;
+  the suffix is the only fragment rendered.
+- **Rollout / kill switch:** n/a — the guard fails safe: clearing a session only ever sends the user to
+  the entry screen.
+- **Events / metrics:** this slice **owns** the ADR-006 request counter end to end — the increment in
+  the HTTP layer and the debug surface that displays it.
 - **i18n / LGPD / factories:** strings in Compose resources; the token suffix is the only fragment ever
   rendered (ADR-008).
-- **Applies to / ADRs:** commonMain (the vault actuals already exist). ADR-003 (one `StateFlow` per
-  screen), ADR-008. Navigation events are a one-shot `SharedFlow` — Turbine is allowed there and only
-  there (`CLAUDE.md`).
+- **Applies to / ADRs:** commonMain. ADR-003, ADR-008, ADR-012 (both statuses trigger the guard).
+  Navigation events are a one-shot `SharedFlow` — Turbine is allowed there and only there (`CLAUDE.md`).
 
-### [D-01] List the account's devices with classification, ordering and an offline cache  [P]
-- **Problem:** the app authenticates and then has nothing to show. The device list is the hub every
-  other feature is reached from, and without a cache a cold start burns requests from a budget of ~300
-  for the whole case.
-- **Scope:** first page of `listar-dispositivos` (`tamanhoPagina: 20`, `origem: todos`); device
-  classification from `modelo`; row rendering with online/offline, origin badge, parent hub and "visto
-  pela última vez há X"; deterministic ordering; SQLDelight cache with a timestamp; loading / success /
-  empty / error / stale states with previews.
-- **Non-goals:** the origin filter chips' *behaviour*, next-page loading and the single-flight
-  serialisation (all D-02) — the chips render in this slice but selecting one is D-02's criterion; the
-  live-video and lock screens; `funcoes` calls (V-01 owns the capability check); pull-to-refresh (D-02).
-- **Expected behaviour:** opening the list requests page 1 once and renders the rows ordered as
+### [D-01a] List the account's devices, classified and ordered  [P]
+- **Problem:** the app authenticates and then shows a placeholder. The device list is the hub every
+  other feature is reached from, and it is also the first slice that can receive a device-not-found
+  error — the taxonomy S-01a deliberately left incomplete.
+- **Scope:** page 1 of `listar-dispositivos` (`tamanhoPagina: 20`, `origem: todos`); classification from
+  `modelo`; row rendering with online/offline, origin badge, parent hub and "visto pela última vez há
+  X"; deterministic ordering; loading / success / empty / error states with previews; completing the E2
+  taxonomy with device-not-found.
+- **Non-goals:** **all persistence** — the SQLDelight cache, its driver and the stale/offline banner are
+  **D-01b**, and nothing in this slice writes to disk; the origin filter's *behaviour*, next-page
+  loading and single-flight serialisation (D-02) — the chips render but selecting one is D-02's
+  criterion; pull-to-refresh (D-02); `funcoes` calls (V-01a owns the capability check); the live-video
+  and lock screens.
+- **Expected behaviour:** opening the list requests page 1 exactly once and renders the rows ordered as
   online cameras and locks, then other online devices, then offline devices, each group by name. An
   empty first page shows "Nenhum dispositivo para este filtro" with the chips still visible. A network
-  failure with a cache shows the cached rows with "Sem conexão — última atualização há N min" and a
-  retry; without a cache it shows the error state with retry. A token-rejected response defers to the
-  S-02 guard. Every successful page is written to the cache with its timestamp.
-- **Technical detail:** classification uses `modelo` only, with no extra call at list time —
-  `iM*` → Camera, `*MFR*` with a sub-device → Lock, `IOT-ZG2-IB` → Hub (`docs/api-contract.md` §4).
-  Offline devices carry `ultimaVezOnline`; absent means "nunca visto online" (U3). SQLDelight is
-  already pinned in `gradle/libs.versions.toml` and sanctioned by ADR-006 — applying the plugin to
-  `:shared:data` needs no new ADR, adding any *other* dependency does. Navigating back to the list
-  makes no request (D7 is D-02's test, but do not introduce a refetch here). Never write a real device
-  serial or `idProduto` into a versioned file — test fixtures use placeholders.
+  failure shows the error state with retry — **without a cache there is nothing else to show yet**. A
+  401/403 defers to the S-02b guard.
+- **Technical detail:** classification uses `modelo` only, with no extra call at list time — `iM*` →
+  Camera, `*MFR*` with a sub-device → Lock, `IOT-ZG2-IB` → Hub (`docs/api-contract.md` §4). Offline rows
+  carry `ultimaVezOnline`; absent means "nunca visto online" (U3). A wrapped envelope with
+  `statusCode: 404` and "Dispositivo não encontrado" is the **first** reachable device-not-found, so it
+  joins `SmartHomeException` as a new subtype — not a refactor (ADR-002, ADR-012). **Never write a real
+  device serial or `idProduto` into a versioned file**: fixtures use placeholders.
 - **Files:** `shared/domain/.../domain/device/Device.kt` (extend), `.../domain/device/DeviceClassifier.kt`,
-  `.../domain/device/DeviceOrdering.kt`; `shared/data/.../data/remote/` (listar-dispositivos request +
-  DTOs), `shared/data/.../data/local/` (SQLDelight `.sq`, driver `expect/actual` under
-  `data/platform/`, DeviceCache), `shared/data/build.gradle.kts` (SQLDelight plugin);
-  `shared/app/.../app/devices/` (ListDevices use case, DeviceListViewModel, DeviceUiMapper,
-  DeviceListScreen, DeviceListScreenContent + `PreviewParameterProvider`, PreviewFixtures),
-  `shared/app/.../app/App.kt` + navigation graph (the device-list destination only),
-  `.../app/di/AppModules.kt`, `shared/app/src/commonMain/composeResources/values/strings.xml`.
+  `.../domain/device/DeviceOrdering.kt`, `.../domain/error/SmartHomeException.kt` (DeviceNotFound);
+  `shared/data/.../data/remote/` (listar-dispositivos request + DTOs, 404 mapping);
+  `shared/app/.../app/devices/` (ListDevices, DeviceListViewModel, DeviceUiMapper, DeviceListScreen,
+  DeviceListScreenPreviews + `PreviewFixtures`), `.../app/App.kt` (the device-list destination replaces
+  the placeholder — **keep the route constant S-01a defined**), `.../app/di/AppModules.kt`, both
+  `strings.xml`.
 - **Depends on:** S-01a
 - **Issue:** #16
-- **Acceptance criteria (EARS):** SPEC **D1, D3, D5, D6, D8, D10**, **U3**, **U8**, **D9**
-  (deferring to the S-02 guard), and **E2 in full** — S-01a mapped only the four categories it could
-  observe, and this is the first slice that can receive a wrapped 404, so it completes the taxonomy
-  (device-not-found) and carries `ErrorMappingTest.exhaustive` and
-  `EnvelopeReaderTest.wrappedError404`. Tests named in the SPEC: `ListDevicesTest.firstPageUsesDefaults` /
-  `.emptyFirstPageIsEmptyState` / `.offlineWithCacheShowsStale` / `.offlineWithoutCacheShowsError`,
+- **Size:** ~3 points. ≈200 executable production lines + ≈140 test (ADR-011). Stop and return blocked
+  past ~350 executable.
+- **Acceptance criteria (EARS):** SPEC **D1, D3, D5, D6**, **U3**, **U8**, **D9** (defers to the guard),
+  and **E2 completed** with device-not-found. Tests: `ListDevicesTest.firstPageUsesDefaults` (exact
+  request via `MockEngine`), `.emptyFirstPageIsEmptyState`, `.networkFailureShowsError`,
+  `EnvelopeReaderTest.wrappedError404IsDeviceNotFound`, `ErrorMappingTest.exhaustive`,
   `DeviceClassifierTest.classifiesTestAccountInventory`, `DeviceUiMapperTest.subdeviceShowsParent` /
-  `.offlineRowShowsLastSeen` / `.offlineWithoutTimestampSaysNever`, `DeviceCacheTest.roundTripsPage`,
+  `.offlineRowShowsLastSeen` / `.offlineWithoutTimestampSaysNever`,
   `DeviceOrderingTest.onlineActionableFirstThenByName`.
-  Previews: `DeviceListScreen_Loading`, `_Success`, `_Empty`, `_Error`, `_Stale` + `_Dark` variants,
-  the provider including a very long name, an old `ultimaVezOnline` and 20 rows.
-- **Test scenarios:** a wrapped 404 mapping to device-not-found rather than token-rejected; the
-  exhaustive category mapping; exact request asserted through `MockEngine`; empty page 1; offline with and
-  without cache; a sub-device row showing its parent hub; ordering across mixed online/offline rows;
-  a cache round-trip.
-- **Rollout / kill switch:** n/a — read-only feature; the cache can be cleared by reinstalling.
-- **Events / metrics:** each list request increments the ADR-006 counter; the stale banner exposes the
-  cache age, which is the user-visible proof the cache is working.
-- **i18n / LGPD / factories:** strings in Compose resources; `PreviewFixtures` are built from the
-  captured inventory with **placeholder** serials, never the real account's.
-- **Applies to / ADRs:** commonMain + `expect/actual` SQLDelight driver under `data/platform/`.
-  Implements ADR-006; ADR-001, ADR-003 apply; rule 8 covers the driver.
+  Previews: `DeviceListScreen_Loading`, `_Success`, `_Empty`, `_Error`, each with its dark variant
+  through the same `uiMode`-parameterised function; the provider includes a very long name, an old
+  `ultimaVezOnline` and 20 rows.
+- **Test scenarios:** exact request asserted; empty page 1; network failure; a sub-device showing its
+  parent hub; ordering across mixed online/offline; a wrapped 404 becoming device-not-found rather than
+  a token error.
+- **Rollout / kill switch:** n/a — read-only, no persistence, no new dependency.
+- **Events / metrics:** one counter increment per list request (the counter itself is S-02b's).
+- **i18n / LGPD / factories:** strings in Compose resources; `PreviewFixtures` use **placeholder**
+  serials, never the test account's.
+- **Applies to / ADRs:** commonMain. ADR-002, ADR-003, ADR-004, ADR-006 (one request per entry).
 
-### [V-01] Watch a camera live: capability check, session, player and teardown  [P]
-- **Problem:** live video is the most-cited failure in the partner's real user reviews (a stream stuck
-  at "97 %" with no named error) and the case's highest-risk requirement. It also spends streaming
-  quota, so a session that is not closed on exit costs the account.
+### [D-01b] Cache the device list so a cold start costs nothing
+- **Problem:** D-01a calls the API on every entry. The account has ~300 requests for the whole case
+  (ADR-006), and an offline user sees an error where the app could show what it already knows.
+- **Scope:** the SQLDelight schema and its driver `expect/actual`, `DeviceCache` with a timestamp,
+  writing each successful page, the stale/offline state with "Sem conexão — última atualização há N
+  min", and a schema version with an explicit mismatch rule.
+- **Non-goals:** any change to classification, ordering, row layout or the request of D-01a; the filter
+  and pagination (D-02); caching anything other than the device list.
+- **Expected behaviour:** a successful page is written to the cache with its timestamp. A network
+  failure **with** a cache shows the cached rows plus a banner saying how old they are, and a retry;
+  **without** a cache it shows D-01a's error state. A cold start renders the cache before any network
+  result.
+- **Technical detail:** SQLDelight is already pinned in `gradle/libs.versions.toml` and sanctioned by
+  ADR-006, so applying the plugin to `:shared:data` needs no new ADR — **adding any other dependency
+  does**. The driver `expect/actual` lives under `data/platform/` (rule 8); `sqldelight-sqlite-driver`
+  is in the catalog, so the cache test runs on the JVM host.
+  **The schema carries a version constant, and a mismatch drops the table and refetches** — without
+  that rule, D-02 extending the row shape either crashes on an old cache or serves rows of the wrong
+  shape. That rule has its own test; it is not optional.
+- **Files:** `shared/data/src/commonMain/sqldelight/.../Device.sq`,
+  `shared/data/.../data/local/DeviceCache.kt`, `.../data/local/SchemaVersion.kt`,
+  `shared/data/.../data/platform/db/DatabaseDriverFactory.kt` (expect) + `androidMain`/`iosMain` actuals,
+  `shared/data/build.gradle.kts` (SQLDelight plugin), `.../data/di/DataModule.kt`,
+  `shared/app/.../app/devices/DeviceListViewModel.kt` (stale state), `DeviceListScreenPreviews.kt`
+  (`_Stale`), both `strings.xml`.
+- **Depends on:** D-01a
+- **Issue:** #33
+- **Size:** ~3 points. ≈170 executable production lines + ≈120 test (ADR-011). Stop and return blocked
+  past ~300 executable.
+- **Acceptance criteria (EARS):** SPEC **D8**, **D10**, and **U2** (cache rendered before the network).
+  - `DeviceCacheTest.roundTripsPage`
+  - `DeviceCacheTest.schemaVersionMismatchDropsAndRefetches` — the rule above, proven
+  - `ListDevicesTest.offlineWithCacheShowsStale` / `.offlineWithoutCacheShowsError`
+  - `SessionStartTest.cachedListRenderedBeforeNetwork` — state asserted before the fake repository answers
+  Preview: `DeviceListScreen_Stale` + dark variant.
+- **Test scenarios:** round trip; a version bump dropping the table; offline with and without a cache;
+  the cache rendering before the network answers.
+- **Rollout / kill switch:** the version constant **is** the kill switch — bumping it discards every
+  cached row on next launch. Reinstalling the app clears it entirely.
+- **Events / metrics:** the stale banner's age is the user-visible proof the cache works.
+- **i18n / LGPD / factories:** banner text in Compose resources; cached rows hold no credential.
+- **Applies to / ADRs:** commonMain + `expect/actual` driver under `data/platform/`. Implements ADR-006;
+  rule 8 covers the driver.
+
+### [V-01a] Watch a camera live on Android: capability, session, player and teardown  [P]
+- **Problem:** live video is the most-cited failure in the partner's real user reviews and the case's
+  highest-risk requirement. It also spends streaming quota, so a session left open costs the account.
 - **Scope:** the `funcoes` capability check cached per camera per install; session creation with the
-  exact documented body; handing `data.url` to the native player inside the 15-second expiry window;
-  the loading overlay with a named step; quota-exceeded and offline states; teardown on back, on
-  `ON_STOP` and on mid-creation cancellation; the iOS actual.
-- **Non-goals:** the retry policy, the first-frame timeout and the "Abrir no player web" fallback
-  (all V-02); recordings, PTZ, two-way audio, snapshots, multi-camera grid; changing the device list.
+  documented body; handing `data.url` to the player inside the 15-second expiry window; the loading
+  overlay with a named step; quota-exceeded and offline states; teardown on back, on `ON_STOP` and on
+  mid-creation cancellation; the **Android** Media3 actual.
+- **Non-goals:** the **iOS** actual and the ADR-005 checkpoint — those are **V-01b**; the retry policy,
+  the first-frame timeout and the web fallback (V-02); recordings, PTZ, two-way audio, snapshots,
+  multi-camera grid; changing the device list.
+  **No test may issue a real `criar-fluxo-video`, `funcoes` or `encerrar-sessao` call** — all three are
+  exercised through `MockEngine` only. The account's streaming quota is shared and finite.
 - **Expected behaviour:** opening a camera checks capability at most once per camera per install and,
   without `RTSV`, says "Esta câmera não anuncia vídeo ao vivo" without creating a session. Otherwise a
-  session is created and the player is prepared in the same coroutine, before any other suspension.
-  While creating or reconnecting the screen shows the current step in words — never a percentage and
-  never an unbounded spinner. Quota exhaustion shows "Cota de streaming esgotada" with no retry; an
-  offline camera shows "Câmera offline" and creates nothing. Leaving the screen, backgrounding it, or
-  cancelling mid-creation detaches the player and calls `encerrar-sessao` for the active `session_id`.
+  session is created and the player prepared in the same coroutine, before any other suspension. While
+  creating or reconnecting the screen shows the current step **in words** — never a percentage, never an
+  unbounded spinner. Quota exhaustion shows "Cota de streaming esgotada" with no retry; an offline
+  camera shows "Câmera offline" and creates nothing. Leaving, backgrounding or cancelling mid-creation
+  detaches the player and calls `encerrar-sessao` for the active `session_id`.
 - **Technical detail:** create with `stream_gb: 0.5`, `streamId: 1`, `canalVideo: 0`
   (`docs/api-contract.md` §6); `data.url` expires in 15 s. Teardown runs from the **app-level
-  `SupervisorJob` scope under `NonCancellable`** with a 5 s timeout — never from `viewModelScope`,
-  which is already cancelled when the ViewModel is cleared (SPEC V8). `ON_STOP` is observed by the
-  screen through `LifecycleEventEffect` calling `viewModel.stop()`. The player is an
-  `expect @Composable LiveVideoPlayer` in `app.camera.platform` — Media3 on Android, **WKWebView on
-  `monitor_url`** on iOS, no VLCKit (ADR-005). Under `LocalInspectionMode` the surface renders a
-  placeholder so previews do not load a player. This slice fills the ADR-005 checkpoint table
-  (chore #9) and amends the ADR for whatever does not hold on the real camera.
+  `SupervisorJob` scope under `NonCancellable`** with a 5 s timeout — never from `viewModelScope`, which
+  is already cancelled when the ViewModel is cleared (SPEC V8). `ON_STOP` is observed by the screen
+  through `LifecycleEventEffect` calling `viewModel.stop()`. The player is an
+  `expect @Composable LiveVideoPlayer` in `app.camera.platform` (rule 8, ADR-005); **this slice ships
+  only the Android actual** — the iOS one is `TODO()`-free by being declared in V-01b, so keep the
+  `expect` and the `androidMain` actual in the same PR and let V-01b add `iosMain`.
+  **Media3 goes in `shared/app/build.gradle.kts` under `androidMain.dependencies`** — the actual lives
+  in `:shared:app/androidMain`, and `:androidApp` depends on `:shared:app`, not the reverse, so a
+  dependency declared in `androidApp` would be invisible to it. Add to `gradle/libs.versions.toml`:
+  `media3 = "1.11.1"` with `media3-exoplayer` and `media3-ui`. This is the one new dependency, already
+  argued in ADR-005 — **adding any other one requires an ADR line first** (`CLAUDE.md`).
+  Under `LocalInspectionMode` the surface renders a placeholder so previews load no player.
 - **Files:** `shared/domain/.../domain/camera/` (StreamState, stream session model);
   `shared/data/.../data/remote/` (funcoes, criar-fluxo-video, encerrar-sessao requests + DTOs),
-  `shared/data/.../data/local/` (capability cache);
-  `shared/app/.../app/camera/` (WatchLiveVideo use case, LiveVideoViewModel, LiveVideoScreen,
-  LiveVideoScreenContent + `PreviewParameterProvider`),
-  `shared/app/.../app/camera/platform/LiveVideoPlayer.kt` + `androidMain`/`iosMain` actuals,
-  `shared/app/.../app/App.kt` + navigation graph (the `live/{ns}` destination only — the list row that
-  opens it is D-02's edge; do not reformat other destinations), `.../app/di/AppModules.kt`,
-  `androidApp/build.gradle.kts` (Media3 — the one new dependency, already argued in ADR-005),
-  `shared/app/src/commonMain/composeResources/values/strings.xml`, `docs/adr/ADR-005-live-video-native-players.md`.
+  `shared/data/.../data/local/CapabilityCache.kt`;
+  `shared/app/.../app/camera/` (WatchLiveVideo, LiveVideoViewModel, LiveVideoScreen,
+  LiveVideoScreenPreviews), `.../app/camera/platform/LiveVideoPlayer.kt` (expect) +
+  `shared/app/src/androidMain/.../app/camera/platform/LiveVideoPlayer.android.kt`,
+  `shared/app/build.gradle.kts` (`androidMain.dependencies`), `gradle/libs.versions.toml`,
+  `.../app/App.kt` (the `live/{ns}` destination only — the list row that opens it is D-02's edge),
+  `.../app/di/AppModules.kt`, both `strings.xml`.
 - **Depends on:** S-01a
 - **Issue:** #17
-- **Acceptance criteria (EARS):** SPEC **V1, V2, V3, V6, V7, V8, V10**. Tests named in the SPEC:
+- **Size:** ~3 points. ≈210 executable production lines + ≈150 test (ADR-011). Stop and return blocked
+  past ~360 executable.
+- **Acceptance criteria (EARS):** SPEC **V1, V2, V3, V6, V7, V8**. Tests:
   `WatchLiveVideoTest.capabilityCheckedOnce` / `.noRtsvNoSession` / `.exactCreateRequest` /
   `.playerPreparedImmediately` / `.quotaExceededState` / `.offlineCameraNoSession`,
   `LiveVideoViewModelTest.stateSequenceOnHappyPath` / `.stopEndsSessionAndDetachesPlayer` /
   `.cancellationMidCreationStillEndsSession` / `.teardownUsesAppScopeNotViewModelScope`,
-  `LiveVideoScreenLifecycleTest` (fake `LifecycleOwner`, Android host),
-  `LiveVideoPlayerIosTest.rendersWebViewForMonitorUrl` (iOS simulator target).
+  `LiveVideoScreenLifecycleTest` (fake `LifecycleOwner`, Android host).
   Previews: `LiveVideoScreen_Creating`, `_Live`, `_Expired`, `_QuotaExceeded`, `_Offline`,
-  `_NoLiveCapability` + `_Dark`. Screen `StateFlow` is asserted with `state.value` after
-  `advanceUntilIdle()` on a `StandardTestDispatcher` — **not** Turbine (`CLAUDE.md`).
-- **Test scenarios:** happy path state sequence; camera without `RTSV`; quota exceeded; offline camera;
-  teardown after the ViewModel is cleared; cancellation during creation still ends the session.
-- **Rollout / kill switch:** the WebView fallback route arrives in V-02; until then, a camera that
-  cannot play lands in a named failure state rather than a spinner. Streaming quota is the real risk —
-  every test asserts the session is ended, and no test may hit the live API.
-- **Events / metrics:** the ADR-006 counter covers `funcoes`, `criar-fluxo-video` and
-  `encerrar-sessao`; the live state shows session consumption when the API reports it.
+  `_NoLiveCapability`, each with its dark variant through the same `uiMode`-parameterised function.
+  Screen `StateFlow` is read via `state.value` after `advanceUntilIdle()` on a `StandardTestDispatcher`
+  — **never Turbine** (`CLAUDE.md`).
+- **Test scenarios:** happy-path state sequence; a camera without `RTSV`; quota exceeded; an offline
+  camera; teardown after the ViewModel is cleared; cancellation during creation still ending the session.
+- **Rollout / kill switch:** `local.properties` key `smarthome.liveVideoEnabled` (default `true`) reaches
+  the app through `BuildConfig`; when false, opening a camera goes straight to the
+  `NoLiveCapability` state and **no session is ever created**. This is what makes it safe to run the app
+  on the shared account without spending quota, and it is required — not optional.
+- **Events / metrics:** the ADR-006 counter covers `funcoes`, `criar-fluxo-video` and `encerrar-sessao`;
+  the live state shows session consumption when the API reports it.
 - **i18n / LGPD / factories:** strings in Compose resources; `monitor_url` and any session id are
   request data, never logged or committed.
-- **Applies to / ADRs:** commonMain + androidMain/iosMain (`LiveVideoPlayer`). Implements ADR-005 and
-  closes its checkpoint (chore #9); rule 8 covers `app.camera.platform`.
+- **Applies to / ADRs:** commonMain + androidMain. Implements ADR-005 (Android half); rule 8 covers
+  `app.camera.platform`.
 
-### [L-01] Read a lock's state: composite address, remote-open precondition and volume  [P]
+### [V-01b] Play the stream on iOS, and close the ADR-005 checkpoint
+- **Problem:** V-01a ships the Android half; on iOS the `expect` has no actual, so the framework does
+  not link. ADR-005's player plan is also still a checkpoint (chore #9), written before anyone pointed
+  a real camera at it.
+- **Scope:** the `iosMain` actual of `LiveVideoPlayer` as a WKWebView on `monitor_url`; filling the
+  ADR-005 checkpoint table with what the real camera showed, and amending the ADR where it does not hold.
+- **Non-goals:** any change to the Android actual, the use case, the ViewModel or the states from V-01a;
+  the retry policy and the web fallback button (V-02); VLCKit, which ADR-005 rejected.
+- **Expected behaviour:** on iOS the camera screen plays through a WKWebView pointed at `monitor_url`,
+  with the same states the Android screen shows. If the Mac check proves the monitor page unusable in
+  WKWebView, the slice records that in ADR-005 and falls back to the system browser, as V10 allows.
+- **Technical detail:** WKWebView on iOS 17.1+ offers only `ManagedMediaSource` (`[ASSUMED]`, SPEC V9) —
+  **verify on the Mac before writing player code**, and record the result either way. No VLCKit
+  (ADR-005). This slice is only fully proven by the macOS CI job, which **does not run on PRs**: say so
+  in the PR body rather than claiming a green iOS build.
+- **Files:** `shared/app/src/iosMain/kotlin/.../app/camera/platform/LiveVideoPlayer.ios.kt`,
+  `shared/app/src/iosTest/kotlin/.../app/camera/LiveVideoPlayerIosTest.kt`,
+  `docs/adr/ADR-005-live-video-native-players.md` (checkpoint table).
+- **Depends on:** V-01a
+- **Issue:** #34
+- **Size:** ~2 points. ≈90 executable production lines + ≈40 test (ADR-011). Stop and return blocked
+  past ~160 executable.
+- **Acceptance criteria (EARS):** SPEC **V10**, and the iOS half of **V2** and **V8**.
+  - `LiveVideoPlayerIosTest.rendersWebViewForMonitorUrl` (iOS simulator target)
+  - `LiveVideoPlayerIosTest.disposeReleasesTheWebView`
+  - the ADR-005 checkpoint table filled row by row with observed / not observed, and chore #9 closed
+- **Test scenarios:** the actual renders for a `monitor_url`; disposal releases it; the framework links
+  for both iOS targets.
+- **Rollout / kill switch:** the same `smarthome.liveVideoEnabled` flag of V-01a; and if the Mac check
+  fails, the documented fallback is the system browser (V10).
+- **Events / metrics:** n/a beyond V-01a's counters.
+- **i18n / LGPD / factories:** n/a — no new user-facing strings.
+- **Applies to / ADRs:** iosMain. Completes ADR-005 and closes its checkpoint (chore #9).
+
+### [L-01a] Read a lock's state: composite address and the three parallel reads  [P]
 - **Problem:** the lock is addressed differently from every other device — a composite namespace plus
-  its own `idProduto` — and remote opening is gated by a precondition that is invisible until it is
-  read. Without this the open/close slice would be guessing at both.
-- **Scope:** composite address construction; the three parallel reads (`status-abertura`,
-  `status-abrir-remoto`, `volume`); the `RemoteOpenDisabled` state with its explicit enable action;
-  the 0–3 volume control with `mudar-volume`; loading / offline / error states with previews.
-- **Non-goals:** open and close, the confirmation state machine and its timeout (all L-02); the opening
-  history (L-03); dynamic, periodic or single-use passwords; enabling remote open as a hidden side
-  effect of any other action.
+  its own `idProduto` — and its remote-open precondition is invisible until it is read. Without this,
+  every later lock slice would be guessing at both.
+- **Scope:** composite address construction; the three reads (`status-abertura`, `status-abrir-remoto`,
+  `volume`) issued in parallel; rendering the current open/closed state, the remote-open precondition as
+  an **explanatory, read-only** state, and the current volume level; loading / offline / error states
+  with previews.
+- **Non-goals:** **every write** — `mudar-volume` and `habilitar-abrir-remoto` are **L-01b**, and this
+  slice sends no request that changes device state; open and close (L-02); the opening history (L-03);
+  dynamic, periodic or single-use passwords.
 - **Expected behaviour:** opening the lock screen issues exactly three requests in parallel and shows
-  the current open/closed state, whether remote opening is enabled, and the volume level labelled
-  Mudo / Baixo / Médio / Alto. When remote opening is disabled the screen explains it and offers
-  "Habilitar abertura remota"; the open/close control stays disabled until it is enabled. Picking a
-  volume calls `mudar-volume` and only shows the new level after the call succeeds. An offline lock
-  shows the last known state with "última atualização há X" and blocks commands.
+  the current open/closed state, the volume level labelled Mudo / Baixo / Médio / Alto, and — when
+  remote opening is disabled — an explanation of what that means and that it must be enabled before the
+  lock can be commanded. **No control in this slice enables it**; L-01b adds that action. An offline
+  lock shows the last known state with "última atualização há X".
 - **Technical detail:** the lock is addressed as `<lockNs>_<hubNs>_<hubIdProduto>` with `idProduto` =
-  the lock's own id (SPEC L1; `docs/api-contract.md` §5). The volume read must send **both**
-  `idProduto` and `productId` — a documented contract bug (§5, L8). No auto-polling and no timer-driven
-  call (E5). Never commit a real lock namespace or `idProduto`: tests and previews use `<lock-ns>`-style
+  the lock's own id (SPEC L1, `docs/api-contract.md` §5). The volume read must send **both** `idProduto`
+  and `productId` — a documented contract bug (§5, L8). No auto-polling, no timer-driven call (E5).
+  **Never commit a real lock namespace or `idProduto`**: tests and previews use `<lock-ns>`-style
   placeholders.
-- **Files:** `shared/domain/.../domain/lock/` (LockState, LockAddress, volume level);
-  `shared/data/.../data/remote/` (status-abertura, status-abrir-remoto, volume, mudar-volume,
-  habilitar-abrir-remoto requests + DTOs, LockRequests);
-  `shared/app/.../app/lock/` (LoadLock and ChangeVolume use cases, LockViewModel, LockUiMapper,
-  LockScreen, LockScreenContent + `PreviewParameterProvider`),
-  `shared/app/.../app/App.kt` + navigation graph (the lock destination only),
-  `.../app/di/AppModules.kt`, `shared/app/src/commonMain/composeResources/values/strings.xml`.
+- **Files:** `shared/domain/.../domain/lock/` (LockState, LockAddress, VolumeLevel);
+  `shared/data/.../data/remote/` (status-abertura, status-abrir-remoto, volume requests + DTOs,
+  LockRequests); `shared/app/.../app/lock/` (LoadLock, LockViewModel, LockUiMapper, LockScreen,
+  LockScreenPreviews), `.../app/App.kt` (the lock destination only), `.../app/di/AppModules.kt`,
+  both `strings.xml`.
 - **Depends on:** S-01a
 - **Issue:** #18
-- **Acceptance criteria (EARS):** SPEC **L1, L2, L7, L8**, plus the offline half of **L5** and **U3**
-  as it applies to the lock. Tests named in the SPEC: `LoadLockTest.compositeAddress` /
-  `.exactlyThreeRequestsInParallel`, `LockViewModelTest.remoteDisabledBlocksCommand`,
-  `ChangeVolumeTest.exactRequestAndOptimisticOff`, `LockRequestsTest.volumeRequestCarriesBothIds`,
+- **Size:** ~3 points. ≈180 executable production lines + ≈120 test (ADR-011). Stop and return blocked
+  past ~300 executable.
+- **Acceptance criteria (EARS):** SPEC **L1**, **L8**, the read half of **L2**, the offline half of
+  **L5**, and **U3** as it applies to the lock. Tests:
+  `LoadLockTest.compositeAddress`, `.exactlyThreeRequestsInParallel`,
+  `LockRequestsTest.volumeRequestCarriesBothIds`,
+  `LockViewModelTest.remoteDisabledIsExplained` — the state is shown and **no** enable request exists yet,
   `LockUiMapperTest.offlineStateCarriesLastSeen`.
-  Previews: `LockScreen_Loading`, `_Locked`, `_Unlocked`, `_RemoteOpenDisabled`, `_Offline`, `_Error`
-  + `_Dark` variants.
-- **Test scenarios:** the composite address is built exactly as specified; three requests and no more,
-  issued in parallel; remote-open disabled blocks the control; a volume change is not shown before the
-  call returns; an offline lock keeps its last known state.
-- **Rollout / kill switch:** n/a for the reads. "Habilitar abertura remota" changes device state, so it
-  is an explicit, labelled user action and never implicit.
-- **Events / metrics:** three counter increments per screen entry (ADR-006) — the budget assertion is
-  part of `LoadLockTest`.
+  Previews: `LockScreen_Loading`, `_Locked`, `_Unlocked`, `_RemoteOpenDisabled`, `_Offline`, `_Error`,
+  each with its dark variant through the same `uiMode`-parameterised function.
+- **Test scenarios:** the composite address built exactly as specified; three requests and no more,
+  issued in parallel; remote-open disabled rendered as explanation; an offline lock keeping its last
+  known state.
+- **Rollout / kill switch:** n/a — this slice is **read-only by construction**, which is why it is
+  separate from L-01b: nothing here can change a lock's state.
+- **Events / metrics:** three counter increments per screen entry (ADR-006) — asserted by `LoadLockTest`.
 - **i18n / LGPD / factories:** strings in Compose resources; placeholders for every device identifier.
-- **Applies to / ADRs:** commonMain. ADR-002 (typed results per use case), ADR-003, ADR-006.
+- **Applies to / ADRs:** commonMain. ADR-002, ADR-003, ADR-006.
 
----
+### [L-01b] Change the lock's volume, and enable remote opening deliberately
+- **Problem:** L-01a can read a lock but not change anything. One of the two writes here —
+  `habilitar-abrir-remoto` — **changes the security posture of a physical door**, and the original
+  ticket carried it with no acceptance criterion and no test at all. That is the gap this slice closes.
+- **Scope:** the 0–3 volume control calling `mudar-volume`; the explicit "Habilitar abertura remota"
+  action calling `habilitar-abrir-remoto`, with the state refresh and failure path each named by a test.
+- **Non-goals:** open and close (L-02); the history (L-03); disabling remote opening — the app only ever
+  enables it, and never as a side effect of anything else; any change to L-01a's reads or address.
+- **Expected behaviour:** picking a volume calls `mudar-volume` and shows the new level **only after**
+  the call succeeds. "Habilitar abertura remota" is a labelled, explicit action the user must choose: on
+  success the screen re-reads `status-abrir-remoto` and the lock becomes commandable; on failure the
+  control stays disabled and the reason is shown. Nothing else in the app can enable remote opening.
+- **Technical detail:** `habilitar-abrir-remoto` takes `{ ns, idProduto, habilitar: true }`
+  (`docs/api-contract.md` §5) with L-01a's composite address. `mudar-volume` takes `volume: 0..3`. Both
+  are writes, so neither is optimistic: the UI follows the API, never leads it.
+- **Files:** `shared/data/.../data/remote/` (mudar-volume, habilitar-abrir-remoto requests + DTOs),
+  `shared/app/.../app/lock/ChangeVolume.kt`, `.../app/lock/EnableRemoteOpen.kt`,
+  `.../app/lock/LockViewModel.kt` (extend), `.../app/lock/LockScreen.kt` (extend) +
+  `LockScreenPreviews.kt`, both `strings.xml`.
+- **Depends on:** L-01a
+- **Issue:** #35
+- **Size:** ~2 points. ≈120 executable production lines + ≈110 test (ADR-011). Stop and return blocked
+  past ~230 executable.
+- **Acceptance criteria (EARS):** SPEC **L7**, and the action half of **L2**.
+  - WHEN the user picks a volume level, THE SYSTEM SHALL send `mudar-volume` with that integer and SHALL
+    show the new level only after success _(test: `ChangeVolumeTest.exactRequestAndOptimisticOff`)_
+  - WHEN the user chooses "Habilitar abertura remota", THE SYSTEM SHALL send `habilitar-abrir-remoto`
+    with the composite address and `habilitar: true` _(test: `EnableRemoteOpenTest.exactRequest`)_
+  - WHEN that call succeeds, THE SYSTEM SHALL re-read `status-abrir-remoto` and leave the lock
+    commandable _(test: `EnableRemoteOpenTest.successRefreshesStatusAbrirRemoto`)_
+  - IF it fails, THE SYSTEM SHALL keep the open/close control disabled and name the reason
+    _(test: `EnableRemoteOpenTest.failureKeepsCommandDisabled`)_
+  - THE SYSTEM SHALL never enable remote opening except through that action
+    _(test: `EnableRemoteOpenTest.noOtherPathEnablesIt` — every other intent leaves the flag untouched)_
+  Previews: `LockScreen_RemoteOpenDisabled` gains the action; volume selector states + dark variants.
+- **Test scenarios:** exact bodies for both writes; volume not shown before success; enable succeeding
+  then refreshing; enable failing and leaving the control disabled; no other path flipping the flag.
+- **Rollout / kill switch:** enabling remote opening is a **user-initiated, labelled action** and never
+  implicit — that is the control. **No test may call the real API**; both endpoints are exercised
+  through `MockEngine` only.
+- **Events / metrics:** one counter increment per write, plus one for the refresh after enabling.
+- **i18n / LGPD / factories:** the enable action's label and explanation in Compose resources — it
+  changes a door's security posture, so the wording says so plainly.
+- **Applies to / ADRs:** commonMain. ADR-002, ADR-003, ADR-006.
 
 ## Wave 3
 
@@ -461,7 +601,7 @@ graph TD
   (filter model, paging state), `shared/data/.../data/local/` (preferences for the filter),
   `shared/app/.../app/App.kt` + navigation graph (the list → `live/{ns}` edge only),
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
-- **Depends on:** D-01
+- **Depends on:** D-01b
 - **Issue:** #19
 - **Acceptance criteria (EARS):** SPEC **D2, D4, D7, D11** and **U2**. Tests named in the SPEC:
   `PaginationTest.fullPageHasMore` / `.shortPageEndsList` / `.emptyPageEndsListWithoutExtraCall` /
@@ -505,7 +645,7 @@ graph TD
   `shared/app/.../app/lock/ToggleLock.kt`, `shared/app/.../app/lock/LockViewModel.kt` (extend),
   `shared/app/.../app/lock/LockScreenContent.kt` (extend + previews),
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
-- **Depends on:** L-01
+- **Depends on:** L-01a
 - **Issue:** #20
 - **Acceptance criteria (EARS):** SPEC **L3, L4, L6** and the command half of **L5**. Tests named in
   the SPEC: `ToggleLockTest.happyPathConfirmsWithStatusRead` /
@@ -546,7 +686,7 @@ graph TD
   `shared/app/.../app/lock/OpeningHistory.kt` (use case), `.../app/lock/OpeningHistoryViewModel.kt`,
   `.../app/lock/OpeningHistoryContent.kt` + `PreviewParameterProvider`,
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
-- **Depends on:** L-01
+- **Depends on:** L-01a
 - **Issue:** #21
 - **Acceptance criteria (EARS):** SPEC **L9, L10** and **U4**. Tests named in the SPEC:
   `OpeningHistoryTest.mapsKnownTypes` / `.unknownTypeShownRaw` / `.emptyState` /
@@ -586,7 +726,7 @@ graph TD
   `shared/app/.../app/camera/LiveVideoScreenContent.kt` (extend + previews),
   `shared/app/.../app/camera/platform/` (WebView fallback surface, androidMain/iosMain),
   `shared/app/src/commonMain/composeResources/values/strings.xml`, `docs/adr/ADR-005-live-video-native-players.md`.
-- **Depends on:** V-01
+- **Depends on:** V-01a
 - **Issue:** #22
 - **Acceptance criteria (EARS):** SPEC **V4, V5, V9** and **U1**. Tests named in the SPEC:
   `PlaybackRetryPolicyTest.*` including `.decodeErrorNoRetry`,
@@ -624,7 +764,7 @@ graph TD
   `shared/app/.../app/session/RenewToken.kt`, `.../app/session/AccountScreenContent.kt` (extend),
   `shared/app/src/commonMain/composeResources/values/strings.xml`, `docs/api-contract.md` (record what
   the one real call returned), `docs/adr/` (new ADR only if the endpoint contradicts the assumption).
-- **Depends on:** S-02
+- **Depends on:** S-02b
 - **Issue:** #23
 - **Acceptance criteria (EARS):** SPEC **S10**. Tests: `RenewTokenTest.replacesStoredToken`,
   `RenewTokenTest.failureKeepsCurrentToken`. Preview: `AccountScreen_ExpiringSoon` gains the action.
@@ -688,10 +828,11 @@ graph TD
 
 | Graph depth | Slices | Requirements | Milestone (calendar) |
 |---|---|---|---|
-| 1 | S-01a | RF01, RF04, security | Wave 1 |
-| 2 | S-01b `[P]` · S-01c `[P]` · S-02 `[P]` · D-01 `[P]` · V-01 `[P]` · L-01 `[P]` | RF01, RF02, RF03, RF04, RF05, RF06 | Wave 2 |
-| 3 | D-02 · L-02 · L-03 · V-02 · S-03 | RF02, RF03, RF05, RF07, RF08, RF09 | Wave 3 |
-| 4 | P-01 | ★ Java | Wave 3 |
+| 1 | S-01a ✅ | RF01, RF04, security | Wave 1 |
+| 2 | S-01b `[P]` · S-01c ✅ · S-02a `[P]` · D-01a `[P]` · V-01a `[P]` · L-01a `[P]` | RF01, RF02, RF03, RF04, RF05, RF06 | Wave 2 |
+| 3 | S-02b · D-01b · V-01b · L-01b · L-02 · L-03 · V-02 | RF01, RF02, RF03, RF04, RF05, RF06, RF09 | Wave 2/3 |
+| 4 | D-02 · S-03 | RF02, RF07, RF08, RF01 | Wave 3 |
+| 5 | P-01 | ★ Java | Wave 3 |
 
 **Graph depth is not the calendar.** The orchestrator derives depth from `Depends on:` and dispatches
 one depth per invocation; the `Wave N` milestone is the day in `docs/PROCESS.md` §2 that the work is
@@ -701,6 +842,15 @@ first item in the circuit-breaker cut list.
 Depth 1 holds a single slice on purpose: `docs/PROCESS.md` §2 states that the HTTP client, the
 envelope reader and the typed errors are built by the first functional slice that needs them, so
 everything else waits on S-01a rather than on a foundation ticket.
+
+**The five wave-2 slices were split after the gate rejected all of them** (2026-09-21). Three rejections
+were about content, not size, and they are the reason this file is worth reading: `L-01` carried
+`habilitar-abrir-remoto` — the one write that changes a physical door's security posture — with **no
+acceptance criterion and no test**; `V-01` put Media3 in `androidApp`, where the `actual` that needs it
+cannot see it, with no pinned version and no way to stop a test from spending real streaming quota; and
+`S-01b` named tests that **cannot run anywhere in this project** (AndroidKeyStore on a plain JVM host,
+iOS on a CI job that does not run on PRs). Each rewrite fixes the defect and splits reads from writes,
+so the half that can change device state is the small, separately reviewable one.
 
 **S-01c was added after S-01a shipped**, from a usability gap the owner spotted: the paste button
 sat next to a fully masked field, so a truncated clipboard could only be discovered by spending a

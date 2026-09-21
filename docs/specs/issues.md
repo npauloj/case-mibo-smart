@@ -181,12 +181,13 @@ graph TD
 - **Applies to / ADRs:** androidMain + iosMain (`expect/actual`). Implements ADR-008, follows ADR-010;
   rule 8 covers the `platform` package.
 
-### [S-02a] Start the app from a stored session and warn before it expires  [P]
+### [S-02a] Start the app from a stored session and warn before it expires
 - **Problem:** S-01b will make the token survive a restart, but nothing reads it back: the app still
   opens on the token screen every cold start, and a session that is about to die gives no warning.
 - **Scope:** startup routing from the stored session; the session clock and expiry policy in the
   domain; the "Token expira em breve" banner on the device-list destination.
-- **Non-goals:** the token-identity session guard, logout and the account screen — those are **S-02b**;
+- **Non-goals:** `SessionStore.clear()` — S-02b adds it with the logout that calls it; the token-identity
+  session guard, logout and the account screen — those are **S-02b**;
   renewal (S-03); the real device list, its cache or its requests (D-01a/D-01b) — this slice routes to
   the **placeholder** destination S-01a created and does not render devices; any change to the vault
   (S-01b) or to the token screen.
@@ -198,9 +199,29 @@ graph TD
   virtual time; expiry counts from the first successful validation (`[ASSUMED]`, SPEC S7). **No API
   call on a timer** (SPEC E5). The destination is the constant `AppDestination.DeviceList` that S-01a
   already navigates to — **use that constant, do not introduce a second route name**; D-01a replaces
-  what it renders, not its name. `issuedAt` reaches `SessionStore` here, which is the widening ADR-010
-  assigns to the first slice with a caller for it — coordinate with S-01b, which is editing the same
-  interface in this wave: **S-01b owns the vault, this slice owns the `issuedAt` parameter.**
+  what it renders, not its name.
+
+  **This slice owns the `SessionStore` widening, and this is its final shape — write exactly this:**
+
+  ```kotlin
+  interface SessionStore {
+      /** The current session, or `null` when there is none. */
+      suspend fun read(): Session?
+      /** Stores [token] as the session's credential, replacing any previous one. */
+      suspend fun write(token: Token, issuedAt: Instant)
+  }
+
+  /** A stored session: the credential and when it started counting down (SPEC S7). */
+  data class Session(val token: Token, val issuedAt: Instant)
+  ```
+
+  `clear()` is **not** added here — S-02b adds it, in the slice that has a logout to call it. The two
+  implementations that must follow: `InMemorySessionStore` (S-01a) and `VaultSessionStore` (S-01b, PR
+  #37) — the latter persists `issuedAt` alongside the token through `SecureTokenStore`, whose shape
+  after #37 is `internal interface SecureTokenStore { fun read(): String?; fun write(token: String) }`
+  with `internal expect fun Scope.secureTokenStore(): SecureTokenStore`. Widen that too if you need a
+  second value, or encode both into the one stored string — **your call, but state which in the PR.**
+  The fake used by `SessionStartTest` is this slice's to write.
 - **Files:** `shared/domain/src/commonMain/kotlin/.../domain/session/Session.kt` (SessionState, expiry
   policy, `Clock` port, `issuedAt` on the store),
   `shared/app/src/commonMain/kotlin/.../app/session/SessionStartup.kt`,
@@ -210,10 +231,11 @@ graph TD
   `shared/app/src/commonMain/composeResources/values/strings.xml` and `values-en/strings.xml`,
   `shared/app/src/commonTest/kotlin/.../app/session/SessionStartTest.kt`,
   `shared/app/src/commonTest/kotlin/.../app/session/SessionStateTest.kt`.
-- **Depends on:** S-01a
+- **Depends on:** S-01b
 - **Issue:** #15
-- **Size:** ~2 points. ≈110 executable production lines + ≈70 test (ADR-011). Stop and return blocked
-  past ~200 executable.
+- **Size:** ~2 points. ≈130 executable production lines + ≈80 test (ADR-011). Stop and return blocked
+  past ~220 executable. **The stop threshold is an instruction, not advice**: two slices in this wave
+  passed theirs and shipped anyway.
 - **Acceptance criteria (EARS):** SPEC **S5** and **S7**.
   - `SessionStartTest.storedTokenSkipsEntry` — a stored session opens the device-list destination and
     the fake repository's call counter stays at **0**
@@ -388,7 +410,10 @@ graph TD
   documented body; handing `data.url` to the player inside the 15-second expiry window; the loading
   overlay with a named step; quota-exceeded and offline states; teardown on back, on `ON_STOP` and on
   mid-creation cancellation; the **Android** Media3 actual.
-- **Non-goals:** the **iOS** actual and the ADR-005 checkpoint — those are **V-01b**; the retry policy,
+- **Non-goals:** the **real** iOS player and the ADR-005 checkpoint — those are **V-01b**. This slice
+  ships an `iosMain` **placeholder actual** (see Technical detail): an `expect` without an `actual` for
+  a declared target does not compile, and because the macOS job does not run on pull requests it would
+  merge green and break `main`. The retry policy,
   the first-frame timeout and the web fallback (V-02); recordings, PTZ, two-way audio, snapshots,
   multi-camera grid; changing the device list.
   **No test may issue a real `criar-fluxo-video`, `funcoes` or `encerrar-sessao` call** — all three are
@@ -405,9 +430,16 @@ graph TD
   `SupervisorJob` scope under `NonCancellable`** with a 5 s timeout — never from `viewModelScope`, which
   is already cancelled when the ViewModel is cleared (SPEC V8). `ON_STOP` is observed by the screen
   through `LifecycleEventEffect` calling `viewModel.stop()`. The player is an
-  `expect @Composable LiveVideoPlayer` in `app.camera.platform` (rule 8, ADR-005); **this slice ships
-  only the Android actual** — the iOS one is `TODO()`-free by being declared in V-01b, so keep the
-  `expect` and the `androidMain` actual in the same PR and let V-01b add `iosMain`.
+  `expect @Composable LiveVideoPlayer` in `app.camera.platform` (rule 8, ADR-005). **Both actuals ship
+  here**: the Android one is the real Media3 player; the iOS one is a placeholder composable that
+  renders "Vídeo ao vivo chega na próxima entrega" and **creates no session**. V-01b replaces that
+  placeholder with the WKWebView — it does not introduce the declaration.
+
+  **Before opening the PR, `./gradlew :shared:app:compileKotlinIosSimulatorArm64
+  -Pkotlin.native.enableKlibsCrossCompilation=true -Pkotlin.native.ignoreDisabledTargets=false` must
+  pass, and its output goes in the PR body.** It cross-compiles Kotlin/Native from Windows, so an iOS
+  `expect/actual` is verified before merge instead of after — the S-01b worker proved this works on
+  this machine (PR #37). Without it, the only iOS check is the macOS CI job, which does not run on PRs.
   **Media3 goes in `shared/app/build.gradle.kts` under `androidMain.dependencies`** — the actual lives
   in `:shared:app/androidMain`, and `:androidApp` depends on `:shared:app`, not the reverse, so a
   dependency declared in `androidApp` would be invisible to it. Add to `gradle/libs.versions.toml`:
@@ -420,19 +452,24 @@ graph TD
   `shared/app/.../app/camera/` (WatchLiveVideo, LiveVideoViewModel, LiveVideoScreen,
   LiveVideoScreenPreviews), `.../app/camera/platform/LiveVideoPlayer.kt` (expect) +
   `shared/app/src/androidMain/.../app/camera/platform/LiveVideoPlayer.android.kt`,
+  `shared/app/src/iosMain/.../app/camera/platform/LiveVideoPlayer.ios.kt` (placeholder actual),
   `shared/app/build.gradle.kts` (`androidMain.dependencies`), `gradle/libs.versions.toml`,
   `.../app/App.kt` (the `live/{ns}` destination only — the list row that opens it is D-02's edge),
   `.../app/di/AppModules.kt`, both `strings.xml`.
 - **Depends on:** S-01a
 - **Issue:** #17
 - **Size:** ~3 points. ≈210 executable production lines + ≈150 test (ADR-011). Stop and return blocked
-  past ~360 executable.
+  past ~360 executable. **The stop threshold is an instruction, not advice**: two slices in this wave
+  passed theirs and shipped anyway.
 - **Acceptance criteria (EARS):** SPEC **V1, V2, V3, V6, V7, V8**. Tests:
   `WatchLiveVideoTest.capabilityCheckedOnce` / `.noRtsvNoSession` / `.exactCreateRequest` /
   `.playerPreparedImmediately` / `.quotaExceededState` / `.offlineCameraNoSession`,
   `LiveVideoViewModelTest.stateSequenceOnHappyPath` / `.stopEndsSessionAndDetachesPlayer` /
   `.cancellationMidCreationStillEndsSession` / `.teardownUsesAppScopeNotViewModelScope`,
   `LiveVideoScreenLifecycleTest` (fake `LifecycleOwner`, Android host).
+  - WHILE running on iOS, THE SYSTEM SHALL render the placeholder surface and SHALL create no streaming
+    session _(evidence: the cross-compile command above passes; no iOS unit test is in scope for this
+    slice — V-01b adds `LiveVideoPlayerIosTest`)_
   Previews: `LiveVideoScreen_Creating`, `_Live`, `_Expired`, `_QuotaExceeded`, `_Offline`,
   `_NoLiveCapability`, each with its dark variant through the same `uiMode`-parameterised function.
   Screen `StateFlow` is read via `state.value` after `advanceUntilIdle()` on a `StandardTestDispatcher`
@@ -451,10 +488,11 @@ graph TD
   `app.camera.platform`.
 
 ### [V-01b] Play the stream on iOS, and close the ADR-005 checkpoint
-- **Problem:** V-01a ships the Android half; on iOS the `expect` has no actual, so the framework does
-  not link. ADR-005's player plan is also still a checkpoint (chore #9), written before anyone pointed
-  a real camera at it.
-- **Scope:** the `iosMain` actual of `LiveVideoPlayer` as a WKWebView on `monitor_url`; filling the
+- **Problem:** V-01a ships the Android player and an iOS **placeholder** that says the feature is not
+  there yet. iOS users see a message where the stream should be. ADR-005's player plan is also still a
+  checkpoint (chore #9), written before anyone pointed a real camera at it.
+- **Scope:** **replacing V-01a's iOS placeholder** in the existing `iosMain` actual of
+  `LiveVideoPlayer` with a WKWebView on `monitor_url` — the `expect` and the file already exist; filling the
   ADR-005 checkpoint table with what the real camera showed, and amending the ADR where it does not hold.
 - **Non-goals:** any change to the Android actual, the use case, the ViewModel or the states from V-01a;
   the retry policy and the web fallback button (V-02); VLCKit, which ADR-005 rejected.

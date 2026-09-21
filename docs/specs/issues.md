@@ -756,7 +756,10 @@ graph TD
   `shared/app/.../app/camera/LiveVideoScreenContent.kt` (extend + previews),
   `shared/app/.../app/camera/platform/` (WebView fallback surface, androidMain/iosMain),
   `shared/app/src/commonMain/composeResources/values/strings.xml`, `docs/adr/ADR-005-live-video-native-players.md`.
-- **Depends on:** V-01a
+- **Depends on:** V-01b
+  _(**stacked edge, ADR-015**: V-02 needs only V-01a logically, but it rewrites the same
+  `LiveVideoViewModel`, `LiveVideoScreen` and `app/camera/platform` surface as V-01b. Branch from
+  `slice/v-01b`, not `main`, and say so in the PR body — the CI green is against the stack.)_
 - **Issue:** #22
 - **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
 - **Acceptance criteria (EARS):** SPEC **V4, V5, V9** and **U1**. Tests named in the SPEC:

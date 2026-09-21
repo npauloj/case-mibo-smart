@@ -1,8 +1,10 @@
 package io.github.npauloj.mibosmart.app.session
 
 import app.cash.turbine.test
+import io.github.npauloj.mibosmart.app.FixedClock
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
+import io.github.npauloj.mibosmart.domain.session.Session
 import io.github.npauloj.mibosmart.domain.session.Token
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,7 +33,11 @@ class AuthenticateTokenTest {
         }
 
         assertEquals(1, repository.calls, "validation must cost exactly one request")
-        assertEquals(Token(TOKEN), store.read())
+        assertEquals(
+            Session(Token(TOKEN), TokenSamples.Now),
+            store.read(),
+            "the session starts counting down from the acceptance, off the injected clock (SPEC S7)",
+        )
         assertNull(viewModel.state.value.error)
         assertEquals(false, viewModel.state.value.isValidating)
     }
@@ -89,7 +95,7 @@ class AuthenticateTokenTest {
     }
 
     private fun viewModelWith(repository: FakeSessionRepository, store: InMemorySessionStore) =
-        TokenEntryViewModel(AuthenticateToken(repository, store))
+        TokenEntryViewModel(AuthenticateToken(repository, store, FixedClock(TokenSamples.Now)))
 
     private companion object {
         /** Well-formed: since S1.2 the screen refuses to submit anything else (see [TokenSamples]). */

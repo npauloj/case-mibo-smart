@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.session
 
+import io.github.npauloj.mibosmart.app.FixedClock
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -47,7 +48,7 @@ class TokenEntryViewModelCancellationTest {
     fun validationSurvivesTheCompositionThatStartedIt() = runTest(mainDispatcher) {
         val partnerAnswered = CompletableDeferred<Unit>()
         val repository = FakeSessionRepository { partnerAnswered.await() }
-        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore()))
+        val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore(), FixedClock(TokenSamples.Now)))
         viewModel.onTokenChange(TokenSamples.Valid)
 
         // Stands in for the composition: the scope the screen's tap arrives on, and the one a

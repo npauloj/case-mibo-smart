@@ -1,6 +1,10 @@
 package io.github.npauloj.mibosmart.domain.session
 
 import kotlin.jvm.JvmInline
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /**
  * A partner access token: a bearer credential that lives at most 2 h and opens a physical lock.
@@ -15,21 +19,71 @@ value class Token(val value: String) {
 }
 
 /**
- * Where the validated token lives for the lifetime of the session.
+ * A stored session: the credential and when it started counting down (SPEC S7).
  *
- * The functions suspend on purpose: S-01b puts the Keystore / Keychain vault behind this same
- * interface (ADR-008) and its reads and writes are blocking platform I/O.
+ * [issuedAt] is the moment the partner first accepted the token, not the moment it was written to the
+ * vault — the two are the same call, and counting from acceptance is what `[ASSUMED]` in SPEC S7
+ * states. It is stored beside the token rather than derived, because a cold start has no other way to
+ * know how much of the 2 h window is left: nothing on the wire says so, and asking would be an API
+ * call on a timer (SPEC E5, ADR-006).
+ */
+data class Session(val token: Token, val issuedAt: Instant) {
+
+    /**
+     * How the session reads on a given clock — the one input the expiry banner has (SPEC S7).
+     *
+     * [now] is passed in rather than read here: the policy is a pure function of two instants, so a
+     * test can put the boundary wherever it likes and the caller owns which clock it trusts.
+     */
+    fun stateAt(now: Instant): SessionState =
+        if (remainingUntilWarning(now) <= Duration.ZERO) SessionState.ExpiringSoon else SessionState.Valid
+
+    /**
+     * How long until [stateAt] turns to [SessionState.ExpiringSoon]; zero or negative once it has.
+     *
+     * This is what lets the app warn *while it is open* without polling anything: the caller waits
+     * this one duration out and wakes up once, instead of asking the clock on a tick (ADR-006).
+     */
+    fun remainingUntilWarning(now: Instant): Duration = WARN_AFTER - (now - issuedAt)
+
+    companion object {
+
+        /**
+         * The partner's tokens last 2 h, and the app warns 10 min before that (SPEC S7).
+         *
+         * Ten minutes is the margin S-03's "Renovar" needs to be a choice rather than a race; until
+         * renewal exists the warning is still the difference between a session that ends in the
+         * user's hands and one that ends mid-tap.
+         */
+        val WARN_AFTER: Duration = 1.hours + 50.minutes
+    }
+}
+
+/** How much life a session has left, in the only granularity the UI acts on (SPEC S7). */
+enum class SessionState {
+
+    /** Far enough from the 2 h limit that the app says nothing. */
+    Valid,
+
+    /** Past [Session.WARN_AFTER] — the device list shows the non-blocking banner. */
+    ExpiringSoon,
+}
+
+/**
+ * Where the validated session lives for as long as the user is signed in.
  *
- * Deliberately narrower than ADR-008's `SecureTokenStore`: `issuedAt` and `clear()` arrive with the
- * slices that have a caller for them — the expiry guard and logout (ADR-010).
+ * The functions suspend because the implementation behind them is the platform vault (ADR-008) and
+ * its reads and writes are blocking platform I/O.
+ *
+ * Deliberately still without `clear()`: logout is the slice that has a caller for it (S-02b, ADR-010).
  */
 interface SessionStore {
 
-    /** The token of the current session, or `null` when there is none. */
-    suspend fun read(): Token?
+    /** The current session, or `null` when there is none. */
+    suspend fun read(): Session?
 
     /** Stores [token] as the session's credential, replacing any previous one. */
-    suspend fun write(token: Token)
+    suspend fun write(token: Token, issuedAt: Instant)
 }
 
 /**

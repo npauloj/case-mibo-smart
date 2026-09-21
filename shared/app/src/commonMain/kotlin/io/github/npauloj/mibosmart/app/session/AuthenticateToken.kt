@@ -5,23 +5,27 @@ import io.github.npauloj.mibosmart.domain.session.SessionRepository
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Clock
 
 /**
  * What "Validar" means on the token screen: one partner call and, only if it was accepted, a stored
  * session (SPEC S2 first half, S3, S4).
  *
  * The order matters — the token is written after the partner accepted it, so a rejected token leaves
- * nothing behind.
+ * nothing behind. It is also what makes [Clock] the right source for `issuedAt`: the session starts
+ * counting down from the acceptance, which is the instant right here, and never from a partner field
+ * (SPEC S7 `[ASSUMED]`).
  */
 class AuthenticateToken(
     private val sessionRepository: SessionRepository,
     private val sessionStore: SessionStore,
+    private val clock: Clock,
 ) {
 
     suspend operator fun invoke(token: Token): AuthenticationResult =
         try {
             sessionRepository.validateToken(token)
-            sessionStore.write(token)
+            sessionStore.write(token, clock.now())
             AuthenticationResult.Success
         } catch (cancellation: CancellationException) {
             throw cancellation

@@ -6,6 +6,7 @@ import io.github.npauloj.mibosmart.data.remote.HttpClientFactory
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.data.remote.smartHomeJson
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
+import io.github.npauloj.mibosmart.data.session.SessionSamples
 import io.github.npauloj.mibosmart.domain.camera.StreamingRepository
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
@@ -154,7 +155,7 @@ class WatchLiveVideoTest {
             baseUrl = "https://api.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
         ),
-        sessionStore = InMemorySessionStore().apply { token?.let { write(it) } },
+        sessionStore = InMemorySessionStore().apply { token?.let { write(it, SessionSamples.IssuedAt) } },
         json = smartHomeJson,
         capabilities = InMemoryCapabilityCache(),
     )

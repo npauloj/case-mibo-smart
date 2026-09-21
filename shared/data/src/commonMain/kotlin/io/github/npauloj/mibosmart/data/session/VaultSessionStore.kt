@@ -1,20 +1,23 @@
 package io.github.npauloj.mibosmart.data.session
 
 import io.github.npauloj.mibosmart.data.platform.vault.SecureTokenStore
+import io.github.npauloj.mibosmart.domain.session.Session
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Instant
 
 /**
- * The session's credential in the platform's vault — Keystore on Android, Keychain on iOS (SPEC S2,
- * second half; ADR-008).
+ * The session in the platform's vault — Keystore on Android, Keychain on iOS (SPEC S2, second half;
+ * ADR-008).
  *
- * Same interface and same behaviour as [InMemorySessionStore]: this slice changes **where** the token
- * lives, not what the app does with it. Reverting the one binding line in `dataModule` restores the
- * in-memory store.
+ * `issuedAt` travels inside the one string the vault already holds instead of as a second entry.
+ * ADR-008 asks for `(token, issuedAt)` to be stored **atomically**, and one entry is the only shape
+ * that cannot half-fail; it also leaves the two hand-verified platform actuals (ADR-008 §Confirmation,
+ * ADR-013) untouched, so widening the session contract costs no new device round of manual proof.
  *
- * Widening to ADR-008's `write(token, issuedAt)` and `clear()` belongs to the slices that have a
- * caller for them — the expiry guard and logout (ADR-010).
+ * The encoding is `<epochMillis>:<token>`. Splitting at the **first** separator is what makes it safe
+ * for any token value, not an assumption about the token's alphabet.
  */
 internal class VaultSessionStore(private val vault: SecureTokenStore) : SessionStore {
 
@@ -25,10 +28,14 @@ internal class VaultSessionStore(private val vault: SecureTokenStore) : SessionS
      * screen-lock change, a Keychain error — and the only caller of this function decides where to
      * route from its answer. Crashing on startup because a cipher failed would be the worst of the
      * three possible outcomes; asking for the token again is the recoverable one.
+     *
+     * A stored value that does not decode is treated the same way, which is also what a token written
+     * by a build from before this contract looks like: no `issuedAt` means no expiry policy, and a
+     * session the app cannot reason about is worse than one more paste (SPEC S7).
      */
-    override suspend fun read(): Token? =
+    override suspend fun read(): Session? =
         try {
-            vault.read()?.let(::Token)
+            vault.read()?.let(::decode)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Throwable) {
@@ -39,7 +46,21 @@ internal class VaultSessionStore(private val vault: SecureTokenStore) : SessionS
      * A failed write is not swallowed: `AuthenticateToken` already turns it into a named failure on
      * the token screen, which beats telling the user the session was saved when it was not.
      */
-    override suspend fun write(token: Token) {
-        vault.write(token.value)
+    override suspend fun write(token: Token, issuedAt: Instant) {
+        vault.write("${issuedAt.toEpochMilliseconds()}$SEPARATOR${token.value}")
+    }
+
+    private fun decode(stored: String): Session? {
+        val separator = stored.indexOf(SEPARATOR)
+        if (separator <= 0) return null
+        val issuedAt = stored.substring(0, separator).toLongOrNull() ?: return null
+        val token = stored.substring(separator + 1)
+        if (token.isEmpty()) return null
+
+        return Session(Token(token), Instant.fromEpochMilliseconds(issuedAt))
+    }
+
+    private companion object {
+        const val SEPARATOR = ':'
     }
 }

@@ -7,6 +7,7 @@ import io.github.npauloj.mibosmart.data.remote.HttpClientFactory
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.data.remote.smartHomeJson
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
+import io.github.npauloj.mibosmart.data.session.SessionSamples
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.DeviceRepository
@@ -166,7 +167,7 @@ class ListDevicesTest {
             baseUrl = "https://api.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
         ),
-        sessionStore = InMemorySessionStore().apply { token?.let { write(it) } },
+        sessionStore = InMemorySessionStore().apply { token?.let { write(it, SessionSamples.IssuedAt) } },
         cache = cache,
         now = { FETCHED_AT },
     )

@@ -1,18 +1,29 @@
 package io.github.npauloj.mibosmart.app.devices
 
+import io.github.npauloj.mibosmart.domain.device.CachedDevices
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceRepository
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Instant
 
 /**
  * What opening the device list means: one partner call for page 1, and a closed set of outcomes
  * (SPEC D1, D3, E2).
  *
- * No retry of its own and no fallback call — the account pays for every request (ADR-006), and the
- * only retry the app performs is the one the user asks for from the error state.
+ * No retry of its own and no fallback *call* — the account pays for every request (ADR-006), and the
+ * only retry the app performs is the one the user asks for from the error state. The cache is not a
+ * retry: reading it costs nothing, which is what lets SPEC D8 and U2 exist at all.
  */
 class ListDevices(private val deviceRepository: DeviceRepository) {
+
+    /**
+     * What is already known, before the partner is asked (SPEC U2) — empty when nothing is cached.
+     *
+     * Deliberately not a [DeviceListResult]: these rows are shown *while* the load runs, so they are
+     * not yet an outcome and must not carry the "sem conexão" of [DeviceListResult.Stale].
+     */
+    suspend fun cached(): List<Device> = cachedPage()?.devices.orEmpty()
 
     suspend operator fun invoke(): DeviceListResult =
         try {
@@ -22,7 +33,34 @@ class ListDevices(private val deviceRepository: DeviceRepository) {
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Throwable) {
-            failure.toResult()
+            failure.toResult().orStaleCache()
+        }
+
+    /**
+     * SPEC D8: only the call that never arrived falls back on the cache.
+     *
+     * A rejected or expired token must keep its own outcome — old rows behind a session that no
+     * longer works look like a working app and hide the one action the user has to take (SPEC S6).
+     */
+    private suspend fun DeviceListResult.orStaleCache(): DeviceListResult {
+        if (this != DeviceListResult.Offline) return this
+        val cached = cachedPage()?.takeIf { it.devices.isNotEmpty() } ?: return this
+        return DeviceListResult.Stale(cached.devices, cached.fetchedAt)
+    }
+
+    /**
+     * A cache that cannot be read is a cache miss.
+     *
+     * The file is the app's own and nothing above this line can repair it, so a corrupt or
+     * unreadable one costs the offline comfort of SPEC D8 and nothing else — never the screen.
+     */
+    private suspend fun cachedPage(): CachedDevices? =
+        try {
+            deviceRepository.cachedPage()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            null
         }
 }
 
@@ -38,6 +76,12 @@ sealed interface DeviceListResult {
 
     /** Page 1 came back empty — a state, not a failure (SPEC D3). */
     data object Empty : DeviceListResult
+
+    /**
+     * Page 1 never arrived and the cache had one (SPEC D8): the rows are real, [fetchedAt] is how
+     * old they are, and the screen says so instead of showing an empty error.
+     */
+    data class Stale(val devices: List<Device>, val fetchedAt: Instant) : DeviceListResult
 
     /** HTTP 401: the guard sends the user back to the token screen (SPEC D9, S6). */
     data object TokenRejected : DeviceListResult

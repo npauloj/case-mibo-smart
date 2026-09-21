@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.devices
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -48,6 +50,9 @@ import io.github.npauloj.mibosmart.app.resources.device_origin_linked
 import io.github.npauloj.mibosmart.app.resources.device_origin_shared
 import io.github.npauloj.mibosmart.app.resources.device_retry
 import io.github.npauloj.mibosmart.app.resources.device_status_offline
+import io.github.npauloj.mibosmart.app.resources.device_stale_days
+import io.github.npauloj.mibosmart.app.resources.device_stale_hours
+import io.github.npauloj.mibosmart.app.resources.device_stale_minutes
 import io.github.npauloj.mibosmart.app.resources.device_status_online
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
@@ -84,14 +89,46 @@ fun DeviceListScreenContent(
         OriginFilterChips()
 
         when {
+            // Rows win over every other state: a cache on screen while page 1 is in flight is SPEC
+            // U2, and a cache on screen after it failed is SPEC D8 — both beat a spinner or an error.
+            state.rows.isNotEmpty() -> Column {
+                state.staleFor?.let { StaleBanner(staleFor = it, onRetry = onRetry) }
+                DeviceRows(state.rows)
+            }
+
             state.isLoading -> CenteredMessage { LoadingIndicator() }
             state.error != null -> CenteredMessage {
                 ErrorState(error = state.error, serverMessage = state.serverMessage, onRetry = onRetry)
             }
 
-            state.isEmpty -> CenteredMessage { Text(stringResource(Res.string.device_empty)) }
-            else -> DeviceRows(state.rows)
+            // Not loading, no error, no rows: page 1 answered with nothing (SPEC D3, `state.isEmpty`).
+            else -> CenteredMessage { Text(stringResource(Res.string.device_empty)) }
         }
+    }
+}
+
+/**
+ * "Sem conexão — última atualização há N min", above rows the app could not refresh (SPEC D8).
+ *
+ * It sits inside the list frame rather than replacing it, and carries the retry: the user can read
+ * what is there *and* ask again, which is exactly what the error state cannot offer.
+ */
+@Composable
+private fun StaleBanner(staleFor: Elapsed, onRetry: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+            .padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = stringResource(staleFor.unit.staleTemplate, staleFor.amount.toString()),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        TextButton(onClick = onRetry) { Text(stringResource(Res.string.device_retry)) }
     }
 }
 
@@ -213,6 +250,14 @@ private val ElapsedUnit.template: StringResource
         ElapsedUnit.Minutes -> Res.string.device_last_seen_minutes
         ElapsedUnit.Hours -> Res.string.device_last_seen_hours
         ElapsedUnit.Days -> Res.string.device_last_seen_days
+    }
+
+/** "Sem conexão — última atualização há N …" (SPEC D8), in the unit the age rounded to. */
+private val ElapsedUnit.staleTemplate: StringResource
+    get() = when (this) {
+        ElapsedUnit.Minutes -> Res.string.device_stale_minutes
+        ElapsedUnit.Hours -> Res.string.device_stale_hours
+        ElapsedUnit.Days -> Res.string.device_stale_days
     }
 
 private val DeviceKind.label: StringResource

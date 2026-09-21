@@ -1,14 +1,18 @@
 package io.github.npauloj.mibosmart.data.device
 
+import io.github.npauloj.mibosmart.data.local.DeviceCache
 import io.github.npauloj.mibosmart.data.remote.DeviceDto
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.data.remote.smartHomeJson
 import io.github.npauloj.mibosmart.data.remote.toDevice
+import io.github.npauloj.mibosmart.domain.device.CachedDevices
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceRepository
 import io.github.npauloj.mibosmart.domain.device.orderedForList
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.session.SessionStore
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -22,6 +26,8 @@ import kotlinx.serialization.builtins.ListSerializer
 internal class SmartHomeDeviceRepository(
     private val api: SmartHomeApi,
     private val sessionStore: SessionStore,
+    private val cache: DeviceCache,
+    private val now: () -> Instant = { Clock.System.now() },
 ) : DeviceRepository {
 
     override suspend fun firstPage(): List<Device> {
@@ -34,8 +40,12 @@ internal class SmartHomeDeviceRepository(
         } catch (malformed: SerializationException) {
             throw SmartHomeException.UnexpectedResponse("`data` is not a list of devices", malformed)
         }
-        return devices.map(DeviceDto::toDevice).orderedForList()
+        // SPEC D10: a page that arrives is the page the next cold start renders (SPEC U2) and the one
+        // an offline retry falls back on (SPEC D8). Written here, with the moment it was learned.
+        return devices.map(DeviceDto::toDevice).orderedForList().also { cache.write(it, now()) }
     }
+
+    override suspend fun cachedPage(): CachedDevices? = cache.read()
 
     private companion object {
         /** SPEC D1: the page size the contract documents, and the one the account is billed for. */

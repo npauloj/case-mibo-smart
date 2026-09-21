@@ -1,5 +1,7 @@
 package io.github.npauloj.mibosmart.app.devices
 
+import io.github.npauloj.mibosmart.domain.device.CachedDevices
+import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import kotlin.test.AfterTest
@@ -10,7 +12,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.yield
@@ -83,6 +87,56 @@ class DeviceListViewModelTest {
         assertEquals(2, repository.calls)
         assertNull(viewModel.state.value.error)
         assertEquals(listOf("MFR 1001"), viewModel.state.value.rows.map { it.name })
+    }
+
+    /**
+     * SPEC D8 with a cache: the rows stay, and the state carries how old they are so the banner can
+     * say "última atualização há 14 min" instead of the screen going blank.
+     */
+    @Test
+    fun aNetworkFailureWithACacheKeepsTheRowsAndTheirAge() = runTest(dispatcher) {
+        val repository = FakeDeviceRepository(
+            cached = { CachedDevices(listOf(device("MFR 1001")), NOW - 14.minutes) },
+            answer = { throw SmartHomeException.Offline(cause = null) },
+        )
+
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        assertEquals(listOf("MFR 1001"), viewModel.state.value.rows.map { it.name })
+        assertEquals(Elapsed(14, ElapsedUnit.Minutes), viewModel.state.value.staleFor)
+        assertNull(viewModel.state.value.error, "the rows are real; the banner is what says they are old")
+        assertFalse(viewModel.state.value.isLoading)
+    }
+
+    /**
+     * Retrying from the stale state must not blank the list: the rows stay readable while the
+     * request runs, and the "sem conexão" banner goes — the app is trying again, not offline.
+     */
+    @Test
+    fun retryingFromTheStaleStateKeepsTheRowsAndDropsTheBanner() = runTest(dispatcher) {
+        val retry = CompletableDeferred<List<Device>>()
+        var failing = true
+        val repository = FakeDeviceRepository(
+            cached = { CachedDevices(listOf(device("MFR 1001")), NOW - 14.minutes) },
+            answer = { if (failing) throw SmartHomeException.Offline(cause = null) else retry.await() },
+        )
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        assertEquals(Elapsed(14, ElapsedUnit.Minutes), viewModel.state.value.staleFor)
+
+        failing = false
+        viewModel.load()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.isLoading, "the retry is in flight")
+        assertEquals(listOf("MFR 1001"), viewModel.state.value.rows.map { it.name })
+        assertNull(viewModel.state.value.staleFor, "the app is trying again; it is not offline right now")
+
+        retry.complete(listOf(device("iM3-C")))
+        advanceUntilIdle()
+
+        assertEquals(listOf("iM3-C"), viewModel.state.value.rows.map { it.name })
     }
 
     /** SPEC S3.1 / U6: the 403 sentence is the partner's, and it is the one worth showing. */

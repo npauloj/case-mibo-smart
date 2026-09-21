@@ -19,13 +19,19 @@ private const val UI_MODE_NIGHT_YES = 0x20
  */
 internal class DeviceListUiStateProvider : PreviewParameterProvider<DeviceListUiState> {
 
-    override val values: Sequence<DeviceListUiState> = sequenceOf(Loading, Success, Empty, Error)
+    override val values: Sequence<DeviceListUiState> = sequenceOf(Loading, Success, Empty, Error, Stale)
 
     internal companion object {
         val Loading = DeviceListUiState(isLoading = true)
         val Success = DeviceListUiState(rows = PreviewFixtures.fullPage)
         val Empty = DeviceListUiState()
         val Error = DeviceListUiState(error = DeviceListError.Offline)
+
+        /** SPEC D8: the same rows as [Success], plus how old they are and a way to ask again. */
+        val Stale = DeviceListUiState(
+            rows = PreviewFixtures.fullPage,
+            staleFor = Elapsed(amount = 14, unit = ElapsedUnit.Minutes),
+        )
     }
 }
 
@@ -48,6 +54,11 @@ private fun DeviceListEmptyPreview() = DeviceListPreview(DeviceListUiStateProvid
 @Preview(name = "DeviceListScreen_Error_Dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun DeviceListErrorPreview() = DeviceListPreview(DeviceListUiStateProvider.Error)
+
+@Preview(name = "DeviceListScreen_Stale")
+@Preview(name = "DeviceListScreen_Stale_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DeviceListStalePreview() = DeviceListPreview(DeviceListUiStateProvider.Stale)
 
 /** All states side by side, straight from the provider. */
 @Preview(name = "DeviceListScreen_AllStates")

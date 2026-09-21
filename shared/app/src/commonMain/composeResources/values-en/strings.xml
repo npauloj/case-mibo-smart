@@ -62,6 +62,9 @@
     <string name="device_last_seen_minutes">Last seen %1$s min ago</string>
     <string name="device_last_seen_hours">Last seen %1$s h ago</string>
     <string name="device_last_seen_days">Last seen %1$s d ago</string>
+    <string name="device_stale_minutes">No connection — last updated %1$s min ago</string>
+    <string name="device_stale_hours">No connection — last updated %1$s h ago</string>
+    <string name="device_stale_days">No connection — last updated %1$s d ago</string>
     <string name="device_error_rejected">Invalid or expired token</string>
     <string name="device_error_expired">Your session has expired (tokens last 2 h)</string>
     <string name="device_error_offline">No connection</string>

@@ -50,6 +50,10 @@ embutir um host padrão.
 
 # Framework iOS (só em macOS)
 ./gradlew :shared:app:linkDebugFrameworkIosSimulatorArm64
+
+# Compilar os alvos iOS a partir de Windows/Linux — obrigatório em qualquer fatia que mexa em
+# expect/actual ou iosMain (ADR-013). Compila, não executa: prova que o actual existe e tipa.
+./gradlew :shared:data:compileKotlinIosSimulatorArm64   -Pkotlin.native.enableKlibsCrossCompilation=true   -Pkotlin.native.ignoreDisabledTargets=false
 ```
 
 No Windows, use `gradlew.bat` no lugar de `./gradlew` (ou `./gradlew` no Git Bash).

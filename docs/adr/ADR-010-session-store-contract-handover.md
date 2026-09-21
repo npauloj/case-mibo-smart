@@ -1,6 +1,14 @@
 # ADR-010. `SessionStore` lands narrow in S-01a and widens to ADR-008's `SecureTokenStore` in S-01b
 
-Status: Accepted (2026-09-21)
+Status: Accepted (2026-09-21) — **amended 2026-09-21: the widening moved from S-01b to S-02a**
+
+> This ADR assigned both halves to S-01b: swap the in-memory store for the vault **and** widen the
+> interface to `write(token, issuedAt)` / `clear()`. Splitting S-01b during wave 2 separated them,
+> and PR #37 shipped only the vault — correctly, since neither `issuedAt` nor `clear()` had a caller
+> in it, and a member without a caller is the speculative generality this ADR exists to avoid.
+> The widening now lands where the callers are: **S-02a** adds `issuedAt` (it computes expiry) and
+> **S-02b** adds `clear()` (it has the logout). The decision below is unchanged; only the slice
+> names are.
 
 ## Context
 

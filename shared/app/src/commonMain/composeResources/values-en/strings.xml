@@ -46,6 +46,12 @@
     <string name="lock_volume_high">High</string>
     <string name="lock_remote_open_disabled_title">Remote opening is off</string>
     <string name="lock_remote_open_disabled_explanation">This lock takes no command from the app while remote opening is off. It has to be enabled before opening or closing from here does anything.</string>
+    <string name="lock_volume_changing">Setting the lock\'s volume to %1$s…</string>
+    <string name="lock_volume_failed">The volume could not be changed: %1$s</string>
+    <string name="lock_enable_remote_open">Enable remote opening</string>
+    <string name="lock_enable_remote_open_consequence">Enabling changes what the door allows: with remote opening on, anyone with access to this account can open the lock from the app. The app never undoes it — turning it off happens on the lock itself.</string>
+    <string name="lock_enable_remote_open_failed">Remote opening could not be enabled: %1$s</string>
+    <string name="lock_writes_disabled">This build does not send commands to the lock. Nothing on this screen reaches the door.</string>
     <string name="lock_offline">Lock offline</string>
     <string name="lock_last_update_moments">last updated moments ago</string>
     <string name="lock_last_update_minutes">last updated %1$s min ago</string>
@@ -58,6 +64,7 @@
     <string name="lock_error_offline">No connection</string>
     <string name="lock_error_unexpected">Unexpected response</string>
     <string name="lock_error_failed">The lock could not be read</string>
+    <string name="lock_error_write_refused">the lock refused the command</string>
     <string name="device_list_loading">Loading devices</string>
     <string name="device_list_loading_more">Loading more devices</string>
     <string name="device_empty">No device for this filter</string>

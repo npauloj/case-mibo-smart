@@ -22,7 +22,17 @@ private const val UI_MODE_NIGHT_YES = 0x20
 internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
 
     override val values: Sequence<LockUiState> =
-        sequenceOf(Loading, Locked, Unlocked, RemoteOpenDisabled, Offline, Error)
+        sequenceOf(
+            Loading,
+            Locked,
+            Unlocked,
+            RemoteOpenDisabled,
+            VolumeChanging,
+            VolumeFailed,
+            WritesDisabled,
+            Offline,
+            Error,
+        )
 
     internal companion object {
         private const val LOCK_NAME = "Fechadura da entrada"
@@ -39,11 +49,30 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
             lock = LockState(isOpen = true, isRemoteOpenEnabled = true, volume = VolumeLevel.High),
         )
 
-        /** SPEC L2: the precondition is explained and nothing on the screen can grant it (L-01b). */
+        /** SPEC L2: the precondition explained, with the one action that grants it. */
         val RemoteOpenDisabled = LockUiState.Ready(
             deviceName = LOCK_NAME,
             lock = LockState(isOpen = false, isRemoteOpenEnabled = false, volume = VolumeLevel.Mute),
         )
+
+        /**
+         * SPEC L7: `mudar-volume` is in flight.
+         *
+         * The selected chip is still Medium — the level the lock reported — while the line below
+         * names the level being asked for. That gap is the acceptance criterion made visible.
+         */
+        val VolumeChanging = Locked.copy(writeInFlight = LockWrite.Volume(VolumeLevel.High))
+
+        /** SPEC U6: the write did not happen, the reading did not move, and the reason is named. */
+        val VolumeFailed = Locked.copy(
+            writeFailure = WriteFailure(LockWrite.Volume(VolumeLevel.High), LockError.Offline),
+        )
+
+        /**
+         * `smarthome.lockWritesEnabled=false`: the selector is dead and the enable action is a
+         * sentence rather than a button, because nothing here would reach the door.
+         */
+        val WritesDisabled = RemoteOpenDisabled.copy(areWritesEnabled = false)
 
         /** SPEC L5 / U3: the last thing known about the lock, with how old it is. */
         val Offline = LockUiState.Ready(
@@ -76,6 +105,21 @@ private fun LockScreenUnlockedPreview() = LockScreenPreview(LockUiStateProvider.
 @Composable
 private fun LockScreenRemoteOpenDisabledPreview() = LockScreenPreview(LockUiStateProvider.RemoteOpenDisabled)
 
+@Preview(name = "LockScreen_VolumeChanging")
+@Preview(name = "LockScreen_VolumeChanging_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LockScreenVolumeChangingPreview() = LockScreenPreview(LockUiStateProvider.VolumeChanging)
+
+@Preview(name = "LockScreen_VolumeFailed")
+@Preview(name = "LockScreen_VolumeFailed_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LockScreenVolumeFailedPreview() = LockScreenPreview(LockUiStateProvider.VolumeFailed)
+
+@Preview(name = "LockScreen_WritesDisabled")
+@Preview(name = "LockScreen_WritesDisabled_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LockScreenWritesDisabledPreview() = LockScreenPreview(LockUiStateProvider.WritesDisabled)
+
 @Preview(name = "LockScreen_Offline")
 @Preview(name = "LockScreen_Offline_Dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
@@ -96,6 +140,12 @@ private fun LockScreenAllStatesPreview(
 @Composable
 private fun LockScreenPreview(state: LockUiState) {
     AppTheme {
-        LockScreenContent(state = state, onRetry = {}, onBack = {})
+        LockScreenContent(
+            state = state,
+            onRetry = {},
+            onChangeVolume = {},
+            onEnableRemoteOpen = {},
+            onBack = {},
+        )
     }
 }

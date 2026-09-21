@@ -21,6 +21,12 @@ val smartHomeApiHost: String =
 val liveVideoEnabled: String =
     localProperties?.getProperty("smarthome.liveVideoEnabled") ?: "true"
 
+// The lock-writes kill switch (SPEC L2, L7). Default **off**, unlike the video one: `mudar-volume`
+// and `habilitar-abrir-remoto` change a physical door on a shared account, so writing to one is
+// opted into with `smarthome.lockWritesEnabled=true`, never inherited from a default.
+val lockWritesEnabled: String =
+    localProperties?.getProperty("smarthome.lockWritesEnabled") ?: "false"
+
 dependencies {
     implementation(projects.shared.app)
     implementation(libs.androidx.activity.compose)
@@ -39,6 +45,7 @@ android {
         versionName = "0.1.0"
         buildConfigField("String", "SMARTHOME_API_HOST", "\"$smartHomeApiHost\"")
         buildConfigField("boolean", "SMARTHOME_LIVE_VIDEO_ENABLED", liveVideoEnabled)
+        buildConfigField("boolean", "SMARTHOME_LOCK_WRITES_ENABLED", lockWritesEnabled)
     }
     buildFeatures {
         buildConfig = true

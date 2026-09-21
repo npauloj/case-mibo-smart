@@ -20,6 +20,7 @@ import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -82,6 +83,49 @@ class LockRequestsTest {
         }
     }
 
+    /**
+     * SPEC L7: `mudar-volume` carries the composite address and the integer, and nothing else.
+     *
+     * The level on the wire is the partner's 0..3, not the app's name for it: sending `"High"` would
+     * be accepted by nothing and reported by no one.
+     */
+    @Test
+    fun changeVolumeSendsTheLevelAsTheDocumentedInteger() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val repository = repositoryAnswering(requests, signedIn())
+
+        repository.changeVolume(ADDRESS, VolumeLevel.High)
+
+        assertEquals("/fechaduras/mudar-volume/v1", requests.single().url.encodedPath)
+        val body = requests.single().bodyText()
+        assertTrue(body.contains(""""ns":"${LOCK_NAMESPACE}_${HUB_NAMESPACE}_$HUB_PRODUCT_ID""""), body)
+        assertTrue(body.contains(""""idProduto":"$LOCK_PRODUCT_ID""""), body)
+        assertTrue(body.contains(""""volume":3"""), "unexpected request body: $body")
+    }
+
+    /**
+     * SPEC L2: the app enables remote opening and has no way to disable it.
+     *
+     * `habilitar` is fixed at `true` in the request type, so this asserts a property of the code
+     * rather than of one call site: there is no argument anywhere that could make these bytes say
+     * `false`. It is the guarantee that matters most here — the opposite value would quietly take a
+     * door's safety net away.
+     */
+    @Test
+    fun enableRemoteOpenAlwaysAsksToEnable() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val repository = repositoryAnswering(requests, signedIn())
+
+        repository.enableRemoteOpen(ADDRESS)
+
+        assertEquals("/fechaduras/habilitar-abrir-remoto/v1", requests.single().url.encodedPath)
+        val body = requests.single().bodyText()
+        assertTrue(body.contains(""""ns":"${LOCK_NAMESPACE}_${HUB_NAMESPACE}_$HUB_PRODUCT_ID""""), body)
+        assertTrue(body.contains(""""idProduto":"$LOCK_PRODUCT_ID""""), body)
+        assertTrue(body.contains(""""habilitar":true"""), "unexpected request body: $body")
+        assertFalse(body.contains("false"), "nothing in this request may ever say false: $body")
+    }
+
     /** SPEC E3: a level the contract does not document is reported, never rendered as a number. */
     @Test
     fun aVolumeOutsideTheDocumentedRangeIsUnexpected() = runTest {
@@ -134,6 +178,12 @@ class LockRequestsTest {
     private fun String.answer(volumeLevel: Int): String = when {
         endsWith("status-abertura/v1") -> """{"status":"sucesso","data":{"aberto":false}}"""
         endsWith("status-abrir-remoto/v1") -> """{"status":"sucesso","data":{"habilitado":true}}"""
+        // The writes' success payload was never probed — it changes a real device
+        // (`docs/api-contract.md` §8, open question 4). An envelope with an empty `data` is the
+        // least the reader accepts, and the repository reads nothing out of it anyway.
+        endsWith("mudar-volume/v1") || endsWith("habilitar-abrir-remoto/v1") ->
+            """{"status":"sucesso","data":{}}"""
+
         else -> """{"status":"sucesso","data":{"volume":$volumeLevel}}"""
     }
 

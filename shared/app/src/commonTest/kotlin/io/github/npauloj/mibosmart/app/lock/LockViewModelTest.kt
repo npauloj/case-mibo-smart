@@ -1,6 +1,5 @@
 package io.github.npauloj.mibosmart.app.lock
 
-import io.github.npauloj.mibosmart.app.FixedClock
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
@@ -96,6 +95,5 @@ class LockViewModelTest {
         assertEquals(0, repository.reads.size)
     }
 
-    private fun viewModelWith(repository: FakeLockRepository) =
-        LockViewModel(LoadLock(repository), FixedClock(LockSamples.Now))
+    private fun viewModelWith(repository: FakeLockRepository) = lockViewModel(repository)
 }

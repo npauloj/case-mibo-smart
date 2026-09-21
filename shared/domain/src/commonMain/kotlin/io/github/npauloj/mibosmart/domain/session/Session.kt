@@ -19,6 +19,9 @@ value class Token(val value: String) {
  *
  * The functions suspend on purpose: S-01b puts the Keystore / Keychain vault behind this same
  * interface (ADR-008) and its reads and writes are blocking platform I/O.
+ *
+ * Deliberately narrower than ADR-008's `SecureTokenStore`: `issuedAt` and `clear()` arrive with the
+ * slices that have a caller for them — the expiry guard and logout (ADR-010).
  */
 interface SessionStore {
 

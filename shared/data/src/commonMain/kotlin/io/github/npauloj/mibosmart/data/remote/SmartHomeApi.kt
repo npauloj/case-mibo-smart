@@ -25,9 +25,21 @@ internal class SmartHomeApi(
     private val envelopeReader: EnvelopeReader,
 ) {
 
-    /** `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the envelope. */
-    suspend fun listDevices(token: Token, pageSize: Int, page: Int): JsonElement =
-        post(LIST_DEVICES_PATH, token) { setBody(ListDevicesRequestDto(pageSize = pageSize, page = page)) }
+    /**
+     * `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the envelope.
+     *
+     * @param origin the `origem` filter on the wire — `"todos"`, `"vinculados"` or `"compartilhados"`
+     *   (`docs/api-contract.md` §3). The default is the one the partner documents, so a caller that
+     *   only wants "whatever the account has" does not have to know the vocabulary.
+     */
+    suspend fun listDevices(
+        token: Token,
+        pageSize: Int,
+        page: Int,
+        origin: String = ALL_ORIGINS,
+    ): JsonElement = post(LIST_DEVICES_PATH, token) {
+        setBody(ListDevicesRequestDto(pageSize = pageSize, page = page, origin = origin))
+    }
 
     /** `POST /fechaduras/status-abertura/v1` — whether the door is open (SPEC L1). */
     suspend fun readLockOpenState(token: Token, request: LockReadRequestDto): JsonElement =
@@ -68,10 +80,12 @@ internal class SmartHomeApi(
         return envelopeReader.read(response.status.value, response.bodyAsText())
     }
 
-    private companion object {
-        const val LIST_DEVICES_PATH = "/produtos/listar-dispositivos/v1"
-        const val LOCK_OPEN_STATE_PATH = "/fechaduras/status-abertura/v1"
-        const val LOCK_REMOTE_OPEN_PATH = "/fechaduras/status-abrir-remoto/v1"
-        const val LOCK_VOLUME_PATH = "/fechaduras/volume/v1"
+    internal companion object {
+        /** The documented default of the `origem` filter, read by the device slice (SPEC D1). */
+        const val ALL_ORIGINS = "todos"
+        private const val LIST_DEVICES_PATH = "/produtos/listar-dispositivos/v1"
+        private const val LOCK_OPEN_STATE_PATH = "/fechaduras/status-abertura/v1"
+        private const val LOCK_REMOTE_OPEN_PATH = "/fechaduras/status-abrir-remoto/v1"
+        private const val LOCK_VOLUME_PATH = "/fechaduras/volume/v1"
     }
 }

@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.data.di
 
+import io.github.npauloj.mibosmart.data.device.SmartHomeDeviceRepository
 import io.github.npauloj.mibosmart.data.lock.SmartHomeLockRepository
 import io.github.npauloj.mibosmart.data.platform.log.platformLogger
 import io.github.npauloj.mibosmart.data.platform.vault.secureTokenStore
@@ -9,6 +10,7 @@ import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.data.remote.smartHomeJson
 import io.github.npauloj.mibosmart.data.session.SmartHomeSessionRepository
 import io.github.npauloj.mibosmart.data.session.VaultSessionStore
+import io.github.npauloj.mibosmart.domain.device.DeviceRepository
 import io.github.npauloj.mibosmart.domain.lock.LockRepository
 import io.github.npauloj.mibosmart.domain.session.SessionRepository
 import io.github.npauloj.mibosmart.domain.session.SessionStore
@@ -30,4 +32,5 @@ fun dataModule(apiHost: String): Module = module {
     single<SessionRepository> { SmartHomeSessionRepository(get()) }
     single<SessionStore> { VaultSessionStore(secureTokenStore()) }
     single<LockRepository> { SmartHomeLockRepository(api = get(), sessionStore = get(), json = smartHomeJson) }
+    single<DeviceRepository> { SmartHomeDeviceRepository(api = get(), sessionStore = get()) }
 }

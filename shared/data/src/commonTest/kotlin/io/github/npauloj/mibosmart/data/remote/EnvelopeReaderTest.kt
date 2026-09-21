@@ -104,13 +104,26 @@ class EnvelopeReaderTest {
         assertEquals("Erro desconhecido, por favor tente novamente mais tarde", failure.serverMessage)
     }
 
+    /**
+     * The wrapped shape carries its own outcome while HTTP still says 200 (api-contract §1.1), and
+     * `404` means one thing only: the device is not there. Mapping it to
+     * [SmartHomeException.ApiError] — as this reader did while nothing could receive it — would put
+     * the partner's raw `msg` on a screen and make a missing device indistinguishable from a server
+     * fault the user should retry (SPEC E2, U6).
+     */
     @Test
-    fun wrappedError404() {
-        val failure = assertFailsWith<SmartHomeException.ApiError> {
+    fun wrappedError404IsDeviceNotFound() {
+        assertFailsWith<SmartHomeException.DeviceNotFound> {
             reader.read(OK, """{"statusCode":404,"body":{"status":"erro","msg":"Dispositivo não encontrado"}}""")
         }
+    }
 
-        assertEquals("Dispositivo não encontrado", failure.serverMessage)
+    /** A wrapped `statusCode: 200` is an ordinary success: the new rule fires on 404 and nothing else. */
+    @Test
+    fun wrappedSuccessWithStatusCodeIsNotADeviceError() {
+        val data = reader.read(OK, """{"statusCode":200,"body":{"status":"sucesso","data":[]}}""")
+
+        assertEquals(0, data.jsonArray.size)
     }
 
     @Test

@@ -5,8 +5,9 @@ package io.github.npauloj.mibosmart.domain.error
  *
  * `:shared:data` raises these; every use case catches them and maps them to its own sealed result, so
  * no screen ever sees a transport detail. The taxonomy holds only the categories the app can already
- * observe: device-not-found, quota-exceeded and operation-rejected arrive as new subtypes with the
- * first slice that can actually receive them, never as a refactor of these.
+ * observe: quota-exceeded and operation-rejected arrive as new subtypes with the first slice that can
+ * actually receive them, never as a refactor of these — which is how [DeviceNotFound] arrived with
+ * the device list.
  */
 sealed class SmartHomeException(message: String, cause: Throwable? = null) : Exception(message, cause) {
 
@@ -29,6 +30,16 @@ sealed class SmartHomeException(message: String, cause: Throwable? = null) : Exc
      */
     class TokenExpired(val serverMessage: String?) :
         SmartHomeException(serverMessage ?: "the access token has expired")
+
+    /**
+     * The partner does not know the device the call named: a wrapped envelope with
+     * `statusCode: 404` (SPEC E2, `docs/api-contract.md` §1.1).
+     *
+     * Reachable for the first time with the device list, which is why it joins the taxonomy here and
+     * not earlier (ADR-002): a device can vanish between two list loads, and addressing a lock by the
+     * wrong `ns` answers exactly this (api-contract §3, `funcoes` with a lock's plain serial).
+     */
+    class DeviceNotFound : SmartHomeException("the partner does not know this device")
 
     /** The request never produced an answer: no connectivity, timeout, DNS or TLS failure (SPEC S4). */
     class Offline(cause: Throwable?) : SmartHomeException("the partner API could not be reached", cause)

@@ -50,6 +50,14 @@ internal class VaultSessionStore(private val vault: SecureTokenStore) : SessionS
         vault.write("${issuedAt.toEpochMilliseconds()}$SEPARATOR${token.value}")
     }
 
+    /**
+     * A failed clear is not swallowed either: the caller of "Sair" has to be able to tell the user
+     * the credential is still on the device rather than pretend it is gone (SPEC S8, ADR-008).
+     */
+    override suspend fun clear() {
+        vault.clear()
+    }
+
     private fun decode(stored: String): Session? {
         val separator = stored.indexOf(SEPARATOR)
         if (separator <= 0) return null

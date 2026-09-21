@@ -1,6 +1,5 @@
 package io.github.npauloj.mibosmart.app
 
-import io.github.npauloj.mibosmart.app.session.SessionStartup
 import io.github.npauloj.mibosmart.app.session.TokenSamples
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
 import kotlin.test.AfterTest
@@ -39,10 +38,7 @@ class AppViewModelTest {
      */
     @Test
     fun noDestinationIsChosenBeforeTheStoreAnswers() = runTest(dispatcher) {
-        val viewModel = AppViewModel(
-            SessionStartup(InMemorySessionStore()),
-            FixedClock(TokenSamples.Now),
-        )
+        val viewModel = appViewModel(InMemorySessionStore(), FixedClock(TokenSamples.Now))
 
         assertNull(viewModel.state.value.destination, "a destination was guessed before the vault read")
         assertFalse(viewModel.state.value.expiringSoon)

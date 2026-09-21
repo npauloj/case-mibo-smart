@@ -21,4 +21,8 @@ class InMemorySessionStore : SessionStore {
     override suspend fun write(token: Token, issuedAt: Instant) {
         session = Session(token, issuedAt)
     }
+
+    override suspend fun clear() {
+        session = null
+    }
 }

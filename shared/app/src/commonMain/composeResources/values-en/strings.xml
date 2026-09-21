@@ -17,6 +17,19 @@
     <string name="token_error_unexpected">Unexpected response</string>
     <string name="token_error_failed">The token could not be validated</string>
     <string name="session_expiring_soon">Your token expires soon</string>
+    <string name="session_ended">Your session has expired (tokens last 2 h)</string>
+
+    <string name="account_open">Account</string>
+    <string name="account_title">Account</string>
+    <string name="account_back">Back</string>
+    <string name="account_token_label">Access token</string>
+    <string name="account_token_value">•••• %1$s</string>
+    <string name="account_expires_in_hours">Expires in %1$s h %2$s min</string>
+    <string name="account_expires_in_minutes">Expires in %1$s min</string>
+    <string name="account_expired">Session expired</string>
+    <string name="account_requests">%1$s requests this session</string>
+    <string name="account_logout">Sign out</string>
+    <string name="account_logout_failed">The token could not be removed from this device</string>
 
     <string name="device_list_title">Devices</string>
     <string name="device_list_placeholder">The device list arrives in the next delivery.</string>

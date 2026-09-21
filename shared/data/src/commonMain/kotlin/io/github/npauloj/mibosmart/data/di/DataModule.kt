@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.data.di
 
+import io.github.npauloj.mibosmart.data.lock.lockDataModule
 import io.github.npauloj.mibosmart.data.platform.log.platformLogger
 import io.github.npauloj.mibosmart.data.remote.EnvelopeReader
 import io.github.npauloj.mibosmart.data.remote.HttpClientFactory
@@ -16,7 +17,7 @@ import org.koin.dsl.module
  * **This file holds the transport, which every feature shares, and nothing else.** A feature's
  * repositories live in its own `<feature>DataModule.kt` beside the code they wire, and are listed in
  * [featureModules] below (ADR-014). Two slices adding bindings no longer edit the same lines — the
- * conflict that cost two manual resolutions in wave 2.
+ * conflict that cost three manual resolutions in wave 2.
  *
  * @param apiHost the partner host, configured locally and never versioned (ADR-008).
  */
@@ -38,5 +39,6 @@ fun dataModule(apiHost: String): Module = module {
  * both", never a judgement call.
  */
 private val featureModules: List<Module> = listOf(
+    lockDataModule,
     sessionDataModule,
 )

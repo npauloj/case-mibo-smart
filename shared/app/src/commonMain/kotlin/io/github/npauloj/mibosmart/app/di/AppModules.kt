@@ -1,8 +1,10 @@
 package io.github.npauloj.mibosmart.app.di
 
 import io.github.npauloj.mibosmart.app.AppViewModel
+import io.github.npauloj.mibosmart.app.lock.lockAppModule
 import io.github.npauloj.mibosmart.app.session.sessionAppModule
 import io.github.npauloj.mibosmart.data.di.dataModule
+import kotlin.time.Clock
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModelOf
@@ -21,6 +23,10 @@ import org.koin.dsl.module
 fun appModule(apiHost: String): Module = module {
     includes(dataModule(apiHost))
 
+    // The one clock of the app: "última atualização há X" is read against it (SPEC U3), and a test
+    // that has to assert those words needs to choose what "now" is.
+    single<Clock> { Clock.System }
+
     // Routing between features, so it belongs to none of them.
     viewModelOf(::AppViewModel)
 
@@ -35,6 +41,7 @@ fun appModule(apiHost: String): Module = module {
  * both", never a judgement call.
  */
 private val featureModules: List<Module> = listOf(
+    lockAppModule,
     sessionAppModule,
 )
 

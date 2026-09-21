@@ -19,4 +19,29 @@
 
     <string name="device_list_title">Dispositivos</string>
     <string name="device_list_placeholder">A lista de dispositivos chega na próxima entrega.</string>
+
+    <string name="lock_back">Voltar</string>
+    <string name="lock_loading">Lendo o estado da fechadura</string>
+    <string name="lock_state_label">Estado</string>
+    <string name="lock_state_locked">Fechada</string>
+    <string name="lock_state_unlocked">Aberta</string>
+    <string name="lock_volume_label">Volume</string>
+    <string name="lock_volume_mute">Mudo</string>
+    <string name="lock_volume_low">Baixo</string>
+    <string name="lock_volume_medium">Médio</string>
+    <string name="lock_volume_high">Alto</string>
+    <string name="lock_remote_open_disabled_title">Abertura remota desativada</string>
+    <string name="lock_remote_open_disabled_explanation">Esta fechadura não aceita comandos do aplicativo enquanto a abertura remota estiver desativada. Ela precisa ser habilitada antes que abrir ou fechar por aqui funcione.</string>
+    <string name="lock_offline">Fechadura offline</string>
+    <string name="lock_last_update_moments">última atualização há instantes</string>
+    <string name="lock_last_update_minutes">última atualização há %1$s min</string>
+    <string name="lock_last_update_hours">última atualização há %1$s h</string>
+    <string name="lock_last_update_days">última atualização há %1$s d</string>
+    <string name="lock_last_update_never">nunca vista online</string>
+    <string name="lock_retry">Tentar novamente</string>
+    <string name="lock_error_rejected">Sua sessão não é mais válida</string>
+    <string name="lock_error_expired">Sua sessão expirou (tokens valem 2 h)</string>
+    <string name="lock_error_offline">Sem conexão</string>
+    <string name="lock_error_unexpected">Resposta inesperada</string>
+    <string name="lock_error_failed">Não foi possível ler a fechadura</string>
 </resources>

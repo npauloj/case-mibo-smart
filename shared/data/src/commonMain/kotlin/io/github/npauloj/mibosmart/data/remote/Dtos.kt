@@ -52,3 +52,14 @@ internal data class DeviceDto(
     @SerialName("ultimaVezOnline") val lastSeen: String? = null,
     @SerialName("dispositivoPai") val parentSerial: String? = null,
 )
+
+/**
+ * The gateway's error shape, which is not the partner's.
+ *
+ * `{"message": "Forbidden"}` — capital-M, English, and no `status` — is what sits in front of the API
+ * and answers a call this account may not make (`cota-disponivel`, probed 2026-09-21). The partner's
+ * own errors always carry `status`/`msg`, so the presence of `message` alone is what tells a blocked
+ * endpoint from an expired session on the same HTTP 403 (ADR-012).
+ */
+@Serializable
+internal data class GatewayErrorDto(val message: String)

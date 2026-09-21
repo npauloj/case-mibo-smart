@@ -87,7 +87,8 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
   server's own message when the body parses (`"Token expirado, por favor gere um novo token"`) and with
   "Sua sessão expirou (tokens valem 2 h)" when it does not, and SHALL NOT store the token.
   _(test: `EnvelopeReaderTest.forbiddenIsTokenExpiredWithServerMessage`,
-  `EnvelopeReaderTest.forbiddenWithUnparseableBodyStillExpires`)_
+  `.forbiddenWithUnparseableBodyStillExpires`, `.forbiddenWithGatewayShapeIsNotAnExpiry`,
+  `.thePartnerEnvelopeOnForbiddenIsStillAnExpiry`)_
   The platform distinguishes an unknown token from an expired one — verified 2026-09-21, ADR-012. The
   old rule (`msg` starting "Erro desconhecido") never fired against the real API and is gone.
 - **S4** IF the validation call fails for network reasons, THE SYSTEM SHALL show "Sem conexão" with a
@@ -100,11 +101,20 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
   "Sua sessão expirou (tokens valem 2 h)" otherwise; IF the rejected request was sent with a token
   that has since been replaced (renewal, S10), THE SYSTEM SHALL drop the rejection and keep the stored
   token. Every request carries the token it was sent with in its failure, so the guard compares
-  identities, not timestamps. _(test: `SessionGuardTest.rejectionClearsAndRoutes`,
+  identities, not timestamps. **Measured 2026-09-21:** renewal does **not** revoke the previous token —
+  46 s after renewing, the old token, the new one and an unrelated third all answered `200`. The
+  identity comparison still holds, but for the opposite reason to the one assumed: the two credentials
+  coexist until each expires on its own, so a request in flight with the old token succeeds rather
+  than failing. THE SYSTEM SHALL NOT clear the session on a `403` whose body is the gateway's
+  `{"message"}` shape — that is a forbidden endpoint, not an expiry (E1). _(test: `SessionGuardTest.rejectionClearsAndRoutes`,
   `SessionGuardTest.rejectionOfRotatedTokenDoesNotClearVault` — renewal completes while a request with
   the old token is in flight; the vault still holds the new token)_
-- **S7** WHEN the session is older than 1 h 50 min, THE SYSTEM SHALL show a non-blocking banner
-  "Token expira em breve" on the device list. _(test: `SessionStateTest.warnsBeforeExpiry` with a fake clock)_ `[ASSUMED: expiry counted from first successful validation]`
+- **S7** WHEN the session is within 10 minutes of expiring, THE SYSTEM SHALL show a non-blocking banner
+  "Token expira em breve" on the device list. _(test: `SessionStateTest.warnsBeforeExpiry` with a fake clock)_
+  **The lifetime is no longer assumed:** `renovar-token` returns `tempoExpiracao` in seconds (7199 ≈ 2 h,
+  measured 2026-09-21), so a renewed session knows its real deadline instead of counting from a local
+  clock. A session started by pasting a token has no such value and still counts 2 h from the first
+  successful validation `[ASSUMED]` — the two paths are different and the app must not pretend otherwise.
 - **S8** Given a stored session, when the user taps "Sair" in the account screen, then the token is
   removed from secure storage and the app returns to the token screen.
   _(test: `LogoutTest.clearsSecureStore`)_
@@ -114,7 +124,10 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
   place the token is partially shown, and no reveal control exists anywhere in the app.
   _(test: `LogSanitizerTest.authorizationHeaderRedacted`, `AccountViewModelTest.exposesSuffixOnly`,
   `TokenMaskTest.showsPrefixAndLastFourOnly`)_
-- **S10** `[ASSUMED: renovarToken is POST /autenticacao/renovar-token/v1 on the api host with body {token} and returns the new token in data — per Swagger and the docs' "Saiba mais"; verified with one real call at the start of wave 3, never earlier (it rotates the working token)]`
+- **S10** **Probed 2026-09-21, no longer assumed:** `POST /autenticacao/renovar-token/v1` with body
+  `{"token": "<current>"}` answers `200` with `{"status":"sucesso","data":{"token":"<new>","tempoExpiracao":7199}}`.
+  The Swagger's `/autenticacao/renovarToken` is not the path that responds, and renewal **adds** a
+  credential rather than replacing one — the previous token keeps working (see S6).
   WHEN the session is about to expire, THE SYSTEM SHALL offer "Renovar" and, on success, replace the stored
   token without leaving the current screen; IF renewal fails, THE SYSTEM SHALL keep the current token and
   show the error state of S6. _(test: `RenewTokenTest.replacesStoredToken`, `RenewTokenTest.failureKeepsCurrentToken`)_
@@ -317,8 +330,11 @@ _EARS adapted to the lock domain vocabulary because no market standard for EARS 
 
 ## 5. Cross-cutting error handling & UX (RF04)
 
-- **E1** THE SYSTEM SHALL classify on the **HTTP status first** — `401` is token-rejected and `403` is
-  token-expired, whatever the body looks like — and only for a `2xx` SHALL it parse the body, accepting
+- **E1** THE SYSTEM SHALL classify on the **HTTP status first**, and on a `403` SHALL then read the body
+  to tell an expired session (`{status, msg}`, the partner's envelope) from a **forbidden endpoint**
+  (`{message}`, the gateway's) — the two are the same status and opposite meanings, and
+  `cota-disponivel` answers the second for a valid token (probed 2026-09-21, ADR-012). `401` is
+  token-rejected whatever the body looks like. Only for a `2xx` SHALL it parse the body, accepting
   both envelope shapes (`{statusCode, body}` and flat `{status}`) and treating `status != "sucesso"` as
   an error even with HTTP 200. A body it cannot deserialise SHALL NOT downgrade a `401`/`403` into
   "unexpected response": on those statuses the body is optional, and a **bare JSON string** is an
@@ -353,9 +369,9 @@ _EARS adapted to the lock domain vocabulary because no market standard for EARS 
 
 | Marker | Where | Blocking? |
 |---|---|---|
-| `[ASSUMED: renovarToken path/body/response]` | S10 | No — wave 3, verified with one real call before implementing; cut list |
+| ~~`[ASSUMED: renovarToken path/body/response]`~~ | S10 | **Resolved 2026-09-21** — path, body and response measured; `tempoExpiracao` included |
 | `[ASSUMED: tipo list = usuarioRemoto, interno]` | L9 | No — unknown types shown raw |
-| `[ASSUMED: expiry from first validation]` | S7 | No |
+| `[ASSUMED: expiry from first validation]` | S7 | **Partly resolved** — a renewed session gets `tempoExpiracao` from the API; a pasted token still counts locally |
 | `[ASSUMED delays]` | V4 | No |
 | `[ASSUMED: 10 s confirmation timeout]` | L4 | No — tune on the real lock in wave 3 |
 | `[ASSUMED: monitor page works in WebView]` | V9 | No — verify on device in wave 2 |

@@ -1,6 +1,23 @@
 # ADR-012. Authentication failures are signalled by HTTP status, not by message text
 
-Status: Accepted (2026-09-21) — supersedes the token-rejection rule of ADR-002
+Status: Accepted (2026-09-21) — supersedes the token-rejection rule of ADR-002; **amended 2026-09-21 (same day): on a `403` the body decides**
+
+> The decision below stands, with one correction it got wrong in the other direction. It said
+> *"the body is read only after the status has been classified, and a failure to deserialise it
+> never downgrades a 401/403"*. A later probe found that **`403` carries two unrelated meanings**:
+> the partner's envelope `{"status":"erro","msg":"Token expirado…"}` is an ended session, while
+> the gateway's `{"message":"Forbidden"}` is an endpoint this account may not call —
+> `cota-disponivel` answers exactly that, for a **valid** token. Classifying by status alone made
+> the app clear a good session and route to the token screen for nothing.
+>
+> Amended rule: **the status narrows, the body decides.** `401` → `TokenRejected` regardless of
+> body. `403` → partner envelope means `TokenExpired`, `{"message"}` means the new `Forbidden`,
+> and anything unparseable stays `TokenExpired` (the safe default — one needless re-auth beats
+> swallowing a dead session). `402` → `QuotaExceeded`. This ADR over-corrected: ADR-002 trusted
+> the message text too much, and this one trusted the status too much.
+>
+> Proven by `EnvelopeReaderTest.forbiddenWithGatewayShapeIsNotAnExpiry` and
+> `.thePartnerEnvelopeOnForbiddenIsStillAnExpiry`, both of which fail against the unamended rule.
 
 ## Context
 

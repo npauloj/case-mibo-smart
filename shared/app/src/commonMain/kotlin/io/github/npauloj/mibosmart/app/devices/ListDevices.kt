@@ -124,6 +124,9 @@ private fun SmartHomeException.toResult(): DeviceListResult = when (this) {
     // Streaming quota, which only `criar-fluxo-video` can answer (SPEC V6). Listing devices cannot
     // produce it; the branch exists because the taxonomy is sealed and this `when` has no `else`.
     is SmartHomeException.QuotaExceeded -> DeviceListResult.Failed
+    // The account may not call this endpoint. The session is fine, so it must NOT route to the token
+    // screen (SPEC S6) — the list fails like any other named error and the credential is untouched.
+    is SmartHomeException.Forbidden -> DeviceListResult.Failed
     // The one category that carries the server's own words: they stay in the exception, for the log,
     // and the screen gets a sentence of its own (SPEC U6).
     is SmartHomeException.ApiError -> DeviceListResult.Failed

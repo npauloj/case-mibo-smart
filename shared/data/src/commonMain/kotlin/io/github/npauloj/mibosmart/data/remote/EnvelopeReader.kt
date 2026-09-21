@@ -23,7 +23,13 @@ internal class EnvelopeReader(private val json: Json) {
     fun read(statusCode: Int, rawBody: String): JsonElement {
         when (statusCode) {
             HTTP_UNAUTHORIZED -> throw SmartHomeException.TokenRejected()
-            HTTP_FORBIDDEN -> throw SmartHomeException.TokenExpired(serverMessageOrNull(rawBody))
+            // A 403 means one of two unrelated things, and only the body tells them apart (probed
+            // 2026-09-21, ADR-012 amended): the partner's own envelope
+            // `{"status":"erro","msg":"Token expirado…"}` is an expired session, while the gateway's
+            // `{"message":"Forbidden"}` is an endpoint this account may not call — `cota-disponivel`
+            // answers exactly that. Treating the second as an expiry would throw away a valid token
+            // and send the user back to the token screen for no reason (SPEC S6).
+            HTTP_FORBIDDEN -> throw forbidden(rawBody)
             // The one status the Swagger documents for a business outcome that the app must tell apart
             // without reading a sentence (§6, SPEC V6). It is classified here, beside the other two
             // statuses that mean something, rather than by matching words later.
@@ -45,6 +51,27 @@ internal class EnvelopeReader(private val json: Json) {
 
             STATUS_ERROR -> throw SmartHomeException.ApiError(payload.msg.orEmpty())
             else -> throw SmartHomeException.UnexpectedResponse("envelope without a known `status`")
+        }
+    }
+
+    /**
+     * What a `403` actually is: an expired session, or a call this account is not allowed to make.
+     *
+     * The partner answers the first with its own envelope and a sentence fit to show the user; the
+     * gateway answers the second with `{"message": "..."}`, a shape the partner's API never uses.
+     * Anything else on a 403 is treated as expiry, which is the safe default: the worst case is one
+     * unnecessary re-authentication, against silently swallowing a dead session.
+     */
+    private fun forbidden(rawBody: String): SmartHomeException {
+        val gatewayMessage = try {
+            json.decodeFromString<GatewayErrorDto>(rawBody).message
+        } catch (_: SerializationException) {
+            null
+        }
+        return if (gatewayMessage != null) {
+            SmartHomeException.Forbidden(gatewayMessage)
+        } else {
+            SmartHomeException.TokenExpired(serverMessageOrNull(rawBody))
         }
     }
 

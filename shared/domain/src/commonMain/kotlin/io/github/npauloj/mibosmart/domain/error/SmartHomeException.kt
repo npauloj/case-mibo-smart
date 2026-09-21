@@ -51,6 +51,16 @@ sealed class SmartHomeException(message: String, cause: Throwable? = null) : Exc
      */
     class QuotaExceeded : SmartHomeException("the account has no streaming quota left")
 
+    /**
+     * The call is not allowed for this account — **not** a problem with the session.
+     *
+     * Arrives as HTTP 403 with the gateway's `{"message": "..."}` rather than the partner's envelope.
+     * It must never clear the session: the token is valid, the endpoint is simply closed
+     * (`cota-disponivel` answers this, probed 2026-09-21, ADR-012).
+     */
+    class Forbidden(val gatewayMessage: String) :
+        SmartHomeException("the partner refused the call: $gatewayMessage")
+
     /** The request never produced an answer: no connectivity, timeout, DNS or TLS failure (SPEC S4). */
     class Offline(cause: Throwable?) : SmartHomeException("the partner API could not be reached", cause)
 

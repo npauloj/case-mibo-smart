@@ -67,9 +67,21 @@ Four corrections to what this document said before:
    a parser that expects `{status, msg}` throws — which is why the app showed "Resposta inesperada"
    for an unknown token instead of a token error.
 
-Business rule (ADR-012): **classify on the status before parsing the body.** `401` → token rejected,
-`403` → token expired (use the server's `msg` when the body parses), and only a `2xx` body is read for
-a business `status != "sucesso"`.
+### 1.2.1 A `403` is two different things — probed 2026-09-21
+
+| Body on a `403` | Meaning | Domain type |
+|---|---|---|
+| `{"status":"erro","msg":"Token expirado, por favor gere um novo token"}` | the session ended | `TokenExpired` |
+| `{"message":"Forbidden"}` | **this account may not call this endpoint** — the gateway, not the partner | `Forbidden` |
+
+`POST /streaming/cota-disponivel/v1` answers the second for a **perfectly valid token**. The partner's
+own errors always carry `status`/`msg`; the gateway's carry `message`. Treating the gateway shape as an
+expiry would clear a good session and send the user back to the token screen for nothing (SPEC S6).
+
+Business rule (ADR-012, amended): **the status narrows, the body decides.** `401` → token rejected;
+`403` → read the body, partner envelope = expired, `{"message"}` = forbidden endpoint, anything else =
+expired (the safe default: one needless re-auth beats swallowing a dead session); `402` → quota
+exceeded; only a `2xx` body is read for a business `status != "sucesso"`.
 
 ### 1.3 Account quota — every call counts
 
@@ -87,10 +99,25 @@ few calls as possible, never retry blindly (ADR-006).
 
 ## 2. Authentication
 
-### POST /autenticacao/renovarToken
-Swagger path; the description says the real endpoint is `/autenticacao/renovar-token/v1` on `<API_HOST>`. `[NEEDS CLARIFICATION: which path the api- host accepts]`
+### POST /autenticacao/renovar-token/v1 — **probed 2026-09-21**
 
-Request: `{ "token": "<current token>" }` — Response: `200` "Token Gerado" (shape not documented; not probed because it would rotate the working token).
+The description's path is the one that answers; the Swagger's `/autenticacao/renovarToken` is not used.
+
+Request: `{ "token": "<current token>" }`, with the same token in `Authorization`.
+Response: `200`, flat envelope —
+
+```json
+{ "status": "sucesso", "data": { "token": "<new token>", "tempoExpiracao": 7199 } }
+```
+
+Three things this settles, all of which the spec had assumed:
+
+1. **`tempoExpiracao` is the lifetime in seconds** — 7199 ≈ 2 h. The API states it, so the app does not
+   have to estimate expiry from a local clock (SPEC S7).
+2. **The previous token stays valid.** Measured 46 s after renewal: the renewed token, the token used
+   to renew, and an unrelated third token all answered `200` to `listar-dispositivos`. Renewal adds a
+   credential, it does not revoke one (SPEC S6).
+3. The new token has the same shape: `Ot_` + 32 alphanumeric characters.
 
 ## 3. Devices
 

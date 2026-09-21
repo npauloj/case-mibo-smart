@@ -2,7 +2,8 @@
 
 Status: Accepted (2026-09-20) · Amended 2026-09-20 (player moved from a domain contract to an
 `expect @Composable` in `:shared:app`; VLCKit dropped for WKWebView on iOS; background teardown named)
-· **Checkpoint open until the video slice lands (wave 2)** — see the last section.
+· Amended 2026-09-21 by **V-01b** (the "Mac check" stops being a gate; the surface carries both urls)
+· **Checkpoint closed** — see the last section for what was observed and what was not.
 
 ## Context
 
@@ -44,16 +45,28 @@ as the **only** path on iOS.
   `StreamingRepository` (`createSession`, `endSession`, `quota`) and the `StreamSession` value
   (`url`, `monitorUrl`, `sessionId`, `expiresAt`). Nothing in the domain mentions playback.
 - `:shared:app`, package `camera.platform`, declares
-  `expect @Composable fun LiveVideoPlayer(url: String, onEvent: (PlayerEvent) -> Unit, modifier: Modifier)`
+  `expect @Composable fun LiveVideoPlayer(url: String, monitorUrl: String?, onEvent: (PlayerEvent) -> Unit, modifier: Modifier)`
   with `PlayerEvent = FirstFrame | Ended | NetworkError | DecodeError`. Under `LocalInspectionMode`
   it renders a placeholder so previews never touch a real player.
+  **The surface takes both urls of the session** (amended 2026-09-21, V-01b): the two platforms play
+  different things, and which one a platform needs is the actual's business, not the screen's. The
+  screen passes `session.url` and `session.monitorUrl` and stays identical on both.
   - `androidMain` actual: Media3 `ExoPlayer` with `ProgressiveMediaSource` (fMP4 extractor), owned by
-    `remember` + `DisposableEffect`, released on dispose.
+    `remember` + `DisposableEffect`, released on dispose. It ignores `monitorUrl`.
   - `iosMain` actual: `UIKitView` hosting a `WKWebView` on `monitorUrl` (the partner's own player
-    page). VLCKit was dropped: binary size, a CocoaPods/SPM step and Objective-C interop do not fit
-    the time box, and the Mac check of `monitor_url` in WKWebView (SPEC V9, iOS 17.1+
-    `ManagedMediaSource`) is the gate — if it fails, the iOS screen shows the "Abrir no player web"
-    action opening Safari and this ADR is amended.
+    page), **unconditionally**. VLCKit was dropped: binary size, a CocoaPods/SPM step and Objective-C
+    interop do not fit the time box.
+    **Amended 2026-09-21 (V-01b): the "Mac check" of `monitor_url` is no longer a gate.** It was one
+    in the first draft — "if it fails, iOS shows Safari only" — and that blocked two slices at the
+    dispatch gate, because no agent can obtain the result and a ticket that waits on a human
+    observation cannot be executed. The answer is in the product instead, and it is observable at
+    runtime: the actual reports `FirstFrame` **only when a `<video>` element on the page actually
+    starts playing** (a `WKUserScript` probe posting on a `WKScriptMessageHandler` channel), never on
+    "the page finished loading". A page that loads but plays nothing therefore runs out U1's
+    first-frame budget, the screen moves to `Failed`, and `Failed` offers "Abrir no player web"
+    (SPEC V10, SPEC U1, V-02). That is correct whether the page plays or not, so nothing in the code
+    depends on knowing which. A session whose `monitor_url` is null reports `DecodeError` at once —
+    there is nothing to play, and an unplayable stream must not keep spending quota.
 - **The ViewModel owns the session, the composable owns the player.** `LiveVideoViewModel`
   (`:shared:app`, `camera` package) runs `WatchLiveVideo`: confirm `RTSV` capability (one `funcoes`
   call, cached), create the session with `stream_gb = 0.5`, `streamId = 1`, `canalVideo = 0`, publish
@@ -97,21 +110,29 @@ as the **only** path on iOS.
 - Guardrail: rule 1 — the domain must not reference `LiveVideoPlayer`, `PlayerEvent` or any Media3 /
   WebKit symbol (already covered by domain purity).
 
-## Checkpoint — confirm or amend with the real camera (wave 2)
+## Checkpoint — closed 2026-09-21 by V-01b
 
 This ADR was written from the contract and from library documentation, before any frame was played.
-It is deliberately **not final**: the video slice (RF03, epic "Vídeo ao vivo") must confirm each line
-below against the real camera and either keep the decision or amend this file *in the same PR*
-(section "Decisões de arquitetura" of the PR template). Tracked as a chore issue in milestone Wave 2.
+The video slices have now landed, so the table below says, row by row, **what was observed and what
+was not** — and names who observes the rest. Filling it is the point of the checkpoint; pretending a
+row was observed would be worse than leaving it open.
 
-| What to confirm | Planned | Amend if… |
-|---|---|---|
-| Media3 plays the fMP4 stream as-is | `ProgressiveMediaSource` + default extractors, no custom `MediaSource` | it needs an explicit `FragmentedMp4Extractor`, a `DataSource` with headers, or does not play at all → try `HlsMediaSource`, then the Android WebView on `monitor_url` as the primary path |
-| Time to first frame | < 15 s so the session does not expire; U1 timeout 20 s | first frame regularly takes > 10 s → lower `stream_gb`, or move the timeout; if the session expires before the player attaches, create the session *inside* the composable's effect |
-| Background teardown | `LifecycleEventEffect(ON_STOP)` → `stop()`; session ended within 5 s | `ON_STOP` fires late or twice on multi-window / PiP → use `repeatOnLifecycle(STARTED)` around the stream job instead |
-| Retry policy | 3 retries (1 s, 3 s, 7 s), first same URL then new session, cap 2 creations | the stream URL is single-use (re-prepare fails) → skip the same-URL step; the cap starves a flaky network → raise to 3 |
-| iOS surface | WKWebView on `monitor_url` (Mac check, V9) | the page needs `ManagedMediaSource` and fails on the simulator → "Abrir no player web" in Safari only, iOS stays list + lock |
-| Session cost | `stream_gb = 0.5`, `streamId = 1` | 0.5 GB ends the stream too early in the demo → 1 GB; substream looks too poor → `streamId = 0` |
+Two things bound what this row could ever say here. The machine that wrote the code is a **Windows**
+machine, so iOS is cross-compiled and never executed (ADR-013 — "compiled, not executed"); and the
+macOS CI job **does not run on pull requests** (ADR-009 — 10× minutes on a private repo), so no PR in
+this project can claim a green iOS build. The remaining rows need the partner's real camera, which no
+automated check in this repository reaches.
 
-Nothing above is a reason to skip the slice: the WebView fallback is the floor that keeps RF03
-demonstrable while a better native path is evaluated.
+| What to confirm | Planned | Observed? | Outcome |
+|---|---|---|---|
+| Media3 plays the fMP4 stream as-is | `ProgressiveMediaSource` + default extractors, no custom `MediaSource` | **Not observed** — needs the real camera on a device | Kept as planned. Observed by whoever runs the demo build against the test camera; if it needs an explicit `FragmentedMp4Extractor` or a `DataSource` with headers, amend here and fall back to the Android WebView on `monitor_url` |
+| Time to first frame | < 15 s so the session does not expire; U1 timeout 20 s | **Not observed** — needs the real camera | Both numbers stay `[ASSUMED]` in the SPEC. Observed by the demo run; the 20 s budget is enforced in code by V-02 on a virtual clock, which proves the *mechanism*, not the number |
+| Background teardown | `LifecycleEventEffect(ON_STOP)` → `stop()`; session ended within 5 s | **Partly observed** — the wiring, on the JVM host | `LiveVideoScreenLifecycleTest` (fake `LifecycleOwner`) and `LiveVideoViewModelTest.stopEndsSessionAndDetachesPlayer` / `.teardownUsesAppScopeNotViewModelScope` pass. Multi-window / PiP behaviour on a device: not observed, observed by the demo run |
+| Retry policy | 3 retries (1 s, 3 s, 7 s), first same URL then new session, cap 2 creations | **Not observed** — V-02 implements it on a virtual clock | Delays stay `[ASSUMED]`. Whether the stream url is single-use is a property of the partner, observed by the demo run |
+| iOS surface | WKWebView on `monitor_url` | **Observed, in part — and amended** | The actual is implemented unconditionally and **compiles for both iOS targets** from Windows: `:shared:app:compileKotlinIosArm64` and `:compileKotlinIosSimulatorArm64` are `BUILD SUCCESSFUL`, and so is `:compileTestKotlinIosSimulatorArm64`. `linkDebugFrameworkIosSimulatorArm64` is `SKIPPED` on a non-Apple host — this is a compile check, not a link and not a run. `LiveVideoPlayerIosTest` exists and executes **only** on the macOS job. **Whether the monitor page plays on a real iPhone is not observed and is no longer a gate**: see the amendment in Decision — the page is probed for a real `playing` event, so U1's timeout catches a page that shows nothing and the product answers it with "Abrir no player web" |
+| Session cost | `stream_gb = 0.5`, `streamId = 1` | **Not observed** — needs the real camera | Kept. Observed by the demo run; a stream that ends too early → 1 GB, a substream that looks too poor → `streamId = 0` |
+
+Who observes what is left: the **author running the demo build against the partner's test camera**
+(every "needs the real camera" row) and the **macOS CI job on `main` or `workflow_dispatch`** (the iOS
+simulator tests). Nothing above is a reason to skip the slice — the web fallback is the floor that
+keeps RF03 demonstrable while a better native path is evaluated.

@@ -10,15 +10,25 @@ import androidx.compose.ui.Modifier
  * and a frame. `:shared:domain` knows only `StreamingRepository` and `StreamSession`, so Media3 and a
  * web view can be two spellings of the same feature without the business rules ever hearing about it.
  *
+ * Both urls of the session are handed over because the two actuals play different things: Android
+ * decodes [url] itself, iOS hands [monitorUrl] to the partner's own page (SPEC V10). Which one a
+ * platform needs is the actual's business, not the screen's.
+ *
  * @param url the fragmented-MP4 stream from `criar-fluxo-video`. It expires 15 seconds after the
  *   partner minted it, so an actual prepares it on composition and does not wait for anything.
+ * @param monitorUrl the partner's ready player page for the same session, or null when it sent none.
  * @param onEvent what the surface saw. The ViewModel decides what any of it means.
  *
  * Under `LocalInspectionMode` an actual renders a placeholder: previews are this project's visual
  * evidence and must never open a decoder or a socket.
  */
 @Composable
-expect fun LiveVideoPlayer(url: String, onEvent: (PlayerEvent) -> Unit, modifier: Modifier)
+expect fun LiveVideoPlayer(
+    url: String,
+    monitorUrl: String?,
+    onEvent: (PlayerEvent) -> Unit,
+    modifier: Modifier,
+)
 
 /**
  * What a player surface can tell the app (ADR-005).

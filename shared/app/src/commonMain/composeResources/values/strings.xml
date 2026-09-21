@@ -103,5 +103,4 @@
     <string name="live_error_offline">Sem conexão</string>
     <string name="live_error_unexpected">Resposta inesperada</string>
     <string name="live_error_failed">Não foi possível abrir o vídeo ao vivo</string>
-    <string name="live_ios_placeholder">Vídeo ao vivo chega na próxima entrega</string>
 </resources>

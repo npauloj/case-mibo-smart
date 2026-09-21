@@ -101,6 +101,7 @@
     <string name="live_step_capability">Verificando a câmera…</string>
     <string name="live_step_session">Criando sessão…</string>
     <string name="live_step_connecting">Conectando…</string>
+    <string name="live_step_reconnecting">Reconectando (%1$s/%2$s)…</string>
     <string name="live_badge">AO VIVO</string>
     <string name="live_quota">Esta sessão pode usar até %1$s GB</string>
     <string name="live_no_capability">Esta câmera não anuncia vídeo ao vivo</string>
@@ -108,6 +109,9 @@
     <string name="live_camera_offline">Câmera offline</string>
     <string name="live_expired">A transmissão foi encerrada</string>
     <string name="live_retry">Tentar novamente</string>
+    <string name="live_open_web_player">Abrir no player web</string>
+    <string name="live_close_web_player">Voltar ao vídeo</string>
+    <string name="live_error_playback">Não foi possível carregar o vídeo</string>
     <string name="live_error_rejected">Sua sessão não é mais válida</string>
     <string name="live_error_expired">Sua sessão expirou (tokens valem 2 h)</string>
     <string name="live_error_offline">Sem conexão</string>

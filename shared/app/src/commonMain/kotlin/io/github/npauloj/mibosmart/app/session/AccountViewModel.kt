@@ -132,8 +132,8 @@ class AccountViewModel(
         mutableState.value = AccountUiState(
             tokenSuffix = session.token.value.takeLast(TokenMask.VISIBLE_SUFFIX),
             expiry = session.expiryAt(clock),
-            // Read once, when the screen opens: nothing on it spends a request, so there is nothing
-            // to watch for (ADR-006).
+            // Read, not watched: the only thing on this screen that spends a request is "Renovar",
+            // and it comes back through here, so the number is fresh without a collector (ADR-006).
             requestCount = requestCounter.requests.value.takeIf { debugBuild.isOn },
         )
     }

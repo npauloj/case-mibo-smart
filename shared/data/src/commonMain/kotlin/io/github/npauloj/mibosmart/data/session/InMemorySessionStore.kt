@@ -11,7 +11,7 @@ import kotlin.time.Instant
  *
  * Volatile on purpose: it writes nothing to disk, so a killed process asks for the token again.
  * [VaultSessionStore] is what the app is wired to (ADR-008); this implementation stays as the one
- * tests use, which is why it keeps the same `issuedAt` contract rather than inventing one.
+ * tests use, which is why it keeps the same `(issuedAt, lifetime)` contract rather than inventing one.
  */
 class InMemorySessionStore : SessionStore {
 

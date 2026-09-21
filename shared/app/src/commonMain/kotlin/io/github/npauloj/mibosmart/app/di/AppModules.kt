@@ -7,6 +7,7 @@ import io.github.npauloj.mibosmart.app.camera.cameraAppModule
 import io.github.npauloj.mibosmart.app.devices.deviceAppModule
 import io.github.npauloj.mibosmart.app.lock.LockWritesSwitch
 import io.github.npauloj.mibosmart.app.lock.lockAppModule
+import io.github.npauloj.mibosmart.app.session.DebugBuild
 import io.github.npauloj.mibosmart.app.session.sessionAppModule
 import io.github.npauloj.mibosmart.data.di.dataModule
 import kotlin.time.Clock
@@ -30,11 +31,15 @@ import org.koin.dsl.module
  * @param lockWritesEnabled the lock-writes kill switch (`smarthome.lockWritesEnabled`). Same route,
  *   and it defaults to **off**: a lock write ends in a real building, so it is opted into rather than
  *   out of (SPEC L2, L7).
+ * @param debugBuild whether this is a developer's build (`BuildConfig.DEBUG`). It gates the request
+ *   counter on the account screen and nothing else (ADR-006). It defaults to off, which is the safe
+ *   direction: a delivered build that forgot to say so shows one line less, never one more.
  */
 fun appModule(
     apiHost: String,
     liveVideoEnabled: Boolean = true,
     lockWritesEnabled: Boolean = false,
+    debugBuild: Boolean = false,
 ): Module = module {
     includes(dataModule(apiHost))
 
@@ -51,6 +56,9 @@ fun appModule(
 
     // The same, for the feature whose calls reach hardware: read by the lock feature alone.
     single { LockWritesSwitch(lockWritesEnabled) }
+
+    // Also configured at the entry point, and read by the account screen alone (ADR-006).
+    single { DebugBuild(debugBuild) }
 
     // Routing between features, so it belongs to none of them.
     viewModelOf(::AppViewModel)
@@ -76,10 +84,18 @@ fun initKoin(
     apiHost: String,
     liveVideoEnabled: Boolean = true,
     lockWritesEnabled: Boolean = false,
+    debugBuild: Boolean = false,
     appDeclaration: KoinAppDeclaration = {},
 ) {
     startKoin {
         appDeclaration()
-        modules(appModule(apiHost, liveVideoEnabled, lockWritesEnabled))
+        modules(
+            appModule(
+                apiHost = apiHost,
+                liveVideoEnabled = liveVideoEnabled,
+                lockWritesEnabled = lockWritesEnabled,
+                debugBuild = debugBuild,
+            ),
+        )
     }
 }

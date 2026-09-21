@@ -93,6 +93,19 @@ private class KeychainTokenStore : SecureTokenStore {
         check(status == errSecSuccess) { "Keychain write failed with OSStatus $status" }
     }
 
+    /**
+     * The item is deleted by the same query that identifies it.
+     *
+     * `errSecItemNotFound` is a success here: "Sair" on a Keychain that has already lost the item
+     * must still end on the token screen (SPEC S8).
+     */
+    override fun clear() = memScoped {
+        val status = SecItemDelete(itemQuery())
+        check(status == errSecSuccess || status == errSecItemNotFound) {
+            "Keychain delete failed with OSStatus $status"
+        }
+    }
+
     /** The query that names this app's one credential; released when the scope ends. */
     private fun MemScope.itemQuery(): CFMutableDictionaryRef {
         val query = CFDictionaryCreateMutable(

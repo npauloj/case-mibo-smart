@@ -50,6 +50,24 @@ private class KeystoreTokenStore(private val context: () -> Context) : SecureTok
             .commit()
     }
 
+    /**
+     * The ciphertext goes, and so does the key that could read it.
+     *
+     * Deleting the alias is what makes "Sair" irreversible even against a copy of the preferences
+     * file taken beforehand (ADR-008); the next [write] generates a fresh key, so nothing downstream
+     * has to know the alias was gone.
+     */
+    override fun clear() {
+        context().getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .edit()
+            .remove(CIPHERTEXT)
+            .remove(IV)
+            // `commit` for the same reason `write` uses it: the credential must be off disk before
+            // the call returns, not whenever the background write happens to land.
+            .commit()
+        KeyStore.getInstance(KEYSTORE).apply { load(null) }.deleteEntry(ALIAS)
+    }
+
     private fun existingKey(): SecretKey? {
         val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
         return (keyStore.getEntry(ALIAS, null) as? KeyStore.SecretKeyEntry)?.secretKey

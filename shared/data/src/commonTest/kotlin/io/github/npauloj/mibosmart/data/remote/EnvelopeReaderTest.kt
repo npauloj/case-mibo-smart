@@ -126,6 +126,31 @@ class EnvelopeReaderTest {
         assertEquals(0, data.jsonArray.size)
     }
 
+    /**
+     * The regression this amendment exists for: `cota-disponivel` answers 403 with the **gateway's**
+     * shape for a perfectly valid token. Classifying it as an expiry would clear the session and send
+     * the user back to the token screen for no reason (SPEC S6). Probed 2026-09-21.
+     */
+    @Test
+    fun forbiddenWithGatewayShapeIsNotAnExpiry() {
+        val failure = assertFailsWith<SmartHomeException.Forbidden> {
+            reader.read(FORBIDDEN, """{"message":"Forbidden"}""")
+        }
+
+        assertEquals("Forbidden", failure.gatewayMessage)
+    }
+
+    /** The two 403 shapes are told apart by the body, and only by the body. */
+    @Test
+    fun thePartnerEnvelopeOnForbiddenIsStillAnExpiry() {
+        assertFailsWith<SmartHomeException.TokenExpired> {
+            reader.read(FORBIDDEN, """{"status":"erro","msg":"Token expirado, por favor gere um novo token"}""")
+        }
+        assertFailsWith<SmartHomeException.Forbidden> {
+            reader.read(FORBIDDEN, """{"message":"Forbidden"}""")
+        }
+    }
+
     @Test
     fun malformedJsonIsUnexpectedResponse() {
         assertFailsWith<SmartHomeException.UnexpectedResponse> {

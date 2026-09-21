@@ -80,4 +80,7 @@ private fun SmartHomeException.toState(): StreamState = when (this) {
     is SmartHomeException.Offline -> StreamState.Failed(StreamError.Offline)
     is SmartHomeException.UnexpectedResponse -> StreamState.Failed(StreamError.UnexpectedResponse)
     is SmartHomeException.ApiError -> StreamState.Failed(StreamError.Failed)
+    // Not a session problem: the endpoint is closed for this account. Same screen outcome as any
+    // named failure, and deliberately not the token-expired one (SPEC S6, ADR-012).
+    is SmartHomeException.Forbidden -> StreamState.Failed(StreamError.Failed)
 }

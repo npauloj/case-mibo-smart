@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <resources>
     <string name="app_name">Mibo Smart</string>
+
+    <string name="token_title">Entrar com seu token</string>
+    <string name="token_subtitle">Cole o token temporário gerado no portal. Ele vale por até 2 horas.</string>
+    <string name="token_field_label">Token de acesso</string>
+    <string name="token_paste">Colar</string>
+    <string name="token_validate">Validar</string>
+    <string name="token_validating">Validando o token</string>
+    <string name="token_error_rejected">Token inválido ou expirado</string>
+    <string name="token_error_offline">Sem conexão</string>
+    <string name="token_error_unexpected">Resposta inesperada</string>
+    <string name="token_error_failed">Não foi possível validar o token</string>
+
+    <string name="device_list_title">Dispositivos</string>
+    <string name="device_list_placeholder">A lista de dispositivos chega na próxima entrega.</string>
 </resources>

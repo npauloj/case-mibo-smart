@@ -14,6 +14,7 @@ how compliance is checked. New decisions made during implementation are appended
 | [ADR-007](ADR-007-java-interop-module.md) | Honest Java interop: one small Java module consumed from Kotlin | Proposed |
 | [ADR-008](ADR-008-token-security.md) | Token security: native secure storage, redacted logs, nothing versioned | Accepted |
 | [ADR-009](ADR-009-architecture-tests.md) | Architecture tests with Konture in `:konture-test`, first job of CI; Konsist as plan B | Accepted |
+| [ADR-010](ADR-010-session-store-contract-handover.md) | `SessionStore` lands narrow in S-01a and widens to ADR-008's `SecureTokenStore` in S-01b | Accepted |
 
 Each of ADR-001..008 ends with a **Guardrail** section naming the architecture-test rule (numbered 1–11
 in ADR-009) that makes the decision executable; ADR-006 is covered by the Kover gate instead.

@@ -1,9 +1,18 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
 }
+
+// The partner host is a local setting, never a versioned one (ADR-008): it comes from
+// `local.properties` (see local.properties.example) and reaches the app through BuildConfig. CI and a
+// fresh clone have no such file and fall back to a fictitious host — tests never reach the network.
+val smartHomeApiHost: String =
+    providers.fileContents(rootProject.layout.projectDirectory.file("local.properties")).asText.orNull
+        ?.let { contents -> Properties().apply { load(contents.reader()) }.getProperty("smarthome.apiHost") }
+        ?: "https://api.example.invalid"
 
 dependencies {
     implementation(projects.shared.app)
@@ -21,6 +30,10 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "SMARTHOME_API_HOST", "\"$smartHomeApiHost\"")
+    }
+    buildFeatures {
+        buildConfig = true
     }
     packaging {
         resources {

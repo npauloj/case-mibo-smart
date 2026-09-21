@@ -89,5 +89,4 @@
     <string name="live_error_offline">No connection</string>
     <string name="live_error_unexpected">Unexpected response</string>
     <string name="live_error_failed">The live video could not be opened</string>
-    <string name="live_ios_placeholder">Live video arrives in the next delivery</string>
 </resources>

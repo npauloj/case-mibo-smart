@@ -137,6 +137,7 @@ private fun LiveSurface(state: StreamState.Live, onPlayerEvent: (PlayerEvent) ->
     VideoSurface {
         LiveVideoPlayer(
             url = state.session.url,
+            monitorUrl = state.session.monitorUrl,
             onEvent = onPlayerEvent,
             modifier = Modifier.fillMaxSize(),
         )

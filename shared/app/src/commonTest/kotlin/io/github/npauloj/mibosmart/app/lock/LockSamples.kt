@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.lock
 
+import io.github.npauloj.mibosmart.app.FixedClock
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
@@ -53,4 +54,25 @@ internal object LockSamples {
         status: DeviceStatus = DeviceStatus.Online,
         lastSeen: Instant? = null,
     ): LockDestination = LockDestination(device(status, lastSeen), Address)
+}
+
+/**
+ * The lock screen wired to [repository], with the kill switch in one place.
+ *
+ * Both writes and the ViewModel read the **same** [LockWritesSwitch]: a build where the use cases
+ * refuse to write but the screen still offers the controls — or the other way round — is a bug, not
+ * a configuration, and a shared factory is what keeps a test from inventing one.
+ */
+internal fun lockViewModel(
+    repository: FakeLockRepository,
+    writesEnabled: Boolean = true,
+): LockViewModel {
+    val lockWrites = LockWritesSwitch(writesEnabled)
+    return LockViewModel(
+        loadLock = LoadLock(repository),
+        changeLockVolume = ChangeVolume(repository, lockWrites),
+        enableLockRemoteOpen = EnableRemoteOpen(repository, lockWrites),
+        lockWrites = lockWrites,
+        clock = FixedClock(LockSamples.Now),
+    )
 }

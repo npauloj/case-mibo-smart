@@ -12,5 +12,7 @@ import org.koin.dsl.module
  */
 internal val lockAppModule: Module = module {
     factoryOf(::LoadLock)
+    factoryOf(::ChangeVolume)
+    factoryOf(::EnableRemoteOpen)
     viewModelOf(::LockViewModel)
 }

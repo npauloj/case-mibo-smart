@@ -5,6 +5,7 @@ import io.github.npauloj.mibosmart.app.AppViewModel
 import io.github.npauloj.mibosmart.app.camera.LiveVideoSwitch
 import io.github.npauloj.mibosmart.app.camera.cameraAppModule
 import io.github.npauloj.mibosmart.app.devices.deviceAppModule
+import io.github.npauloj.mibosmart.app.lock.LockWritesSwitch
 import io.github.npauloj.mibosmart.app.lock.lockAppModule
 import io.github.npauloj.mibosmart.app.session.sessionAppModule
 import io.github.npauloj.mibosmart.data.di.dataModule
@@ -26,8 +27,15 @@ import org.koin.dsl.module
  * @param liveVideoEnabled the live-video kill switch (`smarthome.liveVideoEnabled`). It arrives the
  *   same way and for the same reason: off, the app can be run on the shared account without opening
  *   a streaming session (SPEC V1, ADR-006).
+ * @param lockWritesEnabled the lock-writes kill switch (`smarthome.lockWritesEnabled`). Same route,
+ *   and it defaults to **off**: a lock write ends in a real building, so it is opted into rather than
+ *   out of (SPEC L2, L7).
  */
-fun appModule(apiHost: String, liveVideoEnabled: Boolean = true): Module = module {
+fun appModule(
+    apiHost: String,
+    liveVideoEnabled: Boolean = true,
+    lockWritesEnabled: Boolean = false,
+): Module = module {
     includes(dataModule(apiHost))
 
     // The one clock of the app: "última atualização há X" is read against it (SPEC U3), and a test
@@ -40,6 +48,9 @@ fun appModule(apiHost: String, liveVideoEnabled: Boolean = true): Module = modul
 
     // Configured at the entry point like the host, and read by the camera feature alone.
     single { LiveVideoSwitch(liveVideoEnabled) }
+
+    // The same, for the feature whose calls reach hardware: read by the lock feature alone.
+    single { LockWritesSwitch(lockWritesEnabled) }
 
     // Routing between features, so it belongs to none of them.
     viewModelOf(::AppViewModel)
@@ -64,10 +75,11 @@ private val featureModules: List<Module> = listOf(
 fun initKoin(
     apiHost: String,
     liveVideoEnabled: Boolean = true,
+    lockWritesEnabled: Boolean = false,
     appDeclaration: KoinAppDeclaration = {},
 ) {
     startKoin {
         appDeclaration()
-        modules(appModule(apiHost, liveVideoEnabled))
+        modules(appModule(apiHost, liveVideoEnabled, lockWritesEnabled))
     }
 }

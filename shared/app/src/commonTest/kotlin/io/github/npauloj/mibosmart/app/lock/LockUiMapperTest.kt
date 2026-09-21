@@ -28,7 +28,7 @@ class LockUiMapperTest {
             lastSeen = LockSamples.Now - 3.hours,
         )
 
-        val state = LockUiMapper.toUiState(destination, LoadLockResult.Loaded(LockSamples.Locked), LockSamples.Now)
+        val state = LockUiMapper.toUiState(destination, LoadLockResult.Loaded(LockSamples.Locked), LockSamples.Now, WRITES_ON)
 
         assertTrue(state.isOffline)
         assertEquals(LastSeen.Hours(3), state.lastSeen)
@@ -40,7 +40,7 @@ class LockUiMapperTest {
     fun offlineWithoutATimestampSaysNever() {
         val destination = LockSamples.destination(status = DeviceStatus.Offline, lastSeen = null)
 
-        val state = LockUiMapper.toUiState(destination, LoadLockResult.Loaded(LockSamples.Locked), LockSamples.Now)
+        val state = LockUiMapper.toUiState(destination, LoadLockResult.Loaded(LockSamples.Locked), LockSamples.Now, WRITES_ON)
 
         assertEquals(LastSeen.Never, state.lastSeen)
     }
@@ -51,6 +51,7 @@ class LockUiMapperTest {
             LockSamples.destination(),
             LoadLockResult.Loaded(LockSamples.Locked),
             LockSamples.Now,
+            WRITES_ON,
         )
 
         assertFalse(state.isOffline)
@@ -75,7 +76,7 @@ class LockUiMapperTest {
             lastSeen = LockSamples.Now - 10.minutes,
         )
 
-        val state = LockUiMapper.toUiState(destination, LoadLockResult.Offline, LockSamples.Now)
+        val state = LockUiMapper.toUiState(destination, LoadLockResult.Offline, LockSamples.Now, WRITES_ON)
 
         assertEquals(LastSeen.Minutes(10), state.lastSeen)
         assertEquals(LockError.Offline, assertIs<LockUiState.Failed>(state).error)
@@ -85,5 +86,11 @@ class LockUiMapperTest {
         LockSamples.destination(status = DeviceStatus.Offline, lastSeen = LockSamples.Now - age),
         LoadLockResult.Loaded(LockSamples.Locked),
         LockSamples.Now,
+        WRITES_ON,
     ).lastSeen
+
+    private companion object {
+        /** These tests are about the clock and the offline label; the kill switch is L-01b's own. */
+        const val WRITES_ON = true
+    }
 }

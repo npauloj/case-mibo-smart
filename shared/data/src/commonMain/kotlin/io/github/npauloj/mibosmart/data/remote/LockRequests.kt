@@ -1,6 +1,9 @@
 package io.github.npauloj.mibosmart.data.remote
 
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -24,6 +27,26 @@ internal object LockRequests {
         productId = address.lockProductId,
         productIdAsRequired = address.lockProductId,
     )
+
+    /** The volume write: the same address, plus the 0..3 the partner speaks (SPEC L7). */
+    fun changeVolume(address: LockAddress, volume: VolumeLevel): LockChangeVolumeRequestDto =
+        LockChangeVolumeRequestDto(
+            namespace = compositeNamespace(address),
+            productId = address.lockProductId,
+            volume = volume.level,
+        )
+
+    /**
+     * The one request that changes a door's security posture (SPEC L2).
+     *
+     * `habilitar` is not a parameter here either: [LockEnableRemoteOpenRequestDto] fixes it at `true`,
+     * so the only body this object can build is the one the app is allowed to send.
+     */
+    fun enableRemoteOpen(address: LockAddress): LockEnableRemoteOpenRequestDto =
+        LockEnableRemoteOpenRequestDto(
+            namespace = compositeNamespace(address),
+            productId = address.lockProductId,
+        )
 
     /**
      * `<lockNs>_<hubNs>_<hubIdProduto>` — the lock addressed as a sub-device of its hub (SPEC L1).
@@ -58,6 +81,34 @@ internal data class LockVolumeRequestDto(
     @SerialName("idProduto") val productId: String,
     @SerialName("productId") val productIdAsRequired: String,
 )
+
+/** `mudar-volume`: `{ ns, idProduto, volume: 0..3 }` (`docs/api-contract.md` §5). */
+@Serializable
+internal data class LockChangeVolumeRequestDto(
+    @SerialName("ns") val namespace: String,
+    @SerialName("idProduto") val productId: String,
+    @SerialName("volume") val volume: Int,
+)
+
+/**
+ * `habilitar-abrir-remoto`: `{ ns, idProduto, habilitar: true }` (`docs/api-contract.md` §5).
+ *
+ * [enable] is not a constructor parameter on purpose. The endpoint accepts `false`, the app never
+ * sends it (SPEC L2), and a property with no way to set it is the cheapest possible guarantee of
+ * that — a caller cannot pass the wrong value because there is nothing to pass. `@EncodeDefault` is
+ * what keeps it on the wire: `smartHomeJson` omits defaults, and a request missing `habilitar`
+ * would be a different request.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+internal data class LockEnableRemoteOpenRequestDto(
+    @SerialName("ns") val namespace: String,
+    @SerialName("idProduto") val productId: String,
+) {
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    @SerialName("habilitar")
+    val enable: Boolean = true
+}
 
 /** `status-abertura` → `{ "aberto": true }`. */
 @Serializable

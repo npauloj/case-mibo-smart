@@ -21,4 +21,18 @@ interface LockRepository {
 
     /** The level the lock announces itself at (`volume`, SPEC L8). */
     suspend fun readVolume(address: LockAddress): VolumeLevel
+
+    /** Sets the level the lock announces itself at (`mudar-volume`, SPEC L7). */
+    suspend fun changeVolume(address: LockAddress, volume: VolumeLevel)
+
+    /**
+     * Grants the app permission to command this lock (`habilitar-abrir-remoto`, SPEC L2).
+     *
+     * **There is no parameter, and that is the contract.** The wire call takes `habilitar: true|false`
+     * and the app only ever sends `true`: disabling remote opening from a phone would take a door's
+     * safety net away with no way to notice, so the ability to ask for it does not exist in the
+     * domain. A later slice that genuinely needs the other direction adds its own function and has to
+     * justify it here.
+     */
+    suspend fun enableRemoteOpen(address: LockAddress)
 }

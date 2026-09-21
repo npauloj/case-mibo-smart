@@ -65,6 +65,20 @@ internal class SmartHomeApi(
     suspend fun readLockVolume(token: Token, request: LockVolumeRequestDto): JsonElement =
         post(LOCK_VOLUME_PATH, token) { setBody(request) }
 
+    /** `POST /fechaduras/mudar-volume/v1` — the first write of the lock screen (SPEC L7). */
+    suspend fun changeLockVolume(token: Token, request: LockChangeVolumeRequestDto): JsonElement =
+        post(LOCK_CHANGE_VOLUME_PATH, token) { setBody(request) }
+
+    /**
+     * `POST /fechaduras/habilitar-abrir-remoto/v1` — grants the app the right to command the lock
+     * (SPEC L2).
+     *
+     * The request type can only say `habilitar: true`, so this function has no way to take the
+     * permission away: the app enables, never disables.
+     */
+    suspend fun enableLockRemoteOpen(token: Token, request: LockEnableRemoteOpenRequestDto): JsonElement =
+        post(LOCK_ENABLE_REMOTE_OPEN_PATH, token) { setBody(request) }
+
     /**
      * One call: the shared shape of every partner request (`docs/api-contract.md` §1) — the token in
      * the `Authorization` header, a JSON body, and an answer that only [EnvelopeReader] may interpret.
@@ -102,5 +116,7 @@ internal class SmartHomeApi(
         private const val LOCK_OPEN_STATE_PATH = "/fechaduras/status-abertura/v1"
         private const val LOCK_REMOTE_OPEN_PATH = "/fechaduras/status-abrir-remoto/v1"
         private const val LOCK_VOLUME_PATH = "/fechaduras/volume/v1"
+        private const val LOCK_CHANGE_VOLUME_PATH = "/fechaduras/mudar-volume/v1"
+        private const val LOCK_ENABLE_REMOTE_OPEN_PATH = "/fechaduras/habilitar-abrir-remoto/v1"
     }
 }

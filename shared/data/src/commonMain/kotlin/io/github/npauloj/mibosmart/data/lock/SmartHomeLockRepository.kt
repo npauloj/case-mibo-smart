@@ -42,6 +42,23 @@ internal class SmartHomeLockRepository(
     }
 
     /**
+     * `mudar-volume` (SPEC L7).
+     *
+     * The success payload of the lock writes was never probed — it changes a real device, so it is
+     * open question 4 of `docs/api-contract.md` §8. Nothing here reads it: [EnvelopeReader] has
+     * already turned every documented failure into a typed exception by the time this returns, so
+     * "it did not throw" is the whole answer, and the caller re-reads the lock when it needs a value.
+     */
+    override suspend fun changeVolume(address: LockAddress, volume: VolumeLevel) {
+        api.changeLockVolume(token(), LockRequests.changeVolume(address, volume))
+    }
+
+    /** `habilitar-abrir-remoto`, always with `habilitar: true` (SPEC L2); same silence on the body. */
+    override suspend fun enableRemoteOpen(address: LockAddress) {
+        api.enableLockRemoteOpen(token(), LockRequests.enableRemoteOpen(address))
+    }
+
+    /**
      * The session's credential.
      *
      * A lock screen reached without a session is, to every screen above, the same thing as a refused

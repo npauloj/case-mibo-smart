@@ -33,6 +33,12 @@
     <string name="lock_volume_high">Alto</string>
     <string name="lock_remote_open_disabled_title">Abertura remota desativada</string>
     <string name="lock_remote_open_disabled_explanation">Esta fechadura não aceita comandos do aplicativo enquanto a abertura remota estiver desativada. Ela precisa ser habilitada antes que abrir ou fechar por aqui funcione.</string>
+    <string name="lock_volume_changing">Mudando o volume da fechadura para %1$s…</string>
+    <string name="lock_volume_failed">Não foi possível mudar o volume: %1$s</string>
+    <string name="lock_enable_remote_open">Habilitar abertura remota</string>
+    <string name="lock_enable_remote_open_consequence">Habilitar muda o que a porta permite: com a abertura remota ligada, quem tiver acesso a esta conta pode abrir a fechadura pelo aplicativo. O aplicativo não desfaz isso — desligar só na própria fechadura.</string>
+    <string name="lock_enable_remote_open_failed">Não foi possível habilitar a abertura remota: %1$s</string>
+    <string name="lock_writes_disabled">Esta versão do aplicativo não envia comandos para a fechadura. Nada do que está nesta tela chega à porta.</string>
     <string name="lock_offline">Fechadura offline</string>
     <string name="lock_last_update_moments">última atualização há instantes</string>
     <string name="lock_last_update_minutes">última atualização há %1$s min</string>
@@ -45,6 +51,7 @@
     <string name="lock_error_offline">Sem conexão</string>
     <string name="lock_error_unexpected">Resposta inesperada</string>
     <string name="lock_error_failed">Não foi possível ler a fechadura</string>
+    <string name="lock_error_write_refused">a fechadura recusou o comando</string>
     <string name="device_list_loading">Carregando dispositivos</string>
     <string name="device_empty">Nenhum dispositivo para este filtro</string>
     <string name="device_retry">Tentar novamente</string>

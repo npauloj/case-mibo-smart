@@ -10,6 +10,7 @@ class MiboSmartApplication : Application() {
         initKoin(
             apiHost = BuildConfig.SMARTHOME_API_HOST,
             liveVideoEnabled = BuildConfig.SMARTHOME_LIVE_VIDEO_ENABLED,
+            lockWritesEnabled = BuildConfig.SMARTHOME_LOCK_WRITES_ENABLED,
         ) {
             androidContext(this@MiboSmartApplication)
         }

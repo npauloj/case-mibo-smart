@@ -280,10 +280,12 @@ private fun UnconfirmedCommand(state: LockUiState.CommandExpired, onVerify: () -
             ),
         )
     }
+    // The check is a read, so it ends in a read's sentence: "a fechadura recusou o comando" would be
+    // the wrong story for a request that never asked the door for anything.
     state.checkFailure?.let { error ->
         CommandNotice(
             template = Res.string.lock_command_check_failed,
-            cause = stringResource(error.writeMessage),
+            cause = stringResource(error.message),
             isError = true,
         )
     }

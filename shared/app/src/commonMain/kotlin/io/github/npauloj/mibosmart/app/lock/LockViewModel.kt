@@ -87,7 +87,7 @@ sealed interface LockUiState {
      *
      * Each phase is *about* a lock rather than instead of one: [before] is the last set of readings
      * the app trusts, so the state, the volume and the precondition stay on screen the whole time —
-     * a command in flight is not a reason to stop showing the door.
+     * a command in flight is not a reason to stop showing the door (ADR-021).
      */
     sealed interface Commanding : LockUiState {
 
@@ -132,7 +132,8 @@ sealed interface LockUiState {
      * The command did not reach the lock, so the screen goes back to what it was showing (SPEC L5).
      *
      * It is deliberately short-lived: [LockViewModel] restores [before] after the notice has been on
-     * screen long enough to read, which is what "for the duration of a retry snackbar" means here.
+     * screen long enough to read, which is what "for the duration of a retry snackbar" means on a
+     * screen that hosts no snackbar (ADR-021).
      */
     data class CommandFailed(
         override val before: Ready,

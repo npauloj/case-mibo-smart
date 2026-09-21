@@ -48,8 +48,8 @@
     <string name="lock_command_expired">Comando enviado, estado não confirmado. O estado acima é o último que a fechadura informou.</string>
     <string name="lock_command_verify">Verificar</string>
     <string name="lock_command_checking">Verificando…</string>
-    <string name="lock_command_check_failed">Não foi possível verificar agora: %1$s. Toque em Verificar para tentar de novo.</string>
-    <string name="lock_command_failed">O comando não foi enviado: %1$s. A fechadura continua como estava — toque no botão para tentar de novo.</string>
+    <string name="lock_command_check_failed">%1$s. Toque em Verificar para tentar de novo.</string>
+    <string name="lock_command_failed">Não foi possível enviar o comando: %1$s. A fechadura continua como estava — toque no botão para tentar de novo.</string>
     <string name="lock_volume_label">Volume</string>
     <string name="lock_volume_mute">Mudo</string>
     <string name="lock_volume_low">Baixo</string>

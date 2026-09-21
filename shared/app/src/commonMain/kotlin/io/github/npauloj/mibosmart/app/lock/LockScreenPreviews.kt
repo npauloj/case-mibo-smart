@@ -29,6 +29,7 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
             Unlocked,
             CommandSent,
             CommandExpired,
+            CommandCheckFailed,
             CommandFailed,
             RemoteOpenDisabled,
             VolumeChanging,
@@ -68,6 +69,14 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
          * a door opened. The only way forward is the "Verificar" tap beside it.
          */
         val CommandExpired = LockUiState.CommandExpired(Locked, LockCommand.Open)
+
+        /**
+         * SPEC U6 on the one action `CommandExpired` offers: the check could not answer either.
+         *
+         * It has no named preview of its own — the SPEC's visual acceptance list does not ask for
+         * one — but it is in the sequence, so `LockScreen_AllStates` still renders it.
+         */
+        val CommandCheckFailed = CommandExpired.copy(checkFailure = LockError.Offline)
 
         /** SPEC L5: the command never left; the readings under the notice are untouched. */
         val CommandFailed =

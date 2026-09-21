@@ -8,6 +8,9 @@
     <string name="token_paste">Colar</string>
     <string name="token_validate">Validar</string>
     <string name="token_validating">Validando o token</string>
+    <string name="token_counter">%1$s/%2$s</string>
+    <string name="token_counter_description">%1$s de %2$s caracteres</string>
+    <string name="token_error_format">Token incompleto ou em formato inválido</string>
     <string name="token_error_rejected">Token inválido ou expirado</string>
     <string name="token_error_offline">Sem conexão</string>
     <string name="token_error_unexpected">Resposta inesperada</string>

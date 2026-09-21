@@ -10,11 +10,28 @@ class TokenFormatTest {
 
     @Test
     fun acceptsTheDocumentedFormat() {
-        assertTrue(TokenFormat.isValid(TokenSamples.Valid), "Ot_ plus 32 hex is the documented format")
+        assertTrue(TokenFormat.isValid(TokenSamples.Valid), "Ot_ plus 32 alphanumeric is the real format")
         assertEquals(35, TokenFormat.LENGTH)
         assertTrue(
+            TokenFormat.isValid(TokenSamples.ValidHexBody),
+            "a body that happens to be all hexadecimal is still a body",
+        )
+        assertTrue(
             TokenFormat.isValid(TokenFormat.PREFIX + "ABCDEF0123456789abcdef0123456789"),
-            "A-F are hexadecimal too; refusing them would lock out a token the platform accepts",
+            "only one real token has been observed; refusing a case would lock a user out (ADR-012)",
+        )
+    }
+
+    /**
+     * The regression this file exists for: the first version of [TokenFormat] required hexadecimal,
+     * and a real token carries letters beyond `a`-`f`, so the app disabled "Validar" for a token the
+     * platform accepts (ADR-012).
+     */
+    @Test
+    fun acceptsLettersBeyondHexadecimal() {
+        assertTrue(
+            TokenFormat.isValid(TokenFormat.PREFIX + "ghijklmnopqrstuvwxyz012345678901"),
+            "the body is alphanumeric, not hexadecimal",
         )
     }
 
@@ -29,8 +46,12 @@ class TokenFormatTest {
     @Test
     fun rejectsNonHexCharacters() {
         assertFalse(
-            TokenFormat.isValid(TokenSamples.Valid.dropLast(1) + "z"),
-            "z is not hexadecimal, however right the length is",
+            TokenFormat.isValid(TokenSamples.Valid.dropLast(1) + "-"),
+            "the body is alphanumeric: punctuation is out, however right the length is",
+        )
+        assertFalse(
+            TokenFormat.isValid(TokenSamples.Valid.dropLast(1) + "ç"),
+            "and so is anything outside ASCII",
         )
         assertFalse(
             TokenFormat.isValid("ot_" + TokenSamples.Valid.drop(3)),

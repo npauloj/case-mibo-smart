@@ -9,8 +9,17 @@ package io.github.npauloj.mibosmart.app.session
  */
 internal object TokenSamples {
 
-    /** `Ot_` followed by 32 hexadecimal characters — the documented format (docs/guides/token.md §2). */
-    val Valid: String = TokenFormat.PREFIX + "0123456789abcdef".repeat(2)
+    /**
+     * `Ot_` followed by 32 alphanumeric characters — the real format (docs/guides/token.md §2).
+     *
+     * The body deliberately carries letters beyond `a`–`f`: a real token probed on 2026-09-21 does,
+     * and the hexadecimal fixture this file shipped with could not have caught the bug ADR-012
+     * records — every test passed while the app rejected real tokens.
+     */
+    val Valid: String = TokenFormat.PREFIX + "0a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p"
+
+    /** A body made only of hexadecimal characters — still valid, since hex is a subset. */
+    val ValidHexBody: String = TokenFormat.PREFIX + "0123456789abcdef".repeat(2)
 
     /** The same token as a clipboard that dropped the second half. */
     val Truncated: String = Valid.take(20)

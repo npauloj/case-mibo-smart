@@ -27,7 +27,12 @@ grafo de dependências, rejeita tickets fora do contrato e **para no gate de mer
 ## 2. Fatias (slices) e ondas
 
 Uma fatia é **vertical** — atravessa `domain → data → app → tela` e entrega algo observável — e cabe
-em um PR revisável (≤ ~400 linhas de mudança). Fatias da mesma onda são independentes (`[P]`) e podem
+em um PR revisável: **≤ ~400 linhas executáveis** ([ADR-011](adr/ADR-011-pr-budget-measured-in-executable-lines.md)).
+Executável = linhas adicionadas menos KDoc/comentários, `import`/`package`, linhas em branco, arquivos de
+recurso (`strings.xml` pt/en), `.sq`, build/catálogo e corpos de `@Preview`/`PreviewParameterProvider`.
+**Testes contam** — não se compra espaço entregando menos teste. O diff bruto costuma ser 2–3× esse
+número num app KMP de quatro módulos; a linha `Size:` de cada ticket declara os dois e o limiar em que o
+worker deve **parar e devolver `blocked`**. Fatias da mesma onda são independentes (`[P]`) e podem
 ser implementadas em paralelo, cada uma em seu worktree e **em uma sessão de agente própria**; uma onda
 só começa quando as dependências da anterior foram mescladas em `main`.
 
@@ -122,8 +127,9 @@ Uma Issue por fatia, gerada de `docs/specs/issues.md` (ou escrita à mão no mes
 
 ## 6. Pull requests
 
-Um PR por fatia, ≤ ~400 linhas. O corpo é o roteiro da apresentação — escrito em **português**, para
-a banca; **o worker escreve o corpo no template**, o humano edita.
+Um PR por fatia, ≤ ~400 linhas **executáveis** (ADR-011; o diff bruto que o GitHub mostra é maior e não
+é o gate). O corpo é o roteiro da apresentação — escrito em **português**, para a banca; **o worker
+escreve o corpo no template**, o humano edita, e a seção Evidência declara **as duas contagens**.
 
 - **Título:** o mesmo formato do commit de squash: `feat(lock): open/close with confirmation state machine (L3–L6)`.
 - **Corpo:** `.github/PULL_REQUEST_TEMPLATE.md`, cinco seções — contexto e por quê; o que muda (com o que

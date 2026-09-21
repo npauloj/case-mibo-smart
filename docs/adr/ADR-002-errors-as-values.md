@@ -1,6 +1,13 @@
 # ADR-002. Errors are values; each use case defines its own result type
 
-Status: Accepted (2026-09-20)
+Status: Accepted (2026-09-20) — **the token-rejection rule below is superseded by
+[ADR-012](ADR-012-auth-failures-are-http-status-not-message-text.md) (2026-09-21)**
+
+> The shape of this ADR stands: errors are values, each use case owns its result type, and the
+> taxonomy is a sealed hierarchy new subtypes can join. What does **not** stand is the specific signal
+> it picked for a rejected token — `status: "erro"` with `msg` starting "Erro desconhecido". The real
+> API answers `401`/`403` and never sends that message; the rule could not fire. ADR-012 replaces it
+> with the HTTP status and adds `TokenExpired`. Read the two together.
 
 ## Context
 

@@ -17,7 +17,10 @@ tokens de outras pessoas que usam a mesma conta de gestão. Use apenas o seu.
 
 ## 2. Formato e validade
 
-- Formato: `Ot_` + 32 caracteres hexadecimais — 35 no total. O app valida esse formato **localmente**,
+- Formato: `Ot_` + 32 caracteres **alfanuméricos** — 35 no total. **Não é hexadecimal**: um token
+  real sondado em 21/09/2026 tem letras além de `a`-`f`, e a afirmação anterior deste guia
+  ("32 caracteres hexadecimais") fez o app rejeitar um token que a plataforma aceita (ADR-012).
+  O app valida esse formato **localmente**,
   antes de chamar a API, e só habilita "Validar" quando ele bate (S1.2). Um token truncado na colagem
   falha no campo, sem custar requisição.
 - No campo, o token aparece mascarado com o prefixo `Ot_` e os **4 últimos** caracteres em claro, mais
@@ -36,7 +39,9 @@ tokens de outras pessoas que usam a mesma conta de gestão. Use apenas o seu.
   últimos caracteres** (S9).
 - O logger HTTP sanitiza o cabeçalho `Authorization` (`sanitizeHeader` do Ktor) e roda em
   `LogLevel.HEADERS`, nunca `ALL`, para não registrar corpos de resposta.
-- O CI falha se o padrão `Ot_[0-9a-f]{20,}` aparecer em qualquer arquivo versionado.
+- O CI falha se o padrão `Ot_[0-9A-Za-z]{20,}` aparecer em qualquer arquivo versionado. A classe é
+  alfanumérica, não hexadecimal: um token real tem letras além de `a`-`f`, e o padrão antigo
+  (`[0-9a-f]`) não casava com ele — o gate deixaria passar uma credencial vazada (ADR-012).
 
 ## 4. O que acontece em cada estado
 

@@ -43,7 +43,7 @@ data class SessionEnded<out D>(val reason: SessionEndReason, val returnTo: D)
  *
  * A guard that had to be wired into every use case would be a guard with holes: any slice that adds a
  * partner call would have to remember it. One stream, fed at the single point every request passes
- * through, cannot be forgotten.
+ * through, cannot be forgotten (ADR-018).
  */
 interface RefusedRequests {
 

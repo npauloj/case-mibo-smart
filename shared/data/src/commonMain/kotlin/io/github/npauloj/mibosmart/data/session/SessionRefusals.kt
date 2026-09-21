@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * The one stream every refused request is announced on (SPEC S6).
+ * The one stream every refused request is announced on (SPEC S6, ADR-018).
  *
  * `:shared:data` is where the token a request was sent with is still in scope when the partner
  * refuses it, so this is where the fact is published; the guard above decides what it means.

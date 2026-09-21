@@ -75,7 +75,7 @@ internal class SmartHomeApi(
      *
      * It is also the only place that knows **which token a given request was sent with**, which is
      * what SPEC S6 needs and why the refusal is announced from here rather than from each repository:
-     * a guard wired per use case would miss the next slice's endpoint.
+     * a guard wired per use case would miss the next slice's endpoint (ADR-018).
      */
     private suspend fun post(
         path: String,

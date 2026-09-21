@@ -384,7 +384,7 @@ _EARS adapted to the lock domain vocabulary because no market standard for EARS 
 | `[ASSUMED: monitor page works in WebView]` | V9 | No — verify on device in wave 2 |
 | ~~Expired token == invalid token response~~ | S3/S6 | **Resolved 2026-09-21 — false.** `401` = rejected, `403` = expired, with a server message fit to show. See ADR-012. |
 | `[ASSUMED: 20 s first-frame timeout]` | U1 | No — tune on the real camera in wave 2 |
-| `[CHECKPOINT: ADR-005 player plan — confirm or amend on the real camera]` | V2–V5, V8–V10, U1 | No — the video slice PR fills the ADR-005 checkpoint table and amends what does not hold; tracked as a Wave 2 chore issue |
+| ~~`[CHECKPOINT: ADR-005 player plan — confirm or amend on the real camera]`~~ | V2–V5, V8–V10, U1 | **Closed 2026-09-21 by V-01b** — the ADR-005 table is filled row by row; the iOS surface row is amended (the "Mac check" is no longer a gate) and the rows that need the real camera are marked *not observed*, with who observes them |
 | `[ASSUMED: return to previous destination after re-auth]` | U5 | No |
 
 ---

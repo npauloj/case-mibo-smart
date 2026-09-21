@@ -3,6 +3,7 @@ package io.github.npauloj.mibosmart.data.remote
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.session.Token
 import io.ktor.client.HttpClient
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -25,12 +26,23 @@ internal class SmartHomeApi(
 ) {
 
     /** `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the envelope. */
-    suspend fun listDevices(token: Token, pageSize: Int, page: Int): JsonElement {
+    suspend fun listDevices(token: Token, pageSize: Int, page: Int): JsonElement =
+        post(LIST_DEVICES_PATH, token) { setBody(ListDevicesRequestDto(pageSize = pageSize, page = page)) }
+
+    /**
+     * One call: the shared shape of every partner request (`docs/api-contract.md` §1) — the token in
+     * the `Authorization` header, a JSON body, and an answer that only [EnvelopeReader] may interpret.
+     */
+    private suspend fun post(
+        path: String,
+        token: Token,
+        body: HttpRequestBuilder.() -> Unit,
+    ): JsonElement {
         val response = try {
-            httpClient.post("${baseUrl.trimEnd('/')}$LIST_DEVICES_PATH") {
+            httpClient.post("${baseUrl.trimEnd('/')}$path") {
                 contentType(ContentType.Application.Json)
                 bearerAuth(token.value)
-                setBody(ListDevicesRequestDto(pageSize = pageSize, page = page))
+                body()
             }
         } catch (cancellation: CancellationException) {
             throw cancellation

@@ -18,6 +18,7 @@ how compliance is checked. New decisions made during implementation are appended
 | [ADR-011](ADR-011-pr-budget-measured-in-executable-lines.md) | The PR budget counts executable lines, not diff lines | Accepted |
 | [ADR-012](ADR-012-auth-failures-are-http-status-not-message-text.md) | Authentication failures are signalled by HTTP status, not message text (supersedes ADR-002's token rule) | Accepted |
 | [ADR-013](ADR-013-verify-ios-expect-actual-by-cross-compiling.md) | Verify every iOS `expect/actual` by cross-compiling from the dev machine | Accepted |
+| [ADR-014](ADR-014-one-koin-module-per-feature.md) | One Koin module per feature, beside the code it wires | Accepted |
 
 Each of ADR-001..008 ends with a **Guardrail** section naming the architecture-test rule (numbered 1–11
 in ADR-009) that makes the decision executable; ADR-006 is covered by the Kover gate instead.

@@ -14,6 +14,13 @@ Three Gradle modules; dependencies only point inward:
   each other (rule 3). The only `expect/actual` here is the video surface
   `camera/platform/LiveVideoPlayer` (Media3 in `androidMain`, WKWebView in `iosMain`, ADR-005).
   Builds the iOS `Shared` framework.
+- **DI: one Koin module per feature** (ADR-014). A feature declares `internal val <feature>AppModule` in
+  `app/<feature>/<Feature>AppModule.kt` and `internal val <feature>DataModule` in
+  `data/<feature>/<Feature>DataModule.kt`, beside the code it wires. `di/AppModules.kt` and
+  `di/DataModule.kt` keep only what belongs to **no** feature (the HTTP client, the JSON, the API, the
+  routing ViewModel) and list the rest in their `featureModules` list — one entry per line,
+  alphabetical. A slice adding a feature creates its files and appends one sorted line; it does not add
+  bindings to the aggregate's body.
 - `expect/actual` is allowed **only** in packages named `platform` (rule 8): `data.platform.*` and
   `app.<feature>.platform`. Never in `:androidApp` / `iosApp` — they depend on these modules and cannot
   provide actuals for them.

@@ -1,9 +1,12 @@
 package io.github.npauloj.mibosmart.app.di
 
 import io.github.npauloj.mibosmart.app.AppViewModel
+import io.github.npauloj.mibosmart.app.lock.LoadLock
+import io.github.npauloj.mibosmart.app.lock.LockViewModel
 import io.github.npauloj.mibosmart.app.session.AuthenticateToken
 import io.github.npauloj.mibosmart.app.session.TokenEntryViewModel
 import io.github.npauloj.mibosmart.data.di.dataModule
+import kotlin.time.Clock
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.viewModelOf
@@ -20,9 +23,15 @@ import org.koin.dsl.module
 fun appModule(apiHost: String): Module = module {
     includes(dataModule(apiHost))
 
+    // The one clock of the app: "última atualização há X" is read against it (SPEC U3), and a test
+    // that has to assert those words needs to choose what "now" is.
+    single<Clock> { Clock.System }
+
     factoryOf(::AuthenticateToken)
+    factoryOf(::LoadLock)
     viewModelOf(::AppViewModel)
     viewModelOf(::TokenEntryViewModel)
+    viewModelOf(::LockViewModel)
 }
 
 fun initKoin(apiHost: String, appDeclaration: KoinAppDeclaration = {}) {

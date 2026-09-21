@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.npauloj.mibosmart.app.resources.Res
 import io.github.npauloj.mibosmart.app.resources.token_counter
 import io.github.npauloj.mibosmart.app.resources.token_counter_description
+import io.github.npauloj.mibosmart.app.resources.token_error_expired
 import io.github.npauloj.mibosmart.app.resources.token_error_failed
 import io.github.npauloj.mibosmart.app.resources.token_error_format
 import io.github.npauloj.mibosmart.app.resources.token_error_offline
@@ -143,7 +144,9 @@ private fun TokenFieldSupport(state: TokenEntryUiState) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = state.fieldMessage?.let { stringResource(it) }.orEmpty(),
+            // The server's sentence wins when there is one (SPEC S3.1): on a 403 the partner already
+            // says what to do, and rewording it would only make it vaguer.
+            text = state.serverMessage ?: state.fieldMessage?.let { stringResource(it) }.orEmpty(),
             modifier = Modifier.weight(1f),
         )
         Text(
@@ -171,6 +174,7 @@ private val TokenEntryUiState.fieldMessage: StringResource?
 private val TokenEntryError.message: StringResource
     get() = when (this) {
         TokenEntryError.TokenRejected -> Res.string.token_error_rejected
+        TokenEntryError.TokenExpired -> Res.string.token_error_expired
         TokenEntryError.Offline -> Res.string.token_error_offline
         TokenEntryError.UnexpectedResponse -> Res.string.token_error_unexpected
         TokenEntryError.Failed -> Res.string.token_error_failed

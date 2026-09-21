@@ -26,20 +26,22 @@ internal class SmartHomeApi(
 
     /** `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the envelope. */
     suspend fun listDevices(token: Token, pageSize: Int, page: Int): JsonElement {
-        val rawBody = try {
+        val response = try {
             httpClient.post("${baseUrl.trimEnd('/')}$LIST_DEVICES_PATH") {
                 contentType(ContentType.Application.Json)
                 bearerAuth(token.value)
                 setBody(ListDevicesRequestDto(pageSize = pageSize, page = page))
-            }.bodyAsText()
+            }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (transport: Throwable) {
-            // The API reports its own errors inside a 200 body, so anything thrown here is the call
-            // never having completed: no connectivity, timeout, DNS or TLS.
+            // Nothing thrown here is an answer: the client is configured with `expectSuccess = false`,
+            // so a status the API chose — 200, 401, 403 — arrives as a response, not an exception.
+            // Reaching this branch means the call never completed: connectivity, timeout, DNS or TLS.
             throw SmartHomeException.Offline(transport)
         }
-        return envelopeReader.read(rawBody)
+        // Status first, body second (ADR-012): a 401/403 body is a bare JSON string, not an envelope.
+        return envelopeReader.read(response.status.value, response.bodyAsText())
     }
 
     private companion object {

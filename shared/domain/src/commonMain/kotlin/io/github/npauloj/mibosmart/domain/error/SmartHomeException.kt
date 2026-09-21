@@ -11,11 +11,24 @@ package io.github.npauloj.mibosmart.domain.error
 sealed class SmartHomeException(message: String, cause: Throwable? = null) : Exception(message, cause) {
 
     /**
-     * The partner refused the token (SPEC S3): a flat envelope with `status: "erro"` and the generic
-     * "Erro desconhecido" message, which is the only signal a rejected token leaves
-     * (`docs/api-contract.md` §1.2).
+     * The partner does not recognise the token: **HTTP 401** (SPEC S3, ADR-012).
+     *
+     * The status is the signal. An earlier version of this class read it from the message text
+     * (`"Erro desconhecido"`), which the real API never sends — the rule could not fire and a rejected
+     * token surfaced as [UnexpectedResponse] instead.
      */
     class TokenRejected : SmartHomeException("the partner rejected the access token")
+
+    /**
+     * The token was recognised and has expired: **HTTP 403** (SPEC S3.1, S6, ADR-012).
+     *
+     * Distinct from [TokenRejected] because the platform distinguishes them, and because the user can
+     * act on it: [serverMessage] is the partner's own sentence ("Token expirado, por favor gere um novo
+     * token"), which is fit to show — unlike a generic [ApiError] message (SPEC U6). It is null when
+     * the 403 body did not parse.
+     */
+    class TokenExpired(val serverMessage: String?) :
+        SmartHomeException(serverMessage ?: "the access token has expired")
 
     /** The request never produced an answer: no connectivity, timeout, DNS or TLS failure (SPEC S4). */
     class Offline(cause: Throwable?) : SmartHomeException("the partner API could not be reached", cause)

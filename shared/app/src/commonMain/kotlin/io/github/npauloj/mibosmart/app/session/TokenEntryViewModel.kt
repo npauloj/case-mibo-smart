@@ -17,6 +17,14 @@ data class TokenEntryUiState(
     val token: String = "",
     val isValidating: Boolean = false,
     val error: TokenEntryError? = null,
+    /**
+     * The partner's own sentence, when the failure carried one worth showing (SPEC S3.1).
+     *
+     * Only [TokenEntryError.TokenExpired] sets it: a 403 says "Token expirado, por favor gere um novo
+     * token", which is more useful than anything this app could write. Every other category keeps the
+     * server's words out of the UI (SPEC U6, ADR-012).
+     */
+    val serverMessage: String? = null,
 ) {
     /** How many characters of [TokenFormat.LENGTH] the field holds, for the counter of SPEC S1.1. */
     val characterCount: Int get() = TokenFormat.characterCount(token)
@@ -42,8 +50,8 @@ data class TokenEntryUiState(
     val canSubmit: Boolean get() = TokenFormat.isValid(token) && !isValidating
 }
 
-/** The reasons a validation can fail, one user-facing message each (SPEC E2, limited to what S-01a can observe). */
-enum class TokenEntryError { TokenRejected, Offline, UnexpectedResponse, Failed }
+/** The reasons a validation can fail, one user-facing message each (SPEC E2, ADR-012). */
+enum class TokenEntryError { TokenRejected, TokenExpired, Offline, UnexpectedResponse, Failed }
 
 /**
  * The token screen: one state, and intents as suspend functions rather than a second stream (ADR-003).
@@ -85,7 +93,13 @@ class TokenEntryViewModel(private val authenticateToken: AuthenticateToken) : Vi
         if (!mutableState.value.canSubmit) return
         mutableState.update { it.copy(isValidating = true, error = null) }
         val result = authenticateToken(Token(mutableState.value.token.trim()))
-        mutableState.update { it.copy(isValidating = false, error = result.toError()) }
+        mutableState.update {
+            it.copy(
+                isValidating = false,
+                error = result.toError(),
+                serverMessage = (result as? AuthenticationResult.TokenExpired)?.serverMessage,
+            )
+        }
         if (result == AuthenticationResult.Success) {
             mutableOpenDeviceList.emit(Unit)
         }
@@ -95,6 +109,7 @@ class TokenEntryViewModel(private val authenticateToken: AuthenticateToken) : Vi
 private fun AuthenticationResult.toError(): TokenEntryError? = when (this) {
     AuthenticationResult.Success -> null
     AuthenticationResult.TokenRejected -> TokenEntryError.TokenRejected
+    is AuthenticationResult.TokenExpired -> TokenEntryError.TokenExpired
     AuthenticationResult.Offline -> TokenEntryError.Offline
     AuthenticationResult.UnexpectedResponse -> TokenEntryError.UnexpectedResponse
     AuthenticationResult.Failed -> TokenEntryError.Failed

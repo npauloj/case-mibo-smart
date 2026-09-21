@@ -57,6 +57,25 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
 - **S1** WHEN the app starts WITHOUT a stored token, THE SYSTEM SHALL show the token entry screen with
   a masked input, a paste action and a "Validar" button disabled until the input is non-blank.
   _(test: `TokenEntryViewModelTest.emptyInputKeepsSubmitDisabled`; masked input proven by preview `TokenScreen_Typing` — no Compose UI test runner in scope)_
+- **S1.1 — the mask must still let the user check what they pasted.** WHILE the token field holds text,
+  THE SYSTEM SHALL render the public `Ot_` prefix and the **last 4 characters** in clear and mask
+  everything between them, and SHALL show a character counter against the expected length. THE SYSTEM
+  SHALL NOT offer any control that reveals the whole token. _(test:
+  `TokenMaskTest.showsPrefixAndLastFourOnly`, `TokenMaskTest.shortInputIsFullyMasked`; preview
+  `TokenScreen_Typing`)_
+  Rationale: a paste action the user cannot verify is a paste they have to trust — the failure mode is a
+  truncated clipboard that costs one request from the budget to discover. Revealing at most the last 4
+  characters is the most S9 permits, so this needs no exception to it.
+- **S1.2 — reject a malformed token before spending a request.** WHEN the input does not match
+  `Ot_` followed by exactly 32 hexadecimal characters (after trimming surrounding whitespace),
+  THE SYSTEM SHALL keep "Validar" disabled and, once the user has typed or pasted something, SHALL
+  show "Token incompleto ou em formato inválido" in the field; THE SYSTEM SHALL NOT call the API.
+  _(test: `TokenFormatTest.acceptsTheDocumentedFormat`, `.rejectsTruncatedPaste`,
+  `.rejectsNonHexCharacters`, `.trimsSurroundingWhitespace`,
+  `TokenEntryViewModelTest.malformedTokenCostsNoRequest` — call counter stays at 0; preview
+  `TokenScreen_InvalidFormat`)_
+  Format per `docs/guides/token.md` §2. The account's request budget is ~300 for the whole case
+  (ADR-006), so a typo must not cost one.
 - **S2** WHEN the user submits a token, THE SYSTEM SHALL validate it with one
   `listar-dispositivos` call (`tamanhoPagina: 1, pagina: 1`) and, on success, persist it in secure
   storage and navigate to the device list. _(test: `AuthenticateTokenTest.validTokenIsStoredAndSucceeds` — fake repository counts exactly one call)_
@@ -83,7 +102,10 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
   _(test: `LogoutTest.clearsSecureStore`)_
   Applies to: androidMain and iosMain (`SecureTokenStore` actuals — Keystore / Keychain, ADR-008).
 - **S9** THE SYSTEM SHALL never display more than the last 4 characters of the token and never write
-  it to logs. _(test: `LogSanitizerTest.authorizationHeaderRedacted`, `AccountViewModelTest.exposesSuffixOnly`)_
+  it to logs. This binds the **entry field** as much as the account screen: S1.1's mask is the only
+  place the token is partially shown, and no reveal control exists anywhere in the app.
+  _(test: `LogSanitizerTest.authorizationHeaderRedacted`, `AccountViewModelTest.exposesSuffixOnly`,
+  `TokenMaskTest.showsPrefixAndLastFourOnly`)_
 - **S10** `[ASSUMED: renovarToken is POST /autenticacao/renovar-token/v1 on the api host with body {token} and returns the new token in data — per Swagger and the docs' "Saiba mais"; verified with one real call at the start of wave 3, never earlier (it rotates the working token)]`
   WHEN the session is about to expire, THE SYSTEM SHALL offer "Renovar" and, on success, replace the stored
   token without leaving the current screen; IF renewal fails, THE SYSTEM SHALL keep the current token and
@@ -91,12 +113,15 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
   Wave 3; first in the cut list after the Java module.
 
 ### Screen states
-- Token screen: idle · validating (button spinner, input locked) · error (inline message) .
+- Token screen: idle · typing (masked with visible `Ot_` prefix, last 4 and counter — S1.1) ·
+  invalid-format (S1.2, "Validar" disabled, no API call) · validating (button spinner, input locked) ·
+  error (inline message).
 - Account screen (no network): suffix, "expira em …", "Sair", debug request counter (ADR-006).
 
 ### Visual acceptance (previews)
 `TokenScreenContent` / `AccountScreenContent`, each with a `PreviewParameterProvider`; rule 11 guarantees the preview exists.
-- `TokenScreen_Idle`, `TokenScreen_Validating`, `TokenScreen_Error` (S1, S3, S4) — plus `_Dark` variants.
+- `TokenScreen_Idle`, `TokenScreen_Typing` (S1.1 mask + counter), `TokenScreen_InvalidFormat` (S1.2),
+  `TokenScreen_Validating`, `TokenScreen_Error` (S1, S3, S4) — plus `_Dark` variants.
 - `AccountScreen_Valid`, `AccountScreen_ExpiringSoon` (S7 banner), `AccountScreen_Expired` — plus `_Dark` variants.
 
 ---

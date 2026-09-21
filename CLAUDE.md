@@ -18,8 +18,10 @@ Or, automatically: ask for the `plan-research-execute` workflow.
 Spec-first chain for features: `docs/specs/SPEC.md` → `/to-issues --publish` → `/orchestrate` → `/review`.
 Every structural decision has an ADR in `docs/adr/`; AI-assisted work is logged in `AI-LOG.md`.
 
-Artifacts live in `.claude/` (versioned, shared with the team) and override the global
-ones of the same name.
+The pipeline's own artifacts live in `.claude/`, which is **not versioned here** — it is the author's
+local tooling, not a deliverable of the case. A project copy overrides the global artifact of the same
+name. What is versioned is everything the tooling produces: `docs/PROCESS.md`, the SPEC,
+`docs/specs/issues.md`, the ADRs, the Issues and the PRs.
 
 ## Stack / conventions
 

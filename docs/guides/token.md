@@ -17,7 +17,12 @@ tokens de outras pessoas que usam a mesma conta de gestão. Use apenas o seu.
 
 ## 2. Formato e validade
 
-- Formato: `Ot_` + 32 caracteres hexadecimais (o app valida o formato antes de chamar a API — S1/S2).
+- Formato: `Ot_` + 32 caracteres hexadecimais — 35 no total. O app valida esse formato **localmente**,
+  antes de chamar a API, e só habilita "Validar" quando ele bate (S1.2). Um token truncado na colagem
+  falha no campo, sem custar requisição.
+- No campo, o token aparece mascarado com o prefixo `Ot_` e os **4 últimos** caracteres em claro, mais
+  um contador de caracteres (S1.1) — o suficiente para conferir uma colagem sem expor o segredo. Não
+  existe controle de "revelar" em lugar nenhum do app (S9).
 - Cabeçalho: `Authorization: Bearer Ot_…` em toda requisição (contrato §1).
 - **Validade máxima: 2 horas**, contadas pela plataforma. O app estima a expiração a partir da primeira
   validação bem-sucedida (S7, marcado como assunção na SPEC) e avisa antes: "Token expira em breve".
@@ -67,9 +72,18 @@ a validação do token. Por isso o app valida com **uma** chamada mínima (`tama
 lista em cache e nunca faz polling ([ADR-006](../adr/ADR-006-local-persistence-and-request-budget.md)).
 Durante o desenvolvimento, prefira os testes com `MockEngine` a chamadas reais.
 
-## 7. Decisão em aberto: pré-preenchimento em debug
+## 7. Pré-preenchimento em debug — decidido: **não adotado** (2026-09-20)
 
-Está em aberto se builds de **debug** poderão pré-preencher o campo do token a partir de uma chave em
-`local.properties` (arquivo não versionado), para acelerar desenvolvimento e demonstração. Não há
-decisão nem implementação; se for adotado, entra como critério na SPEC e ADR próprio, e nunca afeta o
-release nem substitui a tela do RF01.
+Estava em aberto se builds de **debug** poderiam pré-preencher o campo a partir de uma chave em
+`local.properties`. **Não será feito**, e o motivo é o próprio ciclo de vida do token: `local.properties`
+é lido em **tempo de compilação** e vira `BuildConfig`, enquanto o token vale no máximo 2 horas. Na
+prática seria editar o arquivo e **recompilar** a cada duas horas — mais caro que colar no campo. O
+pré-preenchimento resolveria digitação, mas o gargalo real é a rotação, não a digitação.
+
+O que de fato reduz a fricção, e foi adotado no lugar: a colagem conferível de um olhar (S1.1) e a
+validação local de formato, que impede que uma colagem truncada gaste requisição (S1.2).
+
+Se a fricção reaparecer, a alternativa viável é um **deep link só em debug**
+(`adb shell am start -d "mibosmart://token/Ot_…"`), que não exige recompilar. Não está adotada: abre
+superfície de intent que exigiria validação de deep link e um ADR próprio, e não se justifica enquanto
+colar do portal resolver.

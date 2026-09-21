@@ -29,6 +29,18 @@ internal class SmartHomeApi(
     suspend fun listDevices(token: Token, pageSize: Int, page: Int): JsonElement =
         post(LIST_DEVICES_PATH, token) { setBody(ListDevicesRequestDto(pageSize = pageSize, page = page)) }
 
+    /** `POST /fechaduras/status-abertura/v1` — whether the door is open (SPEC L1). */
+    suspend fun readLockOpenState(token: Token, request: LockReadRequestDto): JsonElement =
+        post(LOCK_OPEN_STATE_PATH, token) { setBody(request) }
+
+    /** `POST /fechaduras/status-abrir-remoto/v1` — the precondition for any command (SPEC L2). */
+    suspend fun readLockRemoteOpen(token: Token, request: LockReadRequestDto): JsonElement =
+        post(LOCK_REMOTE_OPEN_PATH, token) { setBody(request) }
+
+    /** `POST /fechaduras/volume/v1` — the level, read with the doubled product id (SPEC L8). */
+    suspend fun readLockVolume(token: Token, request: LockVolumeRequestDto): JsonElement =
+        post(LOCK_VOLUME_PATH, token) { setBody(request) }
+
     /**
      * One call: the shared shape of every partner request (`docs/api-contract.md` §1) — the token in
      * the `Authorization` header, a JSON body, and an answer that only [EnvelopeReader] may interpret.
@@ -58,5 +70,8 @@ internal class SmartHomeApi(
 
     private companion object {
         const val LIST_DEVICES_PATH = "/produtos/listar-dispositivos/v1"
+        const val LOCK_OPEN_STATE_PATH = "/fechaduras/status-abertura/v1"
+        const val LOCK_REMOTE_OPEN_PATH = "/fechaduras/status-abrir-remoto/v1"
+        const val LOCK_VOLUME_PATH = "/fechaduras/volume/v1"
     }
 }

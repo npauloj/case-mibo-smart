@@ -683,7 +683,8 @@ graph TD
   `shared/app/.../app/lock/ToggleLock.kt`, `shared/app/.../app/lock/LockViewModel.kt` (extend),
   `shared/app/.../app/lock/LockScreenContent.kt` (extend + previews),
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
-- **Depends on:** L-01a
+- **Depends on:** L-01b
+  _(**stacked edge, ADR-015**: L-02 needs only L-01a logically, but it extends the same `LockScreen` and `LockViewModel` as L-01b. Branch from `slice/l-01b`, not `main`, and say so in the PR body — the CI green is against the stack.)_
 - **Issue:** #20
 - **Acceptance criteria (EARS):** SPEC **L3, L4, L6** and the command half of **L5**. Tests named in
   the SPEC: `ToggleLockTest.happyPathConfirmsWithStatusRead` /
@@ -724,7 +725,8 @@ graph TD
   `shared/app/.../app/lock/OpeningHistory.kt` (use case), `.../app/lock/OpeningHistoryViewModel.kt`,
   `.../app/lock/OpeningHistoryContent.kt` + `PreviewParameterProvider`,
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
-- **Depends on:** L-01a
+- **Depends on:** L-02
+  _(**stacked edge, ADR-015**: same `LockScreen` and `LockViewModel` as L-02. Branch from `slice/l-02`, not `main`, and say so in the PR body — the CI green is against the stack.)_
 - **Issue:** #21
 - **Acceptance criteria (EARS):** SPEC **L9, L10** and **U4**. Tests named in the SPEC:
   `OpeningHistoryTest.mapsKnownTypes` / `.unknownTypeShownRaw` / `.emptyState` /

@@ -2,6 +2,7 @@ package io.github.npauloj.mibosmart.data.remote
 
 import io.github.npauloj.mibosmart.data.lock.SmartHomeLockRepository
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
+import io.github.npauloj.mibosmart.data.session.SessionRefusals
 import io.github.npauloj.mibosmart.data.session.SessionSamples
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
@@ -122,6 +123,8 @@ class LockRequestsTest {
             ),
             baseUrl = "https://api.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
+            requestCounter = RequestCounter(),
+            refusedRequests = SessionRefusals(),
         ),
         sessionStore = sessionStore,
         json = smartHomeJson,

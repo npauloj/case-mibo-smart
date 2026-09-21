@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.data.remote
 
+import io.github.npauloj.mibosmart.data.session.SessionRefusals
 import io.github.npauloj.mibosmart.domain.session.Token
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -35,6 +36,8 @@ class LogSanitizerTest {
             httpClient = HttpClientFactory.create(engine, logger),
             baseUrl = "https://api.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
+            requestCounter = RequestCounter(),
+            refusedRequests = SessionRefusals(),
         )
 
         api.listDevices(Token(SECRET), pageSize = 1, page = 1)

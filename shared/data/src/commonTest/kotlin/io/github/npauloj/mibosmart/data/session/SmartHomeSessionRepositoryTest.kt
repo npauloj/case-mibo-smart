@@ -2,6 +2,7 @@ package io.github.npauloj.mibosmart.data.session
 
 import io.github.npauloj.mibosmart.data.remote.EnvelopeReader
 import io.github.npauloj.mibosmart.data.remote.HttpClientFactory
+import io.github.npauloj.mibosmart.data.remote.RequestCounter
 import io.github.npauloj.mibosmart.data.remote.SmartHomeApi
 import io.github.npauloj.mibosmart.data.remote.smartHomeJson
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
@@ -101,6 +102,8 @@ class SmartHomeSessionRepositoryTest {
             ),
             baseUrl = "https://api.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
+            requestCounter = RequestCounter(),
+            refusedRequests = SessionRefusals(),
         ),
     )
 }

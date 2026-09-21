@@ -53,6 +53,25 @@ class VaultSessionStoreTest {
         assertEquals(Session(Token("um:token:esquisito"), ISSUED_AT), store.read())
     }
 
+    /** SPEC S8: "Sair" takes the credential off the device, and a cold start asks for a new one. */
+    @Test
+    fun clearRemovesTheStoredSession() = runTest {
+        val vault = FakeSecureTokenStore()
+        val store = VaultSessionStore(vault)
+        store.write(Token(TOKEN), ISSUED_AT)
+
+        store.clear()
+
+        assertNull(store.read(), "the session survived a logout")
+        assertNull(vault.read(), "the credential is still in the vault after a logout")
+    }
+
+    /** Signing out of a session the vault has already lost still ends on the token screen. */
+    @Test
+    fun clearWithoutASessionIsNotAFailure() = runTest {
+        VaultSessionStore(FakeSecureTokenStore()).clear()
+    }
+
     @Test
     fun absentKeyReturnsNull() = runTest {
         val store = VaultSessionStore(FakeSecureTokenStore())

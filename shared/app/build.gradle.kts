@@ -20,6 +20,13 @@ kotlin {
             isStatic = true
             export(projects.shared.domain)
         }
+        // SQLDelight's native driver reaches this module through :shared:data, and its sqliter
+        // cinterop leaves the `sqlite3_*` symbols to the final link. The framework inherits them from
+        // the app that embeds it, but the *test* binary links on its own and has no such host, so
+        // `linkDebugTestIosSimulatorArm64` failed with "Undefined symbols ... _sqlite3_bind_blob".
+        // :shared:data links because its own iOS tests never reach the driver and Kotlin/Native drops
+        // it; here the Koin wiring does reach it. `binaries.all` covers the test binary too.
+        iosTarget.binaries.all { linkerOpts("-lsqlite3") }
     }
 
     androidLibrary {

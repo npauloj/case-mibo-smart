@@ -25,9 +25,9 @@ data class DeviceRow(
     /**
      * Why this row opens nothing although its kind normally would, or null when it does (SPEC D6).
      *
-     * Only a lock can carry one, and only because the address is assembled from loaded rows rather
-     * than fetched: the row stays on screen and explains itself instead of taking a tap it cannot
-     * honour (SPEC U6).
+     * Only a lock can carry one, and only because the address is read off the row rather than
+     * fetched: a row the partner sent without one of the four parts stays on screen and explains
+     * itself instead of taking a tap it cannot honour (SPEC U6).
      */
     val unavailable: LockAddressing.Unavailable?,
 )
@@ -77,8 +77,9 @@ internal fun Instant.ageAt(now: Instant): Elapsed = (now - this).coerceAtLeast(D
 fun List<Device>.toRows(now: Instant): List<DeviceRow> {
     val namesById = associate { it.id to it.name }
     return map { device ->
-        // The same rule the tap will use (SPEC D6): a lock the list cannot address is drawn as one
-        // that says why, never as one that opens a screen with nothing to talk to.
+        // The same rule the tap will use (SPEC D6): a lock whose own row cannot be turned into an
+        // address is drawn as one that says why, never as one that opens a screen with nothing to
+        // talk to.
         val unavailable = if (device.kind == DeviceKind.Lock) {
             addressing(device) as? LockAddressing.Unavailable
         } else {

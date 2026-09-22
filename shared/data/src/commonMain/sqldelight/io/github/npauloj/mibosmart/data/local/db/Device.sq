@@ -19,7 +19,11 @@ CREATE TABLE cachedDevice (
   -- The partner's `idProduto`, which the lock edge needs for both the lock and its hub (D-03,
   -- api-contract §5). Last, and with the same default as `2.sqm`, so a file created here and a file
   -- migrated there end up with the same table.
-  productId TEXT NOT NULL DEFAULT ''
+  productId TEXT NOT NULL DEFAULT '',
+  -- The hub's `idProduto`, as the partner puts it on the sub-device's own row (D-04, api-contract
+  -- §3). Nullable, like the domain field: a device that is not a sub-device has no parent to name,
+  -- and `''` would make "not a sub-device" look like "the partner sent a blank one".
+  parentProductId TEXT
 );
 
 -- One row, id 0: the schema version the rows above were written with (see SchemaVersion.kt).
@@ -42,8 +46,8 @@ selectAll:
 SELECT * FROM cachedDevice;
 
 insert:
-INSERT OR REPLACE INTO cachedDevice(id, name, model, online, lastSeen, origin, parentId, isSubDevice, fetchedAt, productId)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO cachedDevice(id, name, model, online, lastSeen, origin, parentId, isSubDevice, fetchedAt, productId, parentProductId)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteAll:
 DELETE FROM cachedDevice;

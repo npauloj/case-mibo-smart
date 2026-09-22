@@ -125,6 +125,25 @@ class ListDevicesTest {
         )
     }
 
+    /**
+     * SPEC L1: the hub's `idProduto` reaches the domain **from the sub-device's own row**, which is
+     * the field that lets a lock be addressed without its hub being loaded
+     * (`idProdutoDispositivoPai`, `docs/api-contract.md` §3).
+     *
+     * Null on everything that is not a sub-device, because the partner sends it on nothing else — and
+     * a null there is what stops "no parent" from being read as "a parent with a blank id".
+     */
+    @Test
+    fun carriesTheParentProductId() = runTest {
+        val repository = repositoryAnswering(mutableListOf()) { respondWithDevices(PAGE) }
+
+        val devices = repository.firstPage().associateBy { it.name }
+
+        assertEquals("PLACEHOLDER-HUB-ID", assertNotNull(devices["MFR 1001"]).parentProductId)
+        assertNull(assertNotNull(devices["MCA 1002"]).parentProductId, "a hub hangs off nothing")
+        assertNull(assertNotNull(devices["iM3-C"]).parentProductId, "a camera hangs off nothing")
+    }
+
     /** SPEC U3: a device the partner never saw online has no timestamp, and that must not throw. */
     @Test
     fun aDeviceWithoutLastSeenKeepsANullInstant() = runTest {

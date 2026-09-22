@@ -35,6 +35,7 @@ internal fun device(
     parent: DeviceId? = null,
     origin: DeviceOrigin = DeviceOrigin.Linked,
     productId: String = PRODUCT_ID,
+    parentProductId: String? = null,
 ) = Device(
     id = DeviceId(id),
     name = name,
@@ -45,18 +46,23 @@ internal fun device(
     kind = kind,
     parent = parent,
     productId = productId,
+    parentProductId = parentProductId,
 )
 
 /**
- * A hub and the lock hanging off it — the smallest page from which a lock address can be assembled
- * (`docs/api-contract.md` §5), and the fixture every lock-edge test starts from.
+ * A lock and the hub it hangs off — every part of the address is on the **lock's** row
+ * (`docs/api-contract.md` §3), and the hub row is there only so the list has one to name (SPEC D6).
  *
  * @param lockProductId the lock's own `idProduto`; blank is the case where the partner sent none.
- * @param withHub false leaves the hub out, which is a lock on page 1 whose hub is on page 2 (SPEC D2).
+ * @param hubProductId the hub's `idProduto`, which the partner puts on the lock's row as
+ *   `idProdutoDispositivoPai`; null is a row that arrived without it and blank is one that arrived
+ *   empty — neither can be addressed.
+ * @param withHub false leaves the hub row out, which is a lock on page 1 whose hub is on page 2
+ *   (SPEC D2) — and which changes nothing about the address.
  */
 internal fun lockAndHub(
     lockProductId: String = LOCK_PRODUCT_ID,
-    hubProductId: String = HUB_PRODUCT_ID,
+    hubProductId: String? = HUB_PRODUCT_ID,
     withHub: Boolean = true,
 ): List<Device> = listOfNotNull(
     device(
@@ -65,12 +71,13 @@ internal fun lockAndHub(
         kind = DeviceKind.Lock,
         parent = DeviceId(HUB_NAMESPACE),
         productId = lockProductId,
+        parentProductId = hubProductId,
     ),
     device(
         name = HUB_NAME,
         id = HUB_NAMESPACE,
         kind = DeviceKind.Hub,
-        productId = hubProductId,
+        productId = hubProductId.orEmpty(),
     ).takeIf { withHub },
 )
 

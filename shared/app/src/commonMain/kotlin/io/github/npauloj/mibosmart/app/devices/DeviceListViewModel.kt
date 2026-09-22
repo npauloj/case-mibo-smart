@@ -76,9 +76,9 @@ sealed interface DeviceListEvent {
     /**
      * SPEC U2 and D6: a lock row opens the lock screen the same way, with the lock already addressed.
      *
-     * The [address] travels with the event because it is assembled from rows *this* list holds
-     * (`docs/api-contract.md` §5): the lock screen has no list to look its hub up in, and asking the
-     * partner for one would spend a request on a fact already on screen (ADR-006). The two are kept
+     * The [address] travels with the event because it is assembled from the row *this* list holds
+     * (`docs/api-contract.md` §3, §5): the lock screen never received that row, and asking the
+     * partner for it again would spend a request on a fact already on screen (ADR-006). The two are kept
      * apart rather than packed into the lock feature's own destination type — `app.devices` must not
      * import `app.lock` (rule 3), and the navigator that knows both is what joins them.
      */
@@ -214,15 +214,16 @@ class DeviceListViewModel(
     /**
      * A tap on a lock row (SPEC U2, D6, L1).
      *
-     * The address is assembled here, from [loaded] and nothing else, so opening a lock costs zero
-     * partner requests (ADR-006). When the rows on screen cannot produce all four parts — the hub is
-     * on a page nobody has loaded, or an `idProduto` came back blank — **no event is emitted**: the
-     * row already says so and stays untappable, because an address guessed from three of four parts
-     * would command a different device (`docs/api-contract.md` §5).
+     * The address is assembled here, from the lock's own row and nothing else, so opening a lock
+     * costs zero partner requests (ADR-006) and works whether or not the hub is on the loaded page —
+     * the partner sends the hub's `ns` and `idProduto` on the sub-device itself
+     * (`docs/api-contract.md` §3). When that row does not carry all four parts, **no event is
+     * emitted**: the row already says so and stays untappable, because an address guessed from three
+     * of four parts would command a different device (§5).
      */
     fun onLockTap(row: DeviceRow) {
         val lock = loaded.firstOrNull { it.id.value == row.id && it.kind == DeviceKind.Lock } ?: return
-        val addressable = loaded.addressing(lock) as? LockAddressing.Addressable ?: return
+        val addressable = addressing(lock) as? LockAddressing.Addressable ?: return
         viewModelScope.launch {
             mutableEvents.emit(DeviceListEvent.OpenLock(lock = lock, address = addressable.address))
         }

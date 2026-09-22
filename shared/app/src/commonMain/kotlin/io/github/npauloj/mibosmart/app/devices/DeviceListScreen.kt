@@ -54,7 +54,6 @@ import io.github.npauloj.mibosmart.app.resources.device_last_seen_never
 import io.github.npauloj.mibosmart.app.resources.device_list_loading
 import io.github.npauloj.mibosmart.app.resources.device_list_loading_more
 import io.github.npauloj.mibosmart.app.resources.device_list_title
-import io.github.npauloj.mibosmart.app.resources.device_lock_hub_not_loaded
 import io.github.npauloj.mibosmart.app.resources.device_lock_product_id_missing
 import io.github.npauloj.mibosmart.app.resources.device_origin_linked
 import io.github.npauloj.mibosmart.app.resources.device_origin_shared
@@ -260,8 +259,8 @@ private fun DeviceRowItem(
 ) {
     // SPEC U2: a camera row is the two-tap path to the picture and a lock row the two-tap path to the
     // door. Which rows take a tap at all is `isActionable`, decided in the mapper: hubs and the rest
-    // never do, and neither does a lock this page cannot address — a row that reacted to a tap by
-    // doing nothing would read as a broken app.
+    // never do, and neither does a lock whose row is missing a part of its address — a row that
+    // reacted to a tap by doing nothing would read as a broken app.
     Column(
         modifier = Modifier.fillMaxWidth()
             .clickable(enabled = row.isActionable) {
@@ -415,10 +414,14 @@ private val DeviceKind.label: StringResource
         is DeviceKind.Other -> Res.string.device_kind_other
     }
 
-/** Why a lock row is not tappable, in the user's words rather than the contract's (SPEC U6). */
+/**
+ * Why a lock row is not tappable, in the user's words rather than the contract's (SPEC U6).
+ *
+ * Exhaustive with no `else`, like every other mapping on this screen: a reason added later does not
+ * compile until someone has written the sentence the user reads for it.
+ */
 private val LockAddressing.Unavailable.message: StringResource
     get() = when (this) {
-        LockAddressing.Unavailable.HubNotLoaded -> Res.string.device_lock_hub_not_loaded
         LockAddressing.Unavailable.ProductIdMissing -> Res.string.device_lock_product_id_missing
     }
 

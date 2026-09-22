@@ -48,6 +48,10 @@ sealed interface DeviceKind {
  *   cameras), which is exactly why the value is carried rather than assumed: a blank one must stop a
  *   [io.github.npauloj.mibosmart.domain.lock.LockAddress] from being assembled, and it can only do
  *   that if it is here to be read.
+ * @property parentProductId [parent]'s own product id, which the partner puts on **this** row
+ *   (`docs/api-contract.md` §3). It is the fourth part of a lock address, and having it here is what
+ *   makes a lock addressable without its hub being loaded: null on anything that is not a
+ *   sub-device, and — like [productId] — refused rather than guessed when it is missing.
  */
 data class Device(
     val id: DeviceId,
@@ -59,6 +63,7 @@ data class Device(
     val kind: DeviceKind,
     val parent: DeviceId?,
     val productId: String,
+    val parentProductId: String?,
 ) {
     val isOnline: Boolean get() = status == DeviceStatus.Online
 

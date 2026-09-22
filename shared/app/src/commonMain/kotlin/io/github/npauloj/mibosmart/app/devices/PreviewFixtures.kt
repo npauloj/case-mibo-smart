@@ -39,19 +39,6 @@ internal object PreviewFixtures {
         }
     }.orderedForList().toRows(NOW)
 
-    /**
-     * SPEC D2 and D6: the list is paged, so a lock can be on screen while the hub that addresses it is
-     * not — and then the row is shown, says why it opens nothing, and takes no tap.
-     *
-     * The hub is simply left out rather than faked absent: the rule under test is "assembled only from
-     * rows the app has loaded", and this page has not loaded one.
-     */
-    val lockWithoutHub: List<DeviceRow> = listOf(
-        lock(1, "MFR 1001"),
-        device(3, "iM7 3M Full Color", "iM7-FC"),
-        device(5, "iM3-C", "iM3-C", isOnline = false, lastSeen = NOW - 12.days),
-    ).orderedForList().toRows(NOW)
-
     /** A lock always hangs off [HUB_ID] and always has both product ids — the addressable shape. */
     private fun lock(index: Int, name: String, model: String = "IOT-MFR1001-IB", isOnline: Boolean = true) =
         device(
@@ -62,6 +49,7 @@ internal object PreviewFixtures {
             isSubDevice = true,
             parent = HUB_ID,
             productId = LOCK_PRODUCT_ID,
+            parentProductId = HUB_PRODUCT_ID,
         )
 
     private fun device(
@@ -74,6 +62,7 @@ internal object PreviewFixtures {
         parent: String? = null,
         lastSeen: Instant? = null,
         productId: String = "",
+        parentProductId: String? = null,
     ) = Device(
         id = DeviceId(id),
         name = name,
@@ -84,6 +73,7 @@ internal object PreviewFixtures {
         kind = DeviceClassifier.classify(model, isSubDevice),
         parent = parent?.let(::DeviceId),
         productId = productId,
+        parentProductId = parentProductId,
     )
 
     private fun serial(index: Int) = "PLACEHOLDER-NS-${index.toString().padStart(4, '0')}"

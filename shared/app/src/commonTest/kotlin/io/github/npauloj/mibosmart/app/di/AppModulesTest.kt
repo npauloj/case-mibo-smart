@@ -3,6 +3,7 @@ package io.github.npauloj.mibosmart.app.di
 import io.github.npauloj.mibosmart.app.camera.WatchLiveVideo
 import io.github.npauloj.mibosmart.app.devices.ListDevices
 import io.github.npauloj.mibosmart.app.lock.LoadLock
+import io.github.npauloj.mibosmart.app.lock.ToggleLock
 import io.github.npauloj.mibosmart.app.session.AuthenticateToken
 import io.github.npauloj.mibosmart.app.session.Logout
 import io.github.npauloj.mibosmart.app.session.SessionStartup
@@ -65,6 +66,9 @@ class AppModulesTest {
         val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
 
         assertNotNull(koin.get<LoadLock>())
+        // The command path is wired too: LockViewModel takes it, so a missing binding is a screen
+        // that crashes on the door rather than on the reads (ADR-014).
+        assertNotNull(koin.get<ToggleLock>())
 
         koin.close()
     }

@@ -7,6 +7,9 @@ import io.github.npauloj.mibosmart.data.session.SessionSamples
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
+import io.github.npauloj.mibosmart.domain.lock.OpeningEvent
+import io.github.npauloj.mibosmart.domain.lock.OpeningKind
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
@@ -23,6 +26,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDateTime
 
 /**
  * SPEC L1 and L8: the exact bytes the three lock reads put on the wire.
@@ -104,6 +108,32 @@ class LockRequestsTest {
     }
 
     /**
+     * SPEC L3: `aberto` is the state the door is **asked for**, and both values are real.
+     *
+     * The direction is the whole contract (`docs/api-contract.md` §5) and it is the one field in the
+     * app whose inversion would open a door instead of locking it, so both commands are put on the
+     * wire and read back rather than one being assumed from the other.
+     */
+    @Test
+    fun commandSendsTheRequestedOpenState() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val repository = repositoryAnswering(requests, signedIn())
+
+        repository.command(ADDRESS, LockCommand.Open)
+        repository.command(ADDRESS, LockCommand.Close)
+
+        assertEquals(
+            listOf("/fechaduras/controle-fechadura/v1", "/fechaduras/controle-fechadura/v1"),
+            requests.map { it.url.encodedPath },
+        )
+        val opening = requests.first().bodyText()
+        assertTrue(opening.contains(""""ns":"${LOCK_NAMESPACE}_${HUB_NAMESPACE}_$HUB_PRODUCT_ID""""), opening)
+        assertTrue(opening.contains(""""idProduto":"$LOCK_PRODUCT_ID""""), opening)
+        assertTrue(opening.contains(""""aberto":true"""), "unexpected request body: $opening")
+        assertTrue(requests.last().bodyText().contains(""""aberto":false"""), requests.last().bodyText())
+    }
+
+    /**
      * SPEC L2: the app enables remote opening and has no way to disable it.
      *
      * `habilitar` is fixed at `true` in the request type, so this asserts a property of the code
@@ -124,6 +154,69 @@ class LockRequestsTest {
         assertTrue(body.contains(""""idProduto":"$LOCK_PRODUCT_ID""""), body)
         assertTrue(body.contains(""""habilitar":true"""), "unexpected request body: $body")
         assertFalse(body.contains("false"), "nothing in this request may ever say false: $body")
+    }
+
+    /**
+     * SPEC L9: `historico-abertura` is the one lock call **without** `idProduto`.
+     *
+     * The absent field is the contract (`docs/api-contract.md` §5), and an absent field is exactly
+     * what nobody notices creeping back in — so it is asserted, not assumed. `quantidade` is the
+     * whole size of the answer: the endpoint is not paginated, so this number is all the history
+     * there will be for one request (ADR-006).
+     */
+    @Test
+    fun historyAsksForAQuantityAndNoProductId() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val repository = repositoryAnswering(requests, signedIn())
+
+        repository.readOpeningHistory(ADDRESS, entries = 50)
+
+        assertEquals("/fechaduras/historico-abertura/v1", requests.single().url.encodedPath)
+        val body = requests.single().bodyText()
+        assertTrue(body.contains(""""ns":"${LOCK_NAMESPACE}_${HUB_NAMESPACE}_$HUB_PRODUCT_ID""""), body)
+        assertTrue(body.contains(""""quantidade":50"""), "unexpected request body: $body")
+        // The key, not the word: the hub's placeholder id happens to spell it too.
+        assertFalse(body.contains(""""idProduto":"""), "historico-abertura takes no product id: $body")
+    }
+
+    /**
+     * SPEC L9: `tempoLocal` is wall-clock time, and a `tipo` nobody has seen survives the mapping.
+     *
+     * `20260918T102735` carries no offset and none may be invented, so it stays a `LocalDateTime`;
+     * the empty `nome` of an opening nobody performed becomes `null` rather than `""`, so the screen
+     * decides what to say; and `biometria` — a type the contract never listed — is carried through
+     * unchanged instead of being dropped.
+     */
+    @Test
+    fun historyEntriesKeepTheirWallClockTimeAndUnknownTypes() = runTest {
+        val repository = repositoryAnswering(mutableListOf(), signedIn())
+
+        val history = repository.readOpeningHistory(ADDRESS, entries = 50)
+
+        assertEquals(
+            listOf(
+                OpeningEvent(LocalDateTime(2026, 9, 18, 10, 27, 35), OpeningKind.Remote, "APP"),
+                OpeningEvent(LocalDateTime(2026, 9, 18, 10, 24, 29), OpeningKind.Local, null),
+                OpeningEvent(LocalDateTime(2026, 9, 18, 9, 1, 2), OpeningKind.Unknown("biometria"), null),
+            ),
+            history,
+        )
+    }
+
+    /**
+     * SPEC E3: a `tempoLocal` that is not the documented shape is reported, never guessed at.
+     *
+     * The time *is* the entry — "who opened the door and when" is the whole criterion (SPEC U4) — so
+     * an unreadable one fails the read, the way a volume outside 0..3 does, rather than quietly
+     * becoming a row that cannot say when it happened.
+     */
+    @Test
+    fun anUnreadableHistoryTimestampIsUnexpected() = runTest {
+        val repository = repositoryAnswering(mutableListOf(), signedIn(), historyTime = "ontem à tarde")
+
+        assertFailsWith<SmartHomeException.UnexpectedResponse> {
+            repository.readOpeningHistory(ADDRESS, entries = 50)
+        }
     }
 
     /** SPEC E3: a level the contract does not document is reported, never rendered as a number. */
@@ -154,13 +247,14 @@ class LockRequestsTest {
         requests: MutableList<HttpRequestData>,
         sessionStore: SessionStore,
         volumeLevel: Int = 1,
+        historyTime: String = "20260918T102735",
     ) = SmartHomeLockRepository(
         api = SmartHomeApi(
             httpClient = HttpClientFactory.create(
                 MockEngine { request ->
                     requests += request
                     respond(
-                        content = request.url.encodedPath.answer(volumeLevel),
+                        content = request.url.encodedPath.answer(volumeLevel, historyTime),
                         headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
                     )
                 },
@@ -175,13 +269,25 @@ class LockRequestsTest {
     )
 
     /** The payloads observed on 2026-09-20, in the wrapped shape (`docs/api-contract.md` §1.1). */
-    private fun String.answer(volumeLevel: Int): String = when {
+    private fun String.answer(volumeLevel: Int, historyTime: String): String = when {
         endsWith("status-abertura/v1") -> """{"status":"sucesso","data":{"aberto":false}}"""
         endsWith("status-abrir-remoto/v1") -> """{"status":"sucesso","data":{"habilitado":true}}"""
+        // `data` is a bare array here, and the third entry is invented: only `usuarioRemoto` and
+        // `interno` were ever observed (SPEC L9 `[ASSUMED]`), and what an unseen type does is
+        // precisely what has to be pinned down.
+        endsWith("historico-abertura/v1") -> """
+            {"status":"sucesso","data":[
+              {"tempoLocal":"$historyTime","nome":"APP","tipo":"usuarioRemoto"},
+              {"tempoLocal":"20260918T102429","nome":"","tipo":"interno"},
+              {"tempoLocal":"20260918T090102","tipo":"biometria"}
+            ]}
+        """.trimIndent()
+
         // The writes' success payload was never probed — it changes a real device
         // (`docs/api-contract.md` §8, open question 4). An envelope with an empty `data` is the
         // least the reader accepts, and the repository reads nothing out of it anyway.
-        endsWith("mudar-volume/v1") || endsWith("habilitar-abrir-remoto/v1") ->
+        endsWith("mudar-volume/v1") || endsWith("habilitar-abrir-remoto/v1") ||
+            endsWith("controle-fechadura/v1") ->
             """{"status":"sucesso","data":{}}"""
 
         else -> """{"status":"sucesso","data":{"volume":$volumeLevel}}"""

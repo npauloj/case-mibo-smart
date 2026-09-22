@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.data.remote
 
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -36,6 +37,14 @@ internal object LockRequests {
             volume = volume.level,
         )
 
+    /** The command itself: the same address, plus the state the door is asked for (SPEC L3). */
+    fun command(address: LockAddress, command: LockCommand): LockCommandRequestDto =
+        LockCommandRequestDto(
+            namespace = compositeNamespace(address),
+            productId = address.lockProductId,
+            isOpen = command.opensTheDoor,
+        )
+
     /**
      * The one request that changes a door's security posture (SPEC L2).
      *
@@ -47,6 +56,16 @@ internal object LockRequests {
             namespace = compositeNamespace(address),
             productId = address.lockProductId,
         )
+
+    /**
+     * The opening history: the only lock call that does **not** carry `idProduto` (SPEC L9).
+     *
+     * The missing field is the contract, not an omission (`docs/api-contract.md` §5): the endpoint
+     * takes `{ ns, quantidade }` and nothing else, and [LockHistoryRequestDto] is the only lock
+     * request type with no product id, so no caller can add one back by accident.
+     */
+    fun openingHistory(address: LockAddress, entries: Int): LockHistoryRequestDto =
+        LockHistoryRequestDto(namespace = compositeNamespace(address), quantity = entries)
 
     /**
      * `<lockNs>_<hubNs>_<hubIdProduto>` — the lock addressed as a sub-device of its hub (SPEC L1).
@@ -91,6 +110,20 @@ internal data class LockChangeVolumeRequestDto(
 )
 
 /**
+ * `controle-fechadura`: `{ ns, idProduto, aberto: true|false }` (`docs/api-contract.md` §5).
+ *
+ * `aberto` is the **requested** state, not a report: `true` opens the door and `false` locks it.
+ * Unlike `habilitar`, both values are ones the app legitimately sends, so this one is a parameter —
+ * and [SerialName] is where the partner's word for it stops.
+ */
+@Serializable
+internal data class LockCommandRequestDto(
+    @SerialName("ns") val namespace: String,
+    @SerialName("idProduto") val productId: String,
+    @SerialName("aberto") val isOpen: Boolean,
+)
+
+/**
  * `habilitar-abrir-remoto`: `{ ns, idProduto, habilitar: true }` (`docs/api-contract.md` §5).
  *
  * [enable] is not a constructor parameter on purpose. The endpoint accepts `false`, the app never
@@ -109,6 +142,32 @@ internal data class LockEnableRemoteOpenRequestDto(
     @SerialName("habilitar")
     val enable: Boolean = true
 }
+
+/**
+ * `historico-abertura`: `{ ns, quantidade }` — **no `idProduto`** (`docs/api-contract.md` §5).
+ *
+ * The history belongs to the hub's namespace rather than to one product under it, which is why the
+ * field every other lock request carries is absent here. Adding it is not a harmless extra.
+ */
+@Serializable
+internal data class LockHistoryRequestDto(
+    @SerialName("ns") val namespace: String,
+    @SerialName("quantidade") val quantity: Int,
+)
+
+/**
+ * One entry of `historico-abertura` → `{ "tempoLocal", "nome", "tipo" }` (SPEC L9).
+ *
+ * [name] is nullable **and** defaulted: the observed payload sends `""` for an opening nobody
+ * performed, and nothing promises the key is always there. Both shapes have to land on the same
+ * domain value, and [toOpeningEvent] is where that happens.
+ */
+@Serializable
+internal data class LockOpeningEventDto(
+    @SerialName("tempoLocal") val localTime: String,
+    @SerialName("tipo") val type: String,
+    @SerialName("nome") val name: String? = null,
+)
 
 /** `status-abertura` → `{ "aberto": true }`. */
 @Serializable

@@ -24,22 +24,27 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.npauloj.mibosmart.app.camera.platform.LiveVideoPlayer
 import io.github.npauloj.mibosmart.app.camera.platform.PlayerEvent
+import io.github.npauloj.mibosmart.app.camera.platform.WebPlayerFallback
 import io.github.npauloj.mibosmart.app.resources.Res
 import io.github.npauloj.mibosmart.app.resources.live_back
 import io.github.npauloj.mibosmart.app.resources.live_badge
 import io.github.npauloj.mibosmart.app.resources.live_camera_offline
+import io.github.npauloj.mibosmart.app.resources.live_close_web_player
 import io.github.npauloj.mibosmart.app.resources.live_error_expired
 import io.github.npauloj.mibosmart.app.resources.live_error_failed
 import io.github.npauloj.mibosmart.app.resources.live_error_offline
+import io.github.npauloj.mibosmart.app.resources.live_error_playback
 import io.github.npauloj.mibosmart.app.resources.live_error_rejected
 import io.github.npauloj.mibosmart.app.resources.live_error_unexpected
 import io.github.npauloj.mibosmart.app.resources.live_expired
 import io.github.npauloj.mibosmart.app.resources.live_no_capability
+import io.github.npauloj.mibosmart.app.resources.live_open_web_player
 import io.github.npauloj.mibosmart.app.resources.live_quota
 import io.github.npauloj.mibosmart.app.resources.live_quota_exceeded
 import io.github.npauloj.mibosmart.app.resources.live_retry
 import io.github.npauloj.mibosmart.app.resources.live_step_capability
 import io.github.npauloj.mibosmart.app.resources.live_step_connecting
+import io.github.npauloj.mibosmart.app.resources.live_step_reconnecting
 import io.github.npauloj.mibosmart.app.resources.live_step_session
 import io.github.npauloj.mibosmart.domain.camera.StreamError
 import io.github.npauloj.mibosmart.domain.camera.StreamState
@@ -73,6 +78,8 @@ fun LiveVideoScreen(
         state = state,
         onPlayerEvent = viewModel::onPlayerEvent,
         onRetry = viewModel::retry,
+        onWebPlayer = viewModel::openWebPlayer,
+        onCloseWebPlayer = viewModel::closeWebPlayer,
         onBack = {
             viewModel.stop()
             onBack()
@@ -101,6 +108,8 @@ fun LiveVideoScreenContent(
     state: StreamState,
     onPlayerEvent: (PlayerEvent) -> Unit,
     onRetry: () -> Unit,
+    onWebPlayer: () -> Unit,
+    onCloseWebPlayer: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -117,11 +126,26 @@ fun LiveVideoScreenContent(
             StreamState.Idle -> VideoSurface {}
             is StreamState.Creating -> VideoSurface { StepLabel(state.step) }
             is StreamState.Live -> LiveSurface(state, onPlayerEvent)
+            // The attempt is counted in words over the same frame the picture will land on, so the
+            // screen neither jumps nor pretends to know a percentage (SPEC V3, U1).
+            is StreamState.Reconnecting -> VideoSurface {
+                Label(
+                    stringResource(
+                        Res.string.live_step_reconnecting,
+                        state.attempt.toString(),
+                        state.total.toString(),
+                    ),
+                )
+            }
             StreamState.NoLiveCapability -> Explanation(Res.string.live_no_capability)
             StreamState.QuotaExceeded -> Explanation(Res.string.live_quota_exceeded)
             StreamState.CameraOffline -> Explanation(Res.string.live_camera_offline)
             StreamState.Expired -> Explanation(Res.string.live_expired, onRetry)
-            is StreamState.Failed -> Explanation(state.error.message, onRetry)
+            // The web player is offered only when the session carried a `monitor_url`: with none
+            // there is nothing to open, and a dead button is worse than no button (SPEC V9, ADR-005).
+            is StreamState.Failed ->
+                Explanation(state.error.message, onRetry, state.monitorUrl?.let { onWebPlayer })
+            is StreamState.WebFallback -> WebFallbackSurface(state.url, onCloseWebPlayer)
         }
     }
 }
@@ -179,17 +203,45 @@ private fun VideoSurface(content: @Composable BoxScope.() -> Unit) {
  */
 @Composable
 private fun StepLabel(step: StreamStep) {
-    Text(text = stringResource(step.label), style = MaterialTheme.typography.bodyMedium)
+    Label(stringResource(step.label))
 }
 
-/** One named cause, and an action only when there is one worth offering (SPEC U6, V6). */
+/** The wait, in words, over the video frame. */
 @Composable
-private fun Explanation(message: StringResource, onRetry: (() -> Unit)? = null) {
+private fun Label(text: String) {
+    Text(text = text, style = MaterialTheme.typography.bodyMedium)
+}
+
+/**
+ * The partner's own player page, and the way back to the screen that offered it (SPEC V9).
+ *
+ * The way back matters on iOS, where the surface hands the url to Safari and closes itself: without
+ * it the user would return from the browser to a frame with nothing in it.
+ */
+@Composable
+private fun WebFallbackSurface(url: String, onClose: () -> Unit) {
+    VideoSurface { WebPlayerFallback(url, onClose, Modifier.fillMaxSize()) }
+    TextButton(onClick = onClose) { Text(stringResource(Res.string.live_close_web_player)) }
+}
+
+/**
+ * One named cause, and an action only when there is one worth offering (SPEC U6, V6).
+ *
+ * At most one *primary* action (U6): "Tentar novamente" is the button, and the web player — which
+ * exists only when the session carried a `monitor_url` — is the quieter second way out.
+ */
+@Composable
+private fun Explanation(
+    message: StringResource,
+    onRetry: (() -> Unit)? = null,
+    onWebPlayer: (() -> Unit)? = null,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = stringResource(message), style = MaterialTheme.typography.bodyMedium)
         // Quota, capability and an offline camera have no retry on purpose: asking again cannot
         // change any of them, and a button that does nothing is worse than no button (SPEC V6).
         onRetry?.let { Button(onClick = it) { Text(stringResource(Res.string.live_retry)) } }
+        onWebPlayer?.let { TextButton(onClick = it) { Text(stringResource(Res.string.live_open_web_player)) } }
     }
 }
 
@@ -208,6 +260,7 @@ private val StreamError.message: StringResource
         StreamError.Offline -> Res.string.live_error_offline
         StreamError.UnexpectedResponse -> Res.string.live_error_unexpected
         StreamError.Failed -> Res.string.live_error_failed
+        StreamError.Playback -> Res.string.live_error_playback
     }
 
 private const val SURFACE_RATIO = 16f / 9f

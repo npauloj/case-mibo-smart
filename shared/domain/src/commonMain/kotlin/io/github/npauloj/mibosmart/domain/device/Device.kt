@@ -42,6 +42,12 @@ sealed interface DeviceKind {
  * @property lastSeen last moment the partner saw the device online, when known — shown as
  *   "visto pela última vez há X" for offline devices (SPEC U3).
  * @property parent the hub a sub-device (e.g. a lock) hangs from, when it has one (SPEC D6).
+ * @property productId the partner's own product identity for this device, kept beside [id] because a
+ *   lock is addressed by **both** — its hub's product id and its own (SPEC L1,
+ *   `docs/api-contract.md` §5). It is legitimately blank on devices the partner sends none for (some
+ *   cameras), which is exactly why the value is carried rather than assumed: a blank one must stop a
+ *   [io.github.npauloj.mibosmart.domain.lock.LockAddress] from being assembled, and it can only do
+ *   that if it is here to be read.
  */
 data class Device(
     val id: DeviceId,
@@ -52,6 +58,7 @@ data class Device(
     val origin: DeviceOrigin,
     val kind: DeviceKind,
     val parent: DeviceId?,
+    val productId: String,
 ) {
     val isOnline: Boolean get() = status == DeviceStatus.Online
 

@@ -5,6 +5,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import io.github.npauloj.mibosmart.app.ui.AppTheme
+import io.github.npauloj.mibosmart.domain.camera.PlaybackRetryPolicy
 import io.github.npauloj.mibosmart.domain.camera.StreamError
 import io.github.npauloj.mibosmart.domain.camera.StreamSession
 import io.github.npauloj.mibosmart.domain.camera.StreamState
@@ -22,26 +23,49 @@ private const val UI_MODE_NIGHT_YES = 0x20
  */
 internal class StreamStateProvider : PreviewParameterProvider<StreamState> {
 
-    override val values: Sequence<StreamState> =
-        sequenceOf(Creating, Live, Expired, QuotaExceeded, Offline, NoLiveCapability, Failed)
+    override val values: Sequence<StreamState> = sequenceOf(
+        Creating,
+        Live,
+        Reconnecting,
+        Expired,
+        QuotaExceeded,
+        Offline,
+        NoLiveCapability,
+        Failed,
+        FailedWithoutFallback,
+        WebFallback,
+    )
 
     internal companion object {
         const val CAMERA_NAME = "Câmera da varanda"
 
+        private const val MONITOR_URL = "https://portal.example.invalid/monitor/preview"
+
         private val SESSION = StreamSession(
             id = "preview-session",
             url = "https://portal.example.invalid/stream/preview",
-            monitorUrl = null,
+            monitorUrl = MONITOR_URL,
             quotaGb = 0.5,
         )
 
         val Creating = StreamState.Creating(StreamStep.CreatingSession)
         val Live = StreamState.Live(SESSION, firstFrame = true)
+        val Reconnecting = StreamState.Reconnecting(attempt = 2, total = PlaybackRetryPolicy.MAX_ATTEMPTS)
         val Expired = StreamState.Expired
         val QuotaExceeded = StreamState.QuotaExceeded
         val Offline = StreamState.CameraOffline
         val NoLiveCapability = StreamState.NoLiveCapability
-        val Failed = StreamState.Failed(StreamError.Offline)
+
+        /** The ladder ran out on a session that carried a `monitor_url`: both ways out are offered. */
+        val Failed = StreamState.Failed(StreamError.Playback, MONITOR_URL)
+
+        /**
+         * The same failure on a session without a `monitor_url` — the case ADR-005 leaves open and
+         * this preview makes visible: one action, and no button that would open nothing (SPEC V9).
+         */
+        val FailedWithoutFallback = StreamState.Failed(StreamError.Playback)
+
+        val WebFallback = StreamState.WebFallback(MONITOR_URL)
     }
 }
 
@@ -54,6 +78,12 @@ private fun LiveVideoScreenCreatingPreview() = LiveVideoScreenPreview(StreamStat
 @Preview(name = "LiveVideoScreen_Live_Dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun LiveVideoScreenLivePreview() = LiveVideoScreenPreview(StreamStateProvider.Live)
+
+@Preview(name = "LiveVideoScreen_Reconnecting")
+@Preview(name = "LiveVideoScreen_Reconnecting_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LiveVideoScreenReconnectingPreview() =
+    LiveVideoScreenPreview(StreamStateProvider.Reconnecting)
 
 @Preview(name = "LiveVideoScreen_Expired")
 @Preview(name = "LiveVideoScreen_Expired_Dark", uiMode = UI_MODE_NIGHT_YES)
@@ -81,6 +111,17 @@ private fun LiveVideoScreenNoLiveCapabilityPreview() =
 @Composable
 private fun LiveVideoScreenFailedPreview() = LiveVideoScreenPreview(StreamStateProvider.Failed)
 
+@Preview(name = "LiveVideoScreen_FailedWithoutFallback")
+@Preview(name = "LiveVideoScreen_FailedWithoutFallback_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LiveVideoScreenFailedWithoutFallbackPreview() =
+    LiveVideoScreenPreview(StreamStateProvider.FailedWithoutFallback)
+
+@Preview(name = "LiveVideoScreen_WebFallback")
+@Preview(name = "LiveVideoScreen_WebFallback_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LiveVideoScreenWebFallbackPreview() = LiveVideoScreenPreview(StreamStateProvider.WebFallback)
+
 /** All states side by side, straight from the provider. */
 @Preview(name = "LiveVideoScreen_AllStates")
 @Composable
@@ -96,6 +137,8 @@ private fun LiveVideoScreenPreview(state: StreamState) {
             state = state,
             onPlayerEvent = {},
             onRetry = {},
+            onWebPlayer = {},
+            onCloseWebPlayer = {},
             onBack = {},
         )
     }

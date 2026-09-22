@@ -83,6 +83,8 @@
     <string name="device_kind_lock">Lock</string>
     <string name="device_kind_hub">Hub</string>
     <string name="device_kind_other">Device</string>
+    <string name="device_lock_hub_not_loaded">This lock\'s hub is not loaded yet — scroll the list to load it</string>
+    <string name="device_lock_product_id_missing">Lock without a product id — it cannot be controlled</string>
     <string name="device_last_seen_never">Never seen online</string>
     <string name="device_last_seen_minutes">Last seen %1$s min ago</string>
     <string name="device_last_seen_hours">Last seen %1$s h ago</string>
@@ -101,6 +103,7 @@
     <string name="live_step_capability">Checking the camera…</string>
     <string name="live_step_session">Creating the session…</string>
     <string name="live_step_connecting">Connecting…</string>
+    <string name="live_step_reconnecting">Reconnecting (%1$s/%2$s)…</string>
     <string name="live_badge">LIVE</string>
     <string name="live_quota">This session may use up to %1$s GB</string>
     <string name="live_no_capability">This camera does not announce live video</string>
@@ -108,6 +111,9 @@
     <string name="live_camera_offline">Camera offline</string>
     <string name="live_expired">The stream has ended</string>
     <string name="live_retry">Try again</string>
+    <string name="live_open_web_player">Open in the web player</string>
+    <string name="live_close_web_player">Back to the video</string>
+    <string name="live_error_playback">The video could not be loaded</string>
     <string name="live_error_rejected">Your session is no longer valid</string>
     <string name="live_error_expired">Your session has expired (tokens last 2 h)</string>
     <string name="live_error_offline">No connection</string>

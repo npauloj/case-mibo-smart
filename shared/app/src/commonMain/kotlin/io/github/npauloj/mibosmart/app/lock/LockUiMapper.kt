@@ -2,6 +2,7 @@ package io.github.npauloj.mibosmart.app.lock
 
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceStatus
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import kotlin.time.Duration
@@ -48,6 +49,61 @@ internal object LockUiMapper {
 
             LoadLockResult.Failed -> LockUiState.Failed(name, LockError.Failed, lastSeen = lastSeen)
         }
+    }
+
+    /**
+     * The screen after a command and its one confirmation read answered (SPEC L3, L4, L5).
+     *
+     * Three destinations and no fourth: the lock the device confirmed, an unconfirmed command the
+     * user can check, or a notice that the command did not leave — and the last two both keep
+     * [before]'s readings, so nothing the screen already showed is lost to a failure.
+     *
+     * [ToggleLockResult.Unconfirmed] carries the freshest reading rather than the requested one; a
+     * disagreeing `status-abertura` is news about the door, and `CommandExpired` shows it beside the
+     * command that did not take.
+     */
+    fun afterCommand(
+        before: LockUiState.Ready,
+        command: LockCommand,
+        result: ToggleLockResult,
+    ): LockUiState = when (result) {
+        is ToggleLockResult.Confirmed -> before.settled(result.lock)
+        is ToggleLockResult.Unconfirmed ->
+            LockUiState.CommandExpired(before.settled(result.lock), command)
+
+        // The screen already says this build sends nothing to the lock, and nothing was sent.
+        ToggleLockResult.WritesDisabled -> before.settled(before.lock)
+        ToggleLockResult.TokenRejected -> before.commandFailed(command, LockError.TokenRejected)
+        is ToggleLockResult.TokenExpired ->
+            before.commandFailed(command, LockError.TokenExpired, result.serverMessage)
+
+        ToggleLockResult.Offline -> before.commandFailed(command, LockError.Offline)
+        ToggleLockResult.UnexpectedResponse -> before.commandFailed(command, LockError.UnexpectedResponse)
+        ToggleLockResult.Failed -> before.commandFailed(command, LockError.Failed)
+    }
+
+    /**
+     * The screen after the user's one extra read (SPEC L4).
+     *
+     * A read that agreed settles the screen; a read that disagreed stays unconfirmed but updates the
+     * readings under it, so "Verificar" is never a button that visibly does nothing. A read that
+     * could not answer says so beside the action instead of pretending the door is still unknown for
+     * some other reason (SPEC U6).
+     */
+    fun afterVerifying(
+        checking: LockUiState.CommandExpired,
+        result: ToggleLockResult,
+    ): LockUiState = when (result) {
+        is ToggleLockResult.Confirmed -> checking.before.settled(result.lock)
+        is ToggleLockResult.Unconfirmed ->
+            checking.copy(before = checking.before.settled(result.lock), isChecking = false)
+
+        ToggleLockResult.WritesDisabled -> checking.copy(isChecking = false)
+        ToggleLockResult.TokenRejected -> checking.checkFailed(LockError.TokenRejected)
+        is ToggleLockResult.TokenExpired -> checking.checkFailed(LockError.TokenExpired)
+        ToggleLockResult.Offline -> checking.checkFailed(LockError.Offline)
+        ToggleLockResult.UnexpectedResponse -> checking.checkFailed(LockError.UnexpectedResponse)
+        ToggleLockResult.Failed -> checking.checkFailed(LockError.Failed)
     }
 
     /**
@@ -114,6 +170,17 @@ internal object LockUiMapper {
      * A failed write is not a failed screen (SPEC U6) — the lock is still readable, so this stays a
      * [LockUiState.Ready] rather than collapsing into [LockUiState.Failed] and losing what was read.
      */
+    /** SPEC L5: the command did not leave, so the lock under the notice is the lock as it was read. */
+    private fun LockUiState.Ready.commandFailed(
+        command: LockCommand,
+        error: LockError,
+        serverMessage: String? = null,
+    ): LockUiState.CommandFailed = LockUiState.CommandFailed(settled(lock), command, error, serverMessage)
+
+    /** The extra read could not answer: still unconfirmed, and now the user knows why (SPEC U6). */
+    private fun LockUiState.CommandExpired.checkFailed(error: LockError): LockUiState.CommandExpired =
+        copy(isChecking = false, checkFailure = error)
+
     private fun LockUiState.Ready.failed(
         write: LockWrite,
         error: LockError,
@@ -124,11 +191,18 @@ internal object LockUiMapper {
     private fun lastSeenOrNull(device: Device, now: Instant): LastSeen? {
         if (device.status == DeviceStatus.Online) return null
         val lastSeen = device.lastSeen ?: return LastSeen.Never
-        return elapsedSince(lastSeen, now)
+        return elapsedSince(past = lastSeen, now = now)
     }
 
-    private fun elapsedSince(lastSeen: Instant, now: Instant): LastSeen {
-        val elapsed = now - lastSeen
+    /**
+     * How long ago [past] was, as of [now] — the one place this screen's feature rounds time.
+     *
+     * Internal rather than private because the history tab counts the same way: "há 5 min" on an
+     * opening (SPEC U4) and "última atualização há 5 min" on an offline lock (SPEC U3) are two
+     * sentences over one rule, and a second copy of the thresholds is how they drift apart.
+     */
+    internal fun elapsedSince(past: Instant, now: Instant): LastSeen {
+        val elapsed = now - past
         return when {
             elapsed < Duration.ZERO || elapsed.inWholeMinutes < 1 -> LastSeen.Moments
             elapsed.inWholeHours < 1 -> LastSeen.Minutes(elapsed.inWholeMinutes.toInt())

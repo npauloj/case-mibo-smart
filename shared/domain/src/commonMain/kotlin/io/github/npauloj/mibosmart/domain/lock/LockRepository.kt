@@ -22,8 +22,29 @@ interface LockRepository {
     /** The level the lock announces itself at (`volume`, SPEC L8). */
     suspend fun readVolume(address: LockAddress): VolumeLevel
 
+    /**
+     * The door's recent openings (`historico-abertura`, SPEC L9).
+     *
+     * @param entries how many the partner is asked for. The endpoint is not paginated, so the count
+     *   is the whole size of the answer and the only lever there is — which is why it is a parameter
+     *   rather than a constant here: how much history is worth one request is a decision for the use
+     *   case that spends it (ADR-006), not for the wire.
+     * @return the entries as the partner ordered them; nothing here promises newest first.
+     */
+    suspend fun readOpeningHistory(address: LockAddress, entries: Int): List<OpeningEvent>
+
     /** Sets the level the lock announces itself at (`mudar-volume`, SPEC L7). */
     suspend fun changeVolume(address: LockAddress, volume: VolumeLevel)
+
+    /**
+     * Asks the door to open or close (`controle-fechadura`, SPEC L3).
+     *
+     * Returning normally means **the partner accepted the command**, not that the door moved: the API
+     * acknowledges the request and the hardware answers later, if at all. The only evidence that the
+     * lock obeyed is a fresh [readOpenState] that agrees, which is why this returns nothing — there
+     * is nothing here worth believing.
+     */
+    suspend fun command(address: LockAddress, command: LockCommand)
 
     /**
      * Grants the app permission to command this lock (`habilitar-abrir-remoto`, SPEC L2).

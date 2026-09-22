@@ -23,6 +23,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
@@ -61,7 +62,7 @@ class LiveVideoScreenLifecycleTest {
 
         owner.registry.currentState = Lifecycle.State.STARTED
         viewModel.open(CameraSamples.camera())
-        advanceUntilIdle()
+        runCurrent()
         assertIs<StreamState.Live>(viewModel.state.value)
 
         owner.registry.currentState = Lifecycle.State.CREATED // ON_STOP: the app went to the background
@@ -86,12 +87,12 @@ class LiveVideoScreenLifecycleTest {
         val composition = compose(owner) { LiveVideoLifecycle(viewModel) }
         owner.registry.currentState = Lifecycle.State.STARTED
         viewModel.open(CameraSamples.camera())
-        advanceUntilIdle()
+        runCurrent()
         owner.registry.currentState = Lifecycle.State.CREATED
         advanceUntilIdle()
 
         owner.registry.currentState = Lifecycle.State.STARTED // ON_START
-        advanceUntilIdle()
+        runCurrent()
 
         assertIs<StreamState.Live>(viewModel.state.value)
         assertEquals(2, partner.opened.size, "coming back created more than the one session it needs")

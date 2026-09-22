@@ -25,6 +25,8 @@ how compliance is checked. New decisions made during implementation are appended
 | [ADR-018](ADR-018-refusals-are-announced-on-one-stream.md) | A refused request is announced on one stream, from the transport, carrying its token | Accepted |
 | [ADR-019](ADR-019-stacking-is-the-default-for-the-rest-of-the-case.md) | Stacking is the default for the remaining slices (widens ADR-015) | Accepted |
 | [ADR-020](ADR-020-the-session-carries-its-own-lifetime.md) | The session carries its own lifetime, and the vault entry carries it too (extends ADR-008) | Accepted |
+| [ADR-021](ADR-021-a-command-is-a-state-about-a-lock.md) | A lock command is a state *about* a lock, and its failure notice has a lifetime (refines ADR-003) | Accepted |
+| [ADR-022](ADR-022-the-history-is-a-tab-with-its-own-viewmodel.md) | The opening history is a tab of the lock screen with a ViewModel of its own (refines ADR-003/006) | Accepted |
 
 Each of ADR-001..008 ends with a **Guardrail** section naming the architecture-test rule (numbered 1–11
 in ADR-009) that makes the decision executable; ADR-006 is covered by the Kover gate instead.

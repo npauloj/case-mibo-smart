@@ -51,6 +51,43 @@ class DeviceCacheTest {
         assertEquals(LAST_SEEN, cached.devices.last().lastSeen)
     }
 
+    /**
+     * SPEC L1: the product id survives the file, so a cold start can address a lock from the cached
+     * page alone — which is what keeps opening a lock at zero requests (ADR-006, SPEC U2).
+     */
+    @Test
+    fun productIdSurvivesTheRoundTrip() = runTest {
+        val cache = SqlDeviceCache(inMemoryDriver())
+
+        cache.write(PAGE, FETCHED_AT)
+        val cached = assertNotNull(cache.read()).devices.associateBy { it.name }
+
+        assertEquals(LOCK_PRODUCT_ID, assertNotNull(cached["MFR 1001"]).productId)
+        assertEquals(HUB_PRODUCT_ID, assertNotNull(cached["MCA 1002"]).productId)
+        // Blank is a value the partner really sends, and it must come back blank rather than as the
+        // neighbouring row's id — the failure that would address the wrong device.
+        assertEquals("", assertNotNull(cached["iM7-FC"]).productId)
+    }
+
+    /**
+     * The `2.sqm` half of the migration rule: a row written before `productId` was a column would
+     * read back with the `''` the migration backfills, and a blank product id must never reach a
+     * `LockAddress`. So it is dropped and refetched instead.
+     *
+     * It is written at the version *before* the shipped one on purpose: that is what pins
+     * [DEVICE_CACHE_SCHEMA_VERSION] to the column, and the test fails if the next schema change
+     * forgets to bump it.
+     */
+    @Test
+    fun rowsWrittenBeforeTheProductIdColumnAreDiscarded() = runTest {
+        val driver = inMemoryDriver()
+        SqlDeviceCache(driver, schemaVersion = DEVICE_CACHE_SCHEMA_VERSION - 1).write(PAGE, FETCHED_AT)
+
+        val shipped = SqlDeviceCache(driver)
+
+        assertNull(shipped.read(), "a pre-migration row would have surfaced with a blank product id")
+    }
+
     /** A cache nobody ever wrote to is a miss, not an empty list — the caller must still fetch. */
     @Test
     fun readsNullBeforeAnythingIsWritten() = runTest {
@@ -91,16 +128,24 @@ class DeviceCacheTest {
         val LAST_SEEN = Instant.parse("2026-09-18T13:27:04Z")
         const val HUB = "PLACEHOLDER-HUB-NS"
 
-        /** A hub, the lock hanging off it, and an offline camera — the shapes a row can take. */
+        /** Placeholders in the shape `docs/api-contract.md` §5 uses — never the account's own. */
+        const val HUB_PRODUCT_ID = "<hub-idProduto>"
+        const val LOCK_PRODUCT_ID = "<lock-idProduto>"
+
+        /**
+         * A hub, the lock hanging off it, and two cameras — the shapes a row can take, including the
+         * blank `idProduto` the partner sends for some camera families.
+         */
         val PAGE = listOf(
             device("PLACEHOLDER-CAM-NS", "iM7-FC", "iM7-FC"),
-            device(HUB, "MCA 1002", "IOT-ZG2-IB"),
+            device(HUB, "MCA 1002", "IOT-ZG2-IB", productId = HUB_PRODUCT_ID),
             device(
                 id = "PLACEHOLDER-LOCK-NS",
                 name = "MFR 1001",
                 model = "IOT-MFR1001-IB",
                 parent = HUB,
                 origin = DeviceOrigin.Shared,
+                productId = LOCK_PRODUCT_ID,
             ),
             device("PLACEHOLDER-CAM-NS-2", "iM3-C", "iM3-C", isOnline = false, lastSeen = LAST_SEEN),
         )
@@ -113,6 +158,7 @@ class DeviceCacheTest {
             lastSeen: Instant? = null,
             parent: String? = null,
             origin: DeviceOrigin = DeviceOrigin.Linked,
+            productId: String = "",
         ) = Device(
             id = DeviceId(id),
             name = name,
@@ -122,6 +168,7 @@ class DeviceCacheTest {
             origin = origin,
             kind = DeviceClassifier.classify(model = model, isSubDevice = parent != null),
             parent = parent?.let(::DeviceId),
+            productId = productId,
         )
     }
 }

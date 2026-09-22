@@ -12,17 +12,30 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.npauloj.mibosmart.app.resources.Res
 import io.github.npauloj.mibosmart.app.resources.lock_back
+import io.github.npauloj.mibosmart.app.resources.lock_command_check_failed
+import io.github.npauloj.mibosmart.app.resources.lock_command_checking
+import io.github.npauloj.mibosmart.app.resources.lock_command_close
+import io.github.npauloj.mibosmart.app.resources.lock_command_expired
+import io.github.npauloj.mibosmart.app.resources.lock_command_failed
+import io.github.npauloj.mibosmart.app.resources.lock_command_open
+import io.github.npauloj.mibosmart.app.resources.lock_command_sent
+import io.github.npauloj.mibosmart.app.resources.lock_command_verify
 import io.github.npauloj.mibosmart.app.resources.lock_enable_remote_open
 import io.github.npauloj.mibosmart.app.resources.lock_enable_remote_open_consequence
 import io.github.npauloj.mibosmart.app.resources.lock_enable_remote_open_failed
@@ -45,6 +58,8 @@ import io.github.npauloj.mibosmart.app.resources.lock_retry
 import io.github.npauloj.mibosmart.app.resources.lock_state_label
 import io.github.npauloj.mibosmart.app.resources.lock_state_locked
 import io.github.npauloj.mibosmart.app.resources.lock_state_unlocked
+import io.github.npauloj.mibosmart.app.resources.lock_tab_history
+import io.github.npauloj.mibosmart.app.resources.lock_tab_lock
 import io.github.npauloj.mibosmart.app.resources.lock_volume_changing
 import io.github.npauloj.mibosmart.app.resources.lock_volume_failed
 import io.github.npauloj.mibosmart.app.resources.lock_volume_high
@@ -55,6 +70,7 @@ import io.github.npauloj.mibosmart.app.resources.lock_volume_mute
 import io.github.npauloj.mibosmart.app.resources.lock_writes_disabled
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -71,12 +87,23 @@ import org.koin.compose.viewmodel.koinViewModel
 data class LockDestination(val device: Device, val address: LockAddress)
 
 /**
- * Reading a lock (SPEC L1, L2, L5, L8) and its two writes (SPEC L2, L7): three parallel reads on
- * entry, then the door's state, a volume the user can change, and — when remote opening is off —
- * what that means plus the one action that grants it.
+ * The two halves of one lock: what it is doing now, and what it has been doing.
  *
- * Opening and closing are still L-02's. Every control here follows the partner rather than leading
- * it: nothing on screen moves until the call it stands for has answered.
+ * They are tabs and not two destinations because they are two views of the same device — and
+ * because each has its own request budget to keep: switching tabs must never re-read either side
+ * (SPEC L9, ADR-006), which is what makes the two ViewModels behind them worth having.
+ */
+private enum class LockTab { Lock, History }
+
+/**
+ * The lock screen (SPEC L1–L10): three parallel reads on entry, then the door's state with the
+ * control that opens and closes it, a volume the user can change, — when remote opening is off —
+ * what that means plus the one action that grants it, and the history of its openings on a tab.
+ *
+ * Every control here follows the partner rather than leading it: nothing on screen moves until the
+ * call it stands for has answered, and a command moves it only once `status-abertura` has agreed
+ * (SPEC L3). The screen never asks twice on its own — "Verificar" is the only second read, and it
+ * takes a tap (SPEC L4, ADR-006).
  */
 @Composable
 fun LockScreen(
@@ -92,21 +119,59 @@ fun LockScreen(
     // reads nothing again — the ViewModel keeps that guard.
     LaunchedEffect(destination) { viewModel.open(destination) }
 
-    LockScreenContent(
-        state = state,
-        onRetry = viewModel::retry,
-        onChangeVolume = viewModel::changeVolume,
-        onEnableRemoteOpen = viewModel::enableRemoteOpen,
-        onBack = onBack,
-        modifier = modifier,
-    )
+    var tab by remember { mutableStateOf(LockTab.Lock) }
+    Column(modifier = modifier.fillMaxSize()) {
+        LockTabs(selected = tab, onSelect = { tab = it })
+        when (tab) {
+            LockTab.Lock -> LockScreenContent(
+                state = state,
+                onRetry = viewModel::retry,
+                onCommand = viewModel::command,
+                onVerify = viewModel::verify,
+                onChangeVolume = viewModel::changeVolume,
+                onEnableRemoteOpen = viewModel::enableRemoteOpen,
+                onBack = onBack,
+                modifier = Modifier.weight(1f),
+            )
+
+            // SPEC L9: entering this tab is what spends the one `historico-abertura` request, and
+            // coming back to it spends none — the guard is in `OpeningHistoryViewModel`.
+            LockTab.History -> OpeningHistoryScreen(
+                address = destination.address,
+                onBack = onBack,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }
+
+/** Which half of the lock is on screen (SPEC L9). */
+@Composable
+private fun LockTabs(selected: LockTab, onSelect: (LockTab) -> Unit) {
+    PrimaryTabRow(selectedTabIndex = selected.ordinal) {
+        LockTab.entries.forEach { tab ->
+            Tab(
+                selected = tab == selected,
+                onClick = { onSelect(tab) },
+                text = { Text(stringResource(tab.label)) },
+            )
+        }
+    }
+}
+
+private val LockTab.label: StringResource
+    get() = when (this) {
+        LockTab.Lock -> Res.string.lock_tab_lock
+        LockTab.History -> Res.string.lock_tab_history
+    }
 
 /** The screen as a pure function of its state, so every state has a preview and no ViewModel. */
 @Composable
 fun LockScreenContent(
     state: LockUiState,
     onRetry: () -> Unit,
+    onCommand: (LockCommand) -> Unit,
+    onVerify: () -> Unit,
     onChangeVolume: (VolumeLevel) -> Unit,
     onEnableRemoteOpen: () -> Unit,
     onBack: () -> Unit,
@@ -124,21 +189,35 @@ fun LockScreenContent(
         }
 
         when (state) {
-            is LockUiState.Loading -> LoadingRow()
-            is LockUiState.Ready -> LockReadings(state, onChangeVolume, onEnableRemoteOpen)
+            is LockUiState.Loading -> LoadingRow(Res.string.lock_loading)
+            is LockUiState.Ready ->
+                LockReadings(state, null, onCommand, onVerify, onChangeVolume, onEnableRemoteOpen)
+
+            // A command in flight, unconfirmed or refused is drawn *over* the readings it is
+            // happening to (SPEC L3–L5): the same screen, plus one line saying where the door is.
+            is LockUiState.Commanding ->
+                LockReadings(state.before, state, onCommand, onVerify, onChangeVolume, onEnableRemoteOpen)
+
             is LockUiState.Failed -> ErrorSection(state, onRetry)
         }
     }
 }
 
+/**
+ * A spinner and the sentence that says what is being waited for.
+ *
+ * [label] is a parameter because both tabs of this screen wait on the partner and neither may say
+ * the other's sentence: "Lendo o estado da fechadura" while the history loads would name the wrong
+ * request (SPEC L1, L9).
+ */
 @Composable
-private fun LoadingRow() {
+internal fun LoadingRow(label: StringResource) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-        Text(text = stringResource(Res.string.lock_loading), style = MaterialTheme.typography.bodyMedium)
+        Text(text = stringResource(label), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -158,12 +237,25 @@ private fun OfflineNotice(lastSeen: LastSeen?) {
     }
 }
 
+/**
+ * Everything read off the lock, plus whatever a command is doing to it right now.
+ *
+ * @param commanding the unsettled command, when there is one. It is passed in rather than read off
+ *   [state] because the readings and the command are two different facts about the same lock, and
+ *   only one of them is what the partner last confirmed.
+ */
 @Composable
 private fun LockReadings(
     state: LockUiState.Ready,
+    commanding: LockUiState.Commanding?,
+    onCommand: (LockCommand) -> Unit,
+    onVerify: () -> Unit,
     onChangeVolume: (VolumeLevel) -> Unit,
     onEnableRemoteOpen: () -> Unit,
 ) {
+    // SPEC L6: while the door is being commanded nothing else on the screen may be asked for either
+    // — one write at a time to one lock.
+    val isCommandInFlight = commanding is LockUiState.CommandSent
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LabelledValue(
             label = stringResource(Res.string.lock_state_label),
@@ -171,9 +263,10 @@ private fun LockReadings(
                 if (state.lock.isOpen) Res.string.lock_state_unlocked else Res.string.lock_state_locked,
             ),
         )
-        VolumeSelector(state, onChangeVolume)
+        CommandControl(state, commanding, isCommandInFlight, onCommand, onVerify)
+        VolumeSelector(state, !isCommandInFlight, onChangeVolume)
         if (state.isRemoteOpenDisabled) {
-            RemoteOpenDisabled(state, onEnableRemoteOpen)
+            RemoteOpenDisabled(state, !isCommandInFlight, onEnableRemoteOpen)
         }
         if (!state.areWritesEnabled) {
             Text(
@@ -185,6 +278,87 @@ private fun LockReadings(
 }
 
 /**
+ * SPEC L3–L6: one button for the command the door is not in, and one line for where that command is.
+ *
+ * The button is the whole control — a door has two states and the screen already says which one it
+ * is in, so a second button that does nothing would only be there to be tapped by mistake. It is
+ * disabled whenever [LockUiState.Ready.canCommand] says the command cannot be sent (no remote
+ * opening, an offline lock, a build that does not write) and while one is already in flight, which
+ * is the affordance half of the re-entrancy guard; the guard itself is in the ViewModel.
+ *
+ * The line below it never claims the door moved. `CommandSent` says the command is out,
+ * `CommandExpired` says it was not confirmed and offers the only honest next step, and
+ * `CommandFailed` says it did not leave at all.
+ */
+@Composable
+private fun CommandControl(
+    state: LockUiState.Ready,
+    commanding: LockUiState.Commanding?,
+    isCommandInFlight: Boolean,
+    onCommand: (LockCommand) -> Unit,
+    onVerify: () -> Unit,
+) {
+    val command = LockCommand.toggling(state.lock)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            onClick = { onCommand(command) },
+            enabled = state.canCommand && !isCommandInFlight,
+        ) {
+            Text(stringResource(command.label))
+        }
+        when (commanding) {
+            null -> Unit
+            is LockUiState.CommandSent -> CommandNotice(Res.string.lock_command_sent)
+            is LockUiState.CommandExpired -> UnconfirmedCommand(commanding, onVerify)
+            is LockUiState.CommandFailed -> CommandNotice(
+                template = Res.string.lock_command_failed,
+                // The partner's own sentence wins when it sent one (SPEC S3.1).
+                cause = commanding.serverMessage ?: stringResource(commanding.error.writeMessage),
+                isError = true,
+            )
+        }
+    }
+}
+
+/**
+ * SPEC L4: the state this slice exists for — the command was taken and the device never agreed.
+ *
+ * "Verificar" is the only thing in the app that reads a lock a second time, and it is a tap: a
+ * screen that checked on its own would spend the account's budget on a door the user has already
+ * walked away from (ADR-006).
+ */
+@Composable
+private fun UnconfirmedCommand(state: LockUiState.CommandExpired, onVerify: () -> Unit) {
+    CommandNotice(Res.string.lock_command_expired, isError = true)
+    TextButton(onClick = onVerify, enabled = !state.isChecking) {
+        Text(
+            stringResource(
+                if (state.isChecking) Res.string.lock_command_checking else Res.string.lock_command_verify,
+            ),
+        )
+    }
+    // The check is a read, so it ends in a read's sentence: "a fechadura recusou o comando" would be
+    // the wrong story for a request that never asked the door for anything.
+    state.checkFailure?.let { error ->
+        CommandNotice(
+            template = Res.string.lock_command_check_failed,
+            cause = stringResource(error.message),
+            isError = true,
+        )
+    }
+}
+
+/** One sentence about where the command is, in the colour its news deserves. */
+@Composable
+private fun CommandNotice(template: StringResource, cause: String? = null, isError: Boolean = false) {
+    Text(
+        text = if (cause == null) stringResource(template) else stringResource(template, cause),
+        style = MaterialTheme.typography.bodySmall,
+        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+    )
+}
+
+/**
  * SPEC L7: four levels, and the selected one is always the level the lock reported.
  *
  * The chips are disabled while a write is in flight and in a build that may not write at all, and
@@ -192,7 +366,11 @@ private fun LockReadings(
  * ahead of the hardware would be telling the user the door is quieter than it is.
  */
 @Composable
-private fun VolumeSelector(state: LockUiState.Ready, onChangeVolume: (VolumeLevel) -> Unit) {
+private fun VolumeSelector(
+    state: LockUiState.Ready,
+    isEnabled: Boolean,
+    onChangeVolume: (VolumeLevel) -> Unit,
+) {
     val changing = state.writeInFlight as? LockWrite.Volume
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(text = stringResource(Res.string.lock_volume_label), style = MaterialTheme.typography.bodyMedium)
@@ -201,7 +379,7 @@ private fun VolumeSelector(state: LockUiState.Ready, onChangeVolume: (VolumeLeve
                 FilterChip(
                     selected = level == state.lock.volume,
                     onClick = { onChangeVolume(level) },
-                    enabled = state.areWritesEnabled && state.writeInFlight == null,
+                    enabled = isEnabled && state.areWritesEnabled && state.writeInFlight == null,
                     label = { Text(stringResource(level.label)) },
                 )
             }
@@ -241,7 +419,11 @@ private fun LabelledValue(label: String, value: String) {
  * does not.
  */
 @Composable
-private fun RemoteOpenDisabled(state: LockUiState.Ready, onEnableRemoteOpen: () -> Unit) {
+private fun RemoteOpenDisabled(
+    state: LockUiState.Ready,
+    isEnabled: Boolean,
+    onEnableRemoteOpen: () -> Unit,
+) {
     Card {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -260,7 +442,7 @@ private fun RemoteOpenDisabled(state: LockUiState.Ready, onEnableRemoteOpen: () 
                 style = MaterialTheme.typography.bodySmall,
             )
             if (state.areWritesEnabled) {
-                Button(onClick = onEnableRemoteOpen, enabled = state.writeInFlight == null) {
+                Button(onClick = onEnableRemoteOpen, enabled = isEnabled && state.writeInFlight == null) {
                     Text(stringResource(Res.string.lock_enable_remote_open))
                 }
             }
@@ -308,6 +490,18 @@ private fun LastSeen?.asText(): String = when (this) {
     is LastSeen.Days -> stringResource(Res.string.lock_last_update_days, value.toString())
 }
 
+/**
+ * The command as the label of the button that sends it (SPEC L3).
+ *
+ * It is the verb, not the state: the button on a closed door says "Abrir", because what the user is
+ * choosing is the change, and the door's current state is already on the line above.
+ */
+private val LockCommand.label: StringResource
+    get() = when (this) {
+        LockCommand.Open -> Res.string.lock_command_open
+        LockCommand.Close -> Res.string.lock_command_close
+    }
+
 /** The 0..3 the partner speaks, as the words the user reads (SPEC L7). */
 private val VolumeLevel.label: StringResource
     get() = when (this) {
@@ -326,8 +520,13 @@ private val VolumeLevel.label: StringResource
 private val LockError.writeMessage: StringResource
     get() = if (this == LockError.Failed) Res.string.lock_error_write_refused else message
 
-/** One friendly sentence per category, never the server's own words (SPEC U6). */
-private val LockError.message: StringResource
+/**
+ * One friendly sentence per category, never the server's own words (SPEC U6).
+ *
+ * Internal rather than private because the history tab fails in exactly these five ways and has to
+ * say the same five things: a read of the same lock, refused for the same reasons (SPEC L9).
+ */
+internal val LockError.message: StringResource
     get() = when (this) {
         LockError.TokenRejected -> Res.string.lock_error_rejected
         LockError.TokenExpired -> Res.string.lock_error_expired

@@ -60,6 +60,28 @@ jobs:
       - name: Java interop tests (legacy partner catalogue, JVM)
         run: ./gradlew :legacy-catalog:test --stacktrace
 
+      # Screenshot tests (ADR-024). Goldens are recorded HERE and nowhere else: font rasterisation
+      # differs between operating systems, so an image recorded on a developer's machine differs
+      # from this runner's in every anti-aliased pixel, for reasons that have nothing to do with
+      # the UI. This runner is the one place they are comparable.
+      #
+      # `record`, not `compare`, until a baseline is committed from a run of this job: comparing
+      # against goldens that do not exist yet would fail every PR for the wrong reason. Once the
+      # baseline is in the repository this becomes `compareRoborazziAndroidHostTest` and the diff
+      # images become the review surface.
+      - name: Screenshot tests (Roborazzi, goldens recorded on Linux only)
+        run: ./gradlew :shared:app:recordRoborazziAndroidHostTest --stacktrace
+
+      # Uploaded whether or not the step above succeeded: when a capture fails, the images that did
+      # render are what explains why.
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shared/app/src/androidHostTest/goldens/
+          if-no-files-found: error
+
       # Coverage is measured, not gated (ADR-006): the aggregated report is an artifact and its
       # per-module numbers go into docs/PRODUCT.md at delivery.
       - name: Coverage report (Kover, measured only)

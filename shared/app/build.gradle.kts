@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.mokkery)
     alias(libs.plugins.kover)
+    alias(libs.plugins.roborazzi)
 }
 
 kotlin {
@@ -40,6 +41,9 @@ kotlin {
             enable = true
         }
         withHostTestBuilder {}.configure {
+            // Robolectric needs the real resource table to inflate a theme; without it Compose
+            // cannot resolve a single attribute and the capture dies before drawing.
+            isIncludeAndroidResources = true
             // Compose's runtime logs through `android.util.Log` while composing, and on the JVM host
             // the unmocked stub throws — which is enough to abort any composition, even an empty one.
             // `LiveVideoScreenLifecycleTest` composes the screen's lifecycle wiring without a device,
@@ -83,9 +87,40 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
         }
+
+        // Screenshot tests. JUnit4 and Robolectric live ONLY here, never in commonTest:
+        // CLAUDE.md keeps commonTest on multiplatform libraries, and Robolectric is a JVM/Android
+        // host runtime. Goldens are recorded and verified on the CI Linux runner, never committed
+        // from a developer machine — font rendering differs and every image would churn.
+        getByName("androidHostTest").dependencies {
+            implementation(libs.junit4)
+            implementation(libs.robolectric)
+            implementation(libs.roborazzi)
+            implementation(libs.roborazzi.compose)
+            implementation(libs.roborazzi.previewScanner)
+            implementation(libs.composablePreviewScanner)
+            implementation(libs.compose.uiTestJUnit4)
+        }
     }
 }
 
+// Screenshot tests are generated from the previews that already exist — the 49 `@Preview` functions
+// under `app/**` are the state inventory, and writing a second list of them by hand would be a list
+// that drifts. Goldens are recorded and compared on the CI Linux runner only.
+roborazzi {
+    generateComposePreviewRobolectricTests {
+        enable = false
+        packages = listOf("io.github.npauloj.mibosmart.app")
+        // The previews are `internal`, beside the screens they describe (shared/CLAUDE.md).
+        includePrivatePreviews = true
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    // Roborazzi asks for this explicitly: without it the capture path is lower fidelity and images
+    // differ between machines for reasons that have nothing to do with the UI.
+    systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+}
 // Every user-facing string is a Compose resource (SPEC E6); the generated accessor is pinned to a
 // package of ours so the import does not depend on how the plugin derives one.
 compose.resources {

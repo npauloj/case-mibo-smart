@@ -43,3 +43,13 @@ secrets.properties
 
 # Unsanitised copies of the partner API contract (hosts, Swagger, real device ids) stay local
 docs/private/
+
+# Screenshot goldens (ADR-024). Ignored *for now*, and the reason matters: font rasterisation differs
+# between operating systems, so an image recorded on a developer machine differs from the CI Linux
+# runner's in every anti-aliased pixel. Committing one from here would make every later comparison
+# fail for a reason that has nothing to do with the UI.
+#
+# The baseline is meant to be committed — from a run of the `verify` job, whose `screenshots`
+# artifact carries it. When that lands, delete these two lines and the set becomes a real regression
+# gate instead of pictures attached to a PR.
+shared/app/src/androidHostTest/goldens/

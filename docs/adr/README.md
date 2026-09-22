@@ -28,6 +28,7 @@ how compliance is checked. New decisions made during implementation are appended
 | [ADR-021](ADR-021-a-command-is-a-state-about-a-lock.md) | A lock command is a state *about* a lock, and its failure notice has a lifetime (refines ADR-003) | Accepted |
 | [ADR-022](ADR-022-the-history-is-a-tab-with-its-own-viewmodel.md) | The opening history is a tab of the lock screen with a ViewModel of its own (refines ADR-003/006) | Accepted |
 | [ADR-023](ADR-023-the-kotlin-bridge-lives-in-the-legacy-module.md) | The Kotlin bridge lives inside `:legacy-catalog`, which is Java *and* Kotlin (amends ADR-007) | Accepted |
+| [ADR-024](ADR-024-screenshot-tests-read-the-previews.md) | Screenshot tests read the previews, and their goldens are born in CI | Accepted |
 
 Each of ADR-001..008 ends with a **Guardrail** section naming the architecture-test rule (numbered 1–11
 in ADR-009) that makes the decision executable; ADR-006 is covered by the Kover gate instead.

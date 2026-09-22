@@ -14,20 +14,29 @@ O app é a resposta a nove requisitos funcionais do enunciado (RF01–RF04 obrig
 desejados). O escopo é implementado em ondas (fatias verticais, uma Issue e um PR por fatia — ver
 [`docs/PROCESS.md`](docs/PROCESS.md)):
 
-| RF | O que pede | Onda | Status |
+| RF | O que pede | Fatias | PRs mesclados |
 |---|---|---|---|
-| RF01 | Tela inicial com campo para o token de acesso | 1 | planejado |
-| RF02 | Após submissão, listar os dispositivos retornados pela API | 2 | planejado |
-| RF03 | Acessar câmeras a partir da lista e ver o vídeo ao vivo | 2 | planejado |
-| RF04 | Erros amigáveis: token inválido, expirado, falha de rede, lista vazia | 1–2 | planejado |
-| RF05 | Fechadura: abrir, fechar e verificar status | 2 | planejado |
-| RF06 | Fechadura: ver e mudar o volume | 2 | planejado |
-| RF07 | Filtrar por origem (vinculados, compartilhados, todos) | 2 | planejado |
-| RF08 | Paginação com `pagina` e `tamanhoPagina` | 2 | planejado |
-| RF09 | Histórico de abertura da fechadura | 3 | planejado |
+| RF01 | Tela inicial com campo para o token de acesso | S-01a · S-01b · S-01c · S-02a · S-02b · S-03 | [#26](../../pull/26) · [#37](../../pull/37) · [#29](../../pull/29) · [#46](../../pull/46) · [#50](../../pull/50) · [#56](../../pull/56) |
+| RF02 | Após submissão, listar os dispositivos retornados pela API | D-01a · D-01b · D-02 · D-03 · D-04 · D-05 | [#38](../../pull/38) · [#47](../../pull/47) · [#51](../../pull/51) · [#62](../../pull/62) · [#66](../../pull/66) · [#70](../../pull/70) |
+| RF03 | Acessar câmeras a partir da lista e ver o vídeo ao vivo | V-01a · V-01b · V-02 | [#43](../../pull/43) · [#52](../../pull/52) · [#58](../../pull/58) |
+| RF04 | Erros amigáveis: token inválido, expirado, falha de rede, lista vazia | transversal — toda fatia mapeia suas falhas para um resultado selado (ADR-002, SPEC E2) | ver as demais linhas |
+| RF05 | Fechadura: abrir, fechar e verificar status | L-01a · L-02, alcançável por D-03 · D-04 | [#39](../../pull/39) · [#59](../../pull/59) · [#62](../../pull/62) · [#66](../../pull/66) |
+| RF06 | Fechadura: ver e mudar o volume | L-01b | [#53](../../pull/53) |
+| RF07 | Filtrar por origem (vinculados, compartilhados, todos) | D-02 | [#51](../../pull/51) |
+| RF08 | Paginação com `pagina` e `tamanhoPagina` | D-02 | [#51](../../pull/51) |
+| RF09 | Histórico de abertura da fechadura | L-03 | [#60](../../pull/60) |
+| ★ | Interoperabilidade Java (`:legacy-catalog`) | P-01 · D-05 | [#68](../../pull/68) · [#70](../../pull/70) |
 
 Fora de escopo por decisão: lâmpadas, sensores, gravações de câmera, senhas de fechadura, criação de
-conta na plataforma. A tabela é atualizada a cada PR mesclado (coluna "Status" → link do PR).
+conta na plataforma.
+
+**Como ler a coluna de fatias.** O mapeamento RF → fatia vem dos rótulos `rf:*` das Issues, não da
+memória de quem escreveu o README. O RF04 não tem linha própria de PR porque não é uma tela: é a regra
+de que toda fatia converte falha de transporte e de API em resultado selado, com um ramo por categoria
+(ADR-002) — quem o verifica é o compilador, em cada `when` sem `else`.
+
+O PR [#64](../../pull/64) não aparece acima por não conter código: ele consolidou em `main` quatro
+fatias que um merge de pilha mal-feito havia deixado numa branch lateral (ver ADR-019).
 
 ## Pré-requisitos
 

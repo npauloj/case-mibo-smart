@@ -686,7 +686,8 @@ graph TD
 - **Scope:** the open/close control; the `CommandSent → Confirmed → Locked/Unlocked` path with one
   confirmation read; `CommandExpired` on disagreement or timeout with a manual "Verificar";
   `CommandFailed` with state restoration; the re-entrancy guard.
-- **Non-goals:** the three initial reads, the remote-open precondition and volume (L-01); the history
+- **Non-goals:** the three initial reads, the remote-open precondition and volume (L-01a/L-01b own
+  them); the history
   (L-03); auto-polling of any kind; passwords.
 - **Expected behaviour:** tapping open or close from a settled state disables the control, shows
   `CommandSent`, calls `controle-fechadura` and then reads `status-abertura` once. Agreement settles on
@@ -701,7 +702,8 @@ graph TD
   path to a second read. The re-entrancy guard lives in the ViewModel's state, not in the composable.
 - **Files:** `shared/domain/.../domain/lock/` (state machine transitions),
   `shared/app/.../app/lock/ToggleLock.kt`, `shared/app/.../app/lock/LockViewModel.kt` (extend),
-  `shared/app/.../app/lock/LockScreenContent.kt` (extend + previews),
+  `shared/app/.../app/lock/LockScreen.kt` (extend — the `Content` composable lives in this file,
+  there is no `LockScreenContent.kt`), `shared/app/.../app/lock/LockScreenPreviews.kt` (extend),
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
 - **Depends on:** V-02
   _(**stacked edge, ADR-019**: L-02 needs only L-01b logically; it branches from `slice/v-02` so the shared files arrive already merged. Base branch: `slice/v-02`; say so in the PR body, and that the CI green is against the stack.)_
@@ -744,12 +746,14 @@ graph TD
 - **Files:** `shared/domain/.../domain/lock/OpeningEvent.kt`,
   `shared/data/.../data/remote/` (historico-abertura request + DTO, `tempoLocal` parsing),
   `shared/app/.../app/lock/OpeningHistory.kt` (use case), `.../app/lock/OpeningHistoryViewModel.kt`,
-  `.../app/lock/OpeningHistoryContent.kt` + `PreviewParameterProvider`,
+  `.../app/lock/OpeningHistoryScreen.kt` (the screen and its stateless `Content`, following
+  `LockScreen.kt` — the repo has no `*Content.kt` file),
+  `.../app/lock/OpeningHistoryScreenPreviews.kt` (with its `PreviewParameterProvider`),
   `shared/app/src/commonMain/composeResources/values/strings.xml`.
 - **Depends on:** L-02
   _(**stacked edge, ADR-015/019**: same `LockScreen` and `LockViewModel` as L-02, and the same shared files as every other slice. Base branch: `slice/l-02`; say so in the PR body, and that the CI green is against the stack.)_
 - **Issue:** #21
-- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈250 executable production lines + ≈200 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code. _(**recalibrated 2026-09-21 from measured slices**, not from the original guess of ≈120/≈100: this slice builds a whole vertical — domain model, DTO and mapper, a repository method, a use case, a ViewModel, a screen and its previews. The closest measured neighbour is L-02 at 298/186. S-03 came in at 117/243 and V-02 at 211/210 against the same ≈120/≈100 label, which is what made it clear the label was the problem.)_
 - **Acceptance criteria (EARS):** SPEC **L9, L10** and **U4**. Tests named in the SPEC:
   `OpeningHistoryTest.mapsKnownTypes` / `.unknownTypeShownRaw` / `.emptyState` /
   `.entryShowsRelativeAndAbsoluteTime` / `.remoteEntryShowsActorName`.
@@ -766,56 +770,95 @@ graph TD
 - **Problem:** V-01 can still wait forever. The single loudest complaint in the partner's reviews is a
   stream that hangs with no named error, and a decode failure retried three times wastes quota for
   nothing.
-- **Scope:** the retry ladder for network drops and end-of-stream; no retry on decode errors; the
+- **Scope:** the retry ladder for network drops and end of stream; no retry on decode errors; the
   20 s first-frame timeout; the `Failed` state with "Tentar novamente" and "Abrir no player web"; the
-  in-app WebView on `monitor_url`.
-- **Non-goals:** session creation, the capability check and teardown (V-01); changing the player
-  actuals beyond what the fallback needs; recordings or PTZ.
+  fallback surface that opens `monitor_url`.
+- **Non-goals:** session creation, the capability check and teardown (V-01a/V-01b own them); changing
+  the `LiveVideoPlayer` actuals beyond adding the fallback surface; recordings or PTZ.
 - **Expected behaviour:** a network drop or end of stream retries up to three times with growing
   delays, re-preparing the same URL first and creating a new session after that; the overlay counts
   the attempt in words ("Reconectando (2/3)…"). After the third failure the screen shows "Não foi
-  possível carregar o vídeo" with a retry and a web-player action. A decode or format error does not
-  retry and goes straight to the fallback offer. If no first frame arrives within 20 s of the creation
-  request the screen fails the same way. A percentage or unbounded spinner is never shown. The fallback
-  loads `monitor_url` in a WebView inside the app, not an external browser.
+  possível carregar o vídeo" with a retry and, **when there is a `monitor_url`**, a web-player action.
+  A decode or format error does not retry and goes straight to the fallback offer. If no first frame
+  arrives within 20 s of the creation request the screen fails the same way. A percentage or unbounded
+  spinner is never shown.
 - **Technical detail:** delays are 1 s, 3 s, 7 s (`[ASSUMED]`, SPEC V4) and the first-frame budget is
-  20 s (`[ASSUMED]`, U1); both are tested on a virtual clock and tuned on the real camera. Session
-  creations stay inside the 2-per-visit cap of V4.
+  20 s (`[ASSUMED]`, U1); both are tested on a virtual clock and tuned on the real camera.
 
-  **No behaviour in this slice is conditioned on a "Mac check"** — an earlier version was, and the gate
-  rejected it for depending on a result the text does not contain. On iOS the player already *is* a
-  WKWebView on `monitor_url` (ADR-005, V-01b), so "Abrir no player web" opens the **system browser**
-  there and an in-app WebView on Android. That rule holds regardless of how the monitor page behaves,
-  which is the point: the timeout is what detects a page that does not play, and the fallback is what
-  answers it.
-- **Files:** `shared/domain/.../domain/camera/PlaybackRetryPolicy.kt`,
+  **Where the fallback opens — SPEC V9, and it is per platform.** An in-app WebView on **Android**;
+  the **system browser** on **iOS**, where the player surface already *is* a WKWebView on that same
+  URL (V10, ADR-005). An earlier version of this ticket said "in a WebView inside the app, not an
+  external browser" as a flat rule; that contradicted V9 and is not the behaviour. Nothing here is
+  conditioned on a "Mac check" — an even earlier version was, and the gate rejected it for depending
+  on a result the text does not contain.
+
+  **`monitor_url` is nullable, and a null one has no fallback.** `StreamSession.monitorUrl` is
+  `String?` and no probe has ever seen a real one — creating a session costs streaming quota, so the
+  field's presence is unverified (ADR-006). ADR-005 already decided that on iOS a session with a null
+  `monitor_url` reports `DecodeError` at once; V5 then sends `DecodeError` to a fallback that has no
+  URL to load. **That loop is this slice's to close:** the "Abrir no player web" action is offered
+  **only** when `monitorUrl != null`. With a null one the `Failed` state shows "Tentar novamente"
+  alone — on Android the native player may still work, and on iOS there is genuinely nothing to play
+  and nothing to fall back to, which the screen states rather than hides behind a dead button.
+
+  **The request budget bounds the ladder (ADR-006).** At most **three** `criar-fluxo-video` calls per
+  visit to the video screen: the one that opens it, plus at most two inside the ladder (the first
+  retry re-prepares the same URL and creates nothing). A foreground return (`ON_START`, V8) spends
+  from that same per-visit allowance rather than resetting it. SPEC V8's "2-creations-per-visit cap
+  of V4" counts only the ladder's two; this ticket states the total so nobody has to add it up.
+- **Files:** `shared/domain/.../domain/camera/PlaybackRetryPolicy.kt` (new),
   `shared/app/.../app/camera/LiveVideoViewModel.kt` (extend),
-  `shared/app/.../app/camera/LiveVideoScreenContent.kt` (extend + previews),
-  `shared/app/.../app/camera/platform/` (WebView fallback surface, androidMain/iosMain),
-  `shared/app/src/commonMain/composeResources/values/strings.xml`, `docs/adr/ADR-005-live-video-native-players.md`.
+  `shared/app/.../app/camera/LiveVideoScreen.kt` (extend — the `Content` composable lives in this
+  file, there is no `LiveVideoScreenContent.kt`),
+  `shared/app/.../app/camera/LiveVideoScreenPreviews.kt` (extend),
+  `shared/app/.../app/camera/platform/` (the fallback surface, androidMain/iosMain — rule 8),
+  `shared/app/src/commonMain/composeResources/values/strings.xml` and `values-en/strings.xml`,
+  `docs/adr/ADR-005-live-video-native-players.md`.
 - **Depends on:** S-03
-  _(**stacked edge, ADR-019**: V-02 needs only V-01b logically. It branches from `slice/s-03` because every remaining slice edits `App.kt`, both `strings.xml` and `AI-LOG.md`. Base branch: `slice/s-03`; say so in the PR body, and that the CI green is against the stack.)_
-  _(**stacked edge, ADR-015**: V-02 needs only V-01a logically, but it rewrites the same
-  `LiveVideoViewModel`, `LiveVideoScreen` and `app/camera/platform` surface as V-01b. Branch from
-  `slice/v-01b`, not `main`, and say so in the PR body — the CI green is against the stack.)_
+  _(**stacked edge, ADR-019**: V-02 needs only V-01b logically, and V-01b is merged. It branches from
+  `slice/s-03` because every remaining slice edits `App.kt`, `strings.xml` and `AI-LOG.md`. Base
+  branch: `slice/s-03`; say so in the PR body, and that the CI green is against the stack.)_
 - **Issue:** #22
 - **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
-- **Acceptance criteria (EARS):** SPEC **V4, V5, V9** and **U1**. Tests named in the SPEC:
-  `PlaybackRetryPolicyTest.*` including `.decodeErrorNoRetry`,
-  `LiveVideoViewModelTest.firstFrameTimeoutBecomesFailed`.
-  Previews: `LiveVideoScreen_Reconnecting`, `_Failed`, `_WebFallback` + `_Dark`. V9 has no instrumented
-  test in scope — the evidence is a manual check on a device or simulator, recorded in the PR body.
+- **Acceptance criteria (EARS):** SPEC **V4, V5, V9** and **U1**.
+  - IF the player reports a network drop or end of stream, THE SYSTEM SHALL retry at most three times
+    with 1 s / 3 s / 7 s delays, re-preparing the same URL first and creating a new session after that
+    _(test: `PlaybackRetryPolicyTest.networkLadderRePreparesThenRecreates`)_
+  - IF the player reports a decode or format error, THE SYSTEM SHALL NOT retry
+    _(test: `PlaybackRetryPolicyTest.decodeErrorNoRetry`)_
+  - IF no first frame arrives within 20 s of the creation request, THE SYSTEM SHALL move to `Failed`
+    _(test: `LiveVideoViewModelTest.firstFrameTimeoutBecomesFailed` — virtual clock)_
+  - IF the session carries no `monitor_url`, THE SYSTEM SHALL NOT offer "Abrir no player web"
+    _(test: `LiveVideoViewModelTest.failedWithoutMonitorUrlOffersRetryOnly`)_
+  - THE SYSTEM SHALL create at most three sessions per visit **on its own initiative**, and a
+    foreground return SHALL spend from that same allowance
+    _(tests: `LiveVideoViewModelTest.ladderCreatesAtMostTwoExtraSessions` and
+    `.aForegroundReturnSpendsFromTheSameAllowance` — both count calls on the fake repository)_
+  - WHEN the user taps "Tentar novamente", THE SYSTEM SHALL start a fresh allowance
+    _(test: `LiveVideoViewModelTest.retryAfterAFullLadderStartsTheAllowanceOver`)_
+    _(**amended after implementation, 2026-09-21.** The first version of this criterion said "at most
+    three sessions per visit" flat, which would have made the "Tentar novamente" that SPEC V4 demands
+    a dead button as soon as the ladder had spent the allowance — the dead action SPEC V6 forbids. The
+    rule the codebase already settled on, written in `ListDevices`' KDoc since D-01a, is that the app
+    budgets **its own** retries and a human tap is not one of them. The ticket was wrong, not the
+    code.)_
+  Previews: `LiveVideoScreen_Reconnecting`, `_Failed`, `_FailedWithoutFallback`, `_WebFallback`, each
+  with its dark variant through the same `uiMode`-parameterised function. V9's *destination* has no
+  instrumented test in scope — the evidence is a manual check on a device or simulator, recorded in
+  the PR body.
 - **Test scenarios:** three network retries then `Failed`; a decode error skipping retry; the
-  first-frame timeout firing on a virtual clock; the fallback opening in-app.
+  first-frame timeout firing on a virtual clock; a `Failed` state with a null `monitor_url` offering
+  retry alone; the ladder's session count.
 - **Rollout / kill switch:** the web fallback IS the kill switch for the native player — a camera the
-  player cannot handle is still watchable. Per the `docs/PROCESS.md` circuit breaker, the WebView
-  fallback is third in the cut list if wave 3 runs short.
-- **Events / metrics:** retry attempts are visible in the overlay text; the counter covers any new
-  session creation.
-- **i18n / LGPD / factories:** every message names the cause and offers at most one primary action,
-  with no status code, exception name or stack fragment (U6).
-- **Applies to / ADRs:** commonMain + androidMain/iosMain. ADR-005 (amend with what the real camera
-  showed); rule 8 covers the fallback surface.
+  player cannot handle is still watchable wherever a `monitor_url` exists. Per the `docs/PROCESS.md`
+  circuit breaker, the fallback is third in the cut list if wave 3 runs short.
+- **Events / metrics:** retry attempts are visible in the overlay text; the ADR-006 counter covers
+  every new session creation, including the ladder's.
+- **i18n / LGPD / factories:** strings in Compose resources, pt-BR default with en fallback (E6);
+  every message names the cause and offers at most one primary action, with no status code, exception
+  name or stack fragment (U6).
+- **Applies to / ADRs:** commonMain + androidMain/iosMain. ADR-005 (amend with the null-`monitor_url`
+  rule); ADR-006 for the per-visit ceiling; rule 8 covers the fallback surface.
 
 ### [S-03] Renew the session token without leaving the screen
 - **Problem:** tokens last two hours — **measured**, not assumed: a token answered `200` at 115 minutes
@@ -889,6 +932,217 @@ graph TD
 - **Applies to / ADRs:** commonMain. ADR-008; ADR-012 for the refusal shapes. No ADR is needed for the
   endpoint itself — `docs/api-contract.md` §2 already records it as measured.
 
+### [D-03] Open the lock from the device list — the edge nobody owned
+- **Problem:** the lock screen is **unreachable**. `App.kt` declares a `lock` destination, renders
+  `LockScreen` when it is non-null, and nothing ever sets it: `DeviceListScreen` is wired with
+  `onOpenLiveVideo` and has no lock equivalent. `LockAddress` is constructed **only in test fixtures** —
+  no production code has ever built one. So L-01a, L-01b, L-02 and L-03 are all implemented, tested and
+  invisible: RF05, RF06, RF07 and RF08 cannot be demonstrated. `App.kt`'s own KDoc says the edge
+  "belongs to the lock slice", but all four lock slices declared `App.kt` and the device list out of
+  scope, and the edge fell through the gap between tickets.
+- **Scope:** carrying the partner's `idProduto` from the list response into the domain `Device` (and
+  through the cache, with its migration); assembling a `LockAddress` for a tapped lock row; the
+  `OpenLock` one-shot event; wiring `App.kt` so the lock screen is reachable and `onBack` returns to
+  the list.
+- **Non-goals:** anything inside the lock screens (L-01a/L-01b/L-02/L-03 own every state, read and
+  write there); the camera edge, which already works; the device classifier (SPEC D5 — `DeviceKind.Lock`
+  already exists and is already correct); paging, filtering or the list's own states (D-01a/D-01b/D-02);
+  any new partner request — this slice adds **zero** calls and spends nothing from the ADR-006 budget.
+- **Expected behaviour:** tapping a lock row in the device list opens the lock screen for that lock,
+  with no intermediate screen, exactly as a camera row opens the video screen (SPEC U2's two taps).
+  Back returns to the list with its rows and chip intact. A lock whose hub is not among the rows the
+  app has loaded is shown but not tappable, and says why in one short sentence rather than opening a
+  screen that cannot address anything.
+- **Technical detail:** `LockAddress` needs four parts — the lock's id, the hub's id, the **hub's**
+  product id and the **lock's own** product id (`docs/api-contract.md` §5). The list response already
+  carries what is missing: `DeviceListItemDto` has `@SerialName("idProduto") val productId` and
+  `@SerialName("subdispositivo") val isSubDevice`, and `DeviceMapper` currently **drops** the product
+  id because the domain `Device` has nowhere to put it. So `Device` gains a `productId`, the mapper
+  fills it, and the lock's hub is found among the loaded rows by `Device.parent`.
+
+  **The hub may legitimately be absent.** The list is paged (D-02), so a lock can be on screen while
+  its hub is not. Assembling an address from a guess is not an option — a wrong `ns` addresses another
+  device. The rule is therefore: **the address is assembled only from rows the app has actually
+  loaded**; with no hub row, the lock row renders non-actionable with its reason. This costs no
+  request, which is the point — fetching more pages to find a hub would spend the budget ADR-006
+  protects.
+
+  **Cache migration ships in this ticket.** `cachedDevice` gains `productId TEXT NOT NULL DEFAULT ''`
+  as `2.sqm`, and `SchemaVersion.kt` is bumped so rows written by the previous schema are discarded by
+  the existing kill switch rather than resurfacing with a blank product id. A blank product id must
+  never reach `LockAddress`: it is the same class of bug as a wrong `ns`.
+
+  Never write a real `idProduto` or serial into a versioned file (CLAUDE.md) — fixtures use the
+  `<lock-ns>`-style placeholders the existing tests already use.
+- **Files:** `shared/domain/.../domain/device/Device.kt` (the `productId` field),
+  `shared/data/.../data/remote/DeviceMapper.kt` (fill it),
+  `shared/data/.../data/local/DeviceCache.kt` and
+  `shared/data/src/commonMain/sqldelight/.../db/Device.sq` + a new `2.sqm`,
+  `shared/data/.../data/local/SchemaVersion.kt` (bump),
+  `shared/app/.../app/devices/DeviceListViewModel.kt` (the `OpenLock` event and the address assembly),
+  `shared/app/.../app/devices/DeviceListScreen.kt` (`onOpenLock`, the row tap, the non-actionable row),
+  `shared/app/.../app/App.kt` (set the `lock` destination),
+  `shared/app/src/commonMain/composeResources/values/strings.xml` and `values-en/strings.xml`,
+  `shared/app/src/commonTest/.../app/devices/DeviceListViewModelTest.kt` (extend),
+  `shared/data/src/commonTest/.../data/device/ListDevicesTest.kt` (extend — this is where the
+  mapper is exercised; there is **no** `DeviceMapperTest.kt`),
+  `shared/data/src/androidHostTest/kotlin/io/github/npauloj/mibosmart/data/local/DeviceCacheTest.kt`
+  (**extend** — it already exists in that source set, in this exact package, and already holds
+  `roundTripsPage`, `readsNullBeforeAnythingIsWritten` and `schemaVersionMismatchDropsAndRefetches`
+  over an in-memory `JdbcSqliteDriver`. The migration test belongs **there and not in
+  `commonTest`**: `commonTest` has no SQLite driver at all, and `androidHostTest` is what
+  `:shared:data:testAndroidHostTest` runs. Creating a second `DeviceCacheTest` in `commonTest`
+  would redeclare the class.)
+- **Depends on:** L-03
+  _(**stacked edge, ADR-019**: logically this needs L-01a (for `LockAddress`) and D-01b (for the list),
+  both merged. It branches from `slice/l-03` because it edits `App.kt`, `strings.xml` and the device
+  list, and because L-03 is the current tip. Base branch: `slice/l-03`; say so in the PR body, and
+  that the CI green is against the stack.)_
+- **Issue:** #61
+- **Size (estimate, not a stop instruction — ADR-017):** ~3 points, calibrated as a **feature screen**: ≈220 executable production lines + ≈180 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
+- **Acceptance criteria (EARS):** SPEC **D6** and **U2**, and the reachability half of **L1**.
+  - WHEN the user taps a lock row whose hub is loaded, THE SYSTEM SHALL open the lock screen for that
+    lock with no intermediate screen
+    _(test: `DeviceListViewModelTest.lockTapEmitsOpenLock` — Turbine, on the one-shot event flow, which
+    is the one place CLAUDE.md allows it)_
+  - WHEN the lock screen is opened from a row, THE SYSTEM SHALL address it with the lock's id, its
+    hub's id and **both** product ids
+    _(test: `DeviceListViewModelTest.openLockCarriesTheCompositeAddress`)_
+  - IF the tapped lock's hub is not among the loaded rows, THE SYSTEM SHALL NOT emit the event and
+    SHALL render the row non-actionable with its reason
+    _(test: `DeviceListViewModelTest.aLockWithoutItsHubIsNotActionable`)_
+  - THE SYSTEM SHALL carry `idProduto` from the list response into the domain model
+    _(test: `ListDevicesTest.carriesTheProductId`)_
+  - THE SYSTEM SHALL round-trip the product id through the cache
+    _(test: `DeviceCacheTest.productIdSurvivesTheRoundTrip` — new, in the existing file)_
+  - WHEN the cache is read after the schema bump, THE SYSTEM SHALL discard rows written before the
+    `productId` column existed rather than serve a blank one
+    _(test: `DeviceCacheTest.rowsWrittenBeforeTheProductIdColumnAreDiscarded` — new; the existing
+    `schemaVersionMismatchDropsAndRefetches` covers the generic kill switch and must stay green)_
+  - IF a device's product id is blank, THE SYSTEM SHALL NOT assemble a `LockAddress`
+    _(test: `DeviceListViewModelTest.aLockWithABlankProductIdIsNotActionable` — the Technical
+    detail promises this guard, so it gets a test rather than a sentence)_
+  - THE SYSTEM SHALL spend no partner request opening a lock
+    _(test: `DeviceListViewModelTest.openingALockCallsThePartnerZeroTimes` — a fake repository that
+    fails the test if called)_
+  Preview: the device list gains `DeviceList_LockWithoutHub` with its dark variant, through the same
+  `uiMode`-parameterised function the other list previews use.
+- **Test scenarios:** a lock tap with its hub loaded; the composite address's four parts; a lock whose
+  hub is on another page; a lock whose product id is blank; the mapper carrying the product id; the
+  cache round-tripping it and discarding pre-migration rows;
+  zero requests on open; back returning to the list with the chip and rows intact.
+- **Rollout / kill switch:** n/a as a feature flag — this slice makes existing, already-tested screens
+  reachable and adds no call. Its risk is the address: a wrong `ns` would command **another device**,
+  which is why both product ids are asserted on the wire and why a missing hub refuses rather than
+  guesses. The lock-writes kill switch of L-01b still gates every write beyond this edge.
+- **Events / metrics:** none — the slice is navigation and mapping only, and the zero-request criterion
+  is asserted, not assumed.
+- **i18n / LGPD / factories:** the non-actionable row's sentence goes in Compose resources, pt-BR
+  default with en fallback (E6), naming the cause and offering no dead action (U6). No serial,
+  `idProduto` or host appears in any fixture.
+- **Applies to / ADRs:** commonMain. ADR-004 (the composite namespace stays a `:shared:data` encoding —
+  the domain keeps the four parts apart), ADR-006 (no request added), ADR-003. A schema change with its
+  migration in the same ticket is the `ticket-contract` rule, not an exception to it.
+
+### [D-04] Address a lock from its own row, and delete the hub lookup
+- **Problem:** D-03 addresses a lock by finding its hub among the loaded rows and reading the hub's
+  `idProduto` off it. That rule exists because **this ticket's author assumed** the hub's product id
+  was only available on the hub's row. It is not: `docs/api-contract.md` §5 records, from the
+  2026-09-21 probe, that a sub-device's own row carries `dispositivoPai` **and**
+  `idProdutoDispositivoPai`. `DeviceDto` already declares the first and silently drops the second — the
+  field arrives on the wire and nothing reads it. The consequence is a working lock rendered
+  **non-tappable** whenever its hub is not on the loaded page, for no reason the API imposes. It does
+  not bite the test account today (17 devices on one page of 20, hub included), which is exactly what
+  makes it worth fixing now rather than discovering on a bigger account.
+- **Scope:** reading `idProdutoDispositivoPai` into the DTO and the domain `Device`; assembling
+  `LockAddress` from the lock's own row alone; deleting the hub lookup and the `HubNotLoaded` outcome
+  it existed to express, with its string and preview.
+- **Non-goals:** the blank-product-id guard, which stays exactly as it is (a blank part must still
+  refuse an address); anything inside the lock screens; the list's paging, filtering or states; any new
+  partner request — this slice adds **zero** calls; the cache schema, which D-03 already migrated and
+  which this slice does not touch again.
+- **Expected behaviour:** tapping a lock row opens the lock screen whether or not its hub is on screen,
+  because everything needed to address it is on its own row. A lock whose own row is missing either
+  product id is still non-actionable and still says why. The `HubNotLoaded` sentence disappears from the
+  UI, because the state it named can no longer happen.
+- **Technical detail:** the four parts of `LockAddress` map to the lock row's own fields
+  (`docs/api-contract.md` §5, measured):
+
+  ```
+  lock          <- ns
+  hub           <- dispositivoPai
+  lockProductId <- idProduto
+  hubProductId  <- idProdutoDispositivoPai      (declared by no DTO today: this is the fix)
+  ```
+
+  `idProdutoDispositivoPai` and `dispositivoPai` appear **only on sub-devices**, so both are nullable in
+  the DTO and absent for a hub or a camera. A lock missing either one is a lock the app cannot address,
+  and it takes the same non-actionable path the blank-product-id guard already defines — one refusal
+  reason, not two.
+
+  **This is a net deletion.** `LockAddressing.HubNotLoaded`, the `List<Device>.addressing` receiver that
+  only existed to search for the hub, its Compose string in both `values/` and `values-en/`, and the
+  `DeviceListScreen_LockWithoutHub` preview all go. The rule becomes a function of one `Device`. Delete
+  them rather than leaving them unreachable — unlike `StreamState.Expired`, nothing in the SPEC names
+  this state, so there is no SPEC divergence to respect: it was invented by D-03's ticket and is
+  retracted by this one.
+
+  Never write a real `idProduto` or serial into a versioned file (CLAUDE.md); fixtures keep the
+  placeholder values D-03's tests already use.
+- **Files:** `shared/data/.../data/remote/Dtos.kt` (`@SerialName("idProdutoDispositivoPai")`, nullable),
+  `shared/data/.../data/remote/DeviceMapper.kt` (carry it),
+  `shared/domain/.../domain/device/Device.kt` (the field),
+  `shared/data/.../data/local/DeviceCache.kt` and
+  `shared/data/src/commonMain/sqldelight/.../db/Device.sq` + a new `3.sqm`,
+  `shared/data/.../data/local/SchemaVersion.kt` (bump),
+  `shared/app/.../app/devices/LockAddressing.kt` (rewrite: one `Device`, no receiver, no `HubNotLoaded`),
+  `shared/app/.../app/devices/DeviceListViewModel.kt`, `.../devices/DeviceUiMapper.kt`,
+  `.../devices/DeviceListScreen.kt`, `.../devices/DeviceListScreenPreviews.kt`,
+  `.../devices/PreviewFixtures.kt`,
+  `shared/app/src/commonMain/composeResources/values/strings.xml` and `values-en/strings.xml`,
+  `shared/app/src/commonTest/.../app/devices/DeviceListViewModelTest.kt`,
+  `shared/app/src/commonTest/.../app/devices/DeviceUiMapperTest.kt`,
+  `shared/app/src/commonTest/.../app/devices/DeviceSamples.kt`,
+  `shared/data/src/commonTest/kotlin/io/github/npauloj/mibosmart/data/device/ListDevicesTest.kt`
+  (the **data-module** one, which drives `MockEngine` — there is a second, unrelated
+  `ListDevicesTest.kt` under `shared/app/.../app/devices/` that this slice does not touch),
+  `shared/data/src/androidHostTest/kotlin/.../data/local/DeviceCacheTest.kt` (extend — this file is in
+  `androidHostTest`, **not** `commonTest`, because only that source set has a SQLite driver).
+- **Depends on:** D-03
+  _(**stacked edge, ADR-019**: it rewrites files D-03 just created. Base branch: `slice/d-03`; say so in
+  the PR body, and that the CI green is against the stack.)_
+- **Issue:** #63
+- **Size (estimate, not a stop instruction — ADR-017):** ~1 point, calibrated as a **narrow slice that deletes more than it adds**: ≈60 executable production lines changed + ≈90 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
+- **Acceptance criteria (EARS):** SPEC **D6** and the addressing half of **L1**.
+  - WHEN a lock row carries both product ids, THE SYSTEM SHALL address it without its hub being loaded
+    _(test: `DeviceListViewModelTest.aLockIsAddressableWithoutItsHubOnScreen` — the rows contain the
+    lock and no hub at all; this test fails on D-03's implementation, which is the point)_
+  - THE SYSTEM SHALL take the hub's product id from the lock's own `idProdutoDispositivoPai`
+    _(test: `data.device.ListDevicesTest.carriesTheParentProductId` — the data-module class)_
+  - IF a lock row is missing either product id, THE SYSTEM SHALL NOT assemble a `LockAddress` and SHALL
+    render the row non-actionable with its reason
+    _(test: `DeviceListViewModelTest.aLockWithABlankProductIdIsNotActionable` — pre-existing, must stay
+    green, and `.aLockWithoutAParentProductIdIsNotActionable` — new)_
+  - THE SYSTEM SHALL round-trip the parent product id through the cache
+    _(test: `DeviceCacheTest.parentProductIdSurvivesTheRoundTrip`)_
+  - THE SYSTEM SHALL spend no partner request opening a lock
+    _(test: `DeviceListViewModelTest.openingALockCallsThePartnerZeroTimes` — pre-existing, must stay green)_
+  The `DeviceListScreen_LockWithoutHub` preview is **removed** along with the state it showed; no
+  preview replaces it, because the non-actionable row already has one through the blank-id case.
+- **Test scenarios:** a lock addressed with no hub row present; the parent product id crossing DTO →
+  domain → cache; a lock row missing `idProdutoDispositivoPai`; a lock row with a blank `idProduto`;
+  zero requests on open; the deleted string appearing in no source file.
+- **Rollout / kill switch:** n/a — this removes a refusal the API never required and adds no call. Its
+  risk is the address itself, which is why every part is asserted from the measured contract and why a
+  missing part still refuses rather than guesses. L-01b's lock-writes kill switch still gates every
+  write beyond this edge.
+- **Events / metrics:** none — mapping and navigation only, with the zero-request criterion asserted.
+- **i18n / LGPD / factories:** one string is **deleted** from `values/` and `values-en/`; no string is
+  added. No serial, `idProduto` or host in any fixture.
+- **Applies to / ADRs:** commonMain. ADR-004 (the composite `ns` stays a `:shared:data` encoding; the
+  domain keeps the four parts apart), ADR-006 (no request added). The schema change ships with its
+  `3.sqm` migration in this same ticket, per the `ticket-contract` rule.
+
 ### [P-01] Consume a legacy Java partner catalogue from Kotlin on the history screen
 - **Problem:** the brief names Java twice — as a ★ deliverable and inside the interoperability
   criterion — while the stack is otherwise entirely Kotlin. This answers it honestly with real
@@ -910,11 +1164,15 @@ graph TD
   `legacy-catalog/src/test/java/...` (the Java-side test), `settings.gradle.kts`,
   `shared/domain/.../domain/device/ModelCatalog.kt` (the contract),
   `shared/data/src/androidMain/kotlin/.../data/catalog/` (the adapter),
-  `shared/data/build.gradle.kts`, `shared/app/.../app/lock/OpeningHistoryContent.kt` (labels).
+  `shared/data/build.gradle.kts`, `shared/app/.../app/lock/OpeningHistoryScreen.kt` (labels).
 - **Depends on:** L-03
-  _(logical dependency (the Java catalogue labels the history rows) **and** the stack position: it is the last slice. Base branch: `slice/l-03`; say so in the PR body, and that the CI green is against the stack.)_
+  _(the logical dependency: the Java catalogue labels the history rows L-03 created, and L-03 is
+  **merged into `main`**. The stacked edge on D-04 is retracted — the stack was collapsed into
+  `main` by PR #64 after merging it bottom-up put four slices into a side branch instead of
+  `main`. Base branch: **`main`**; one PR at a time against `main`, which is what the amended
+  ADR-019 will prescribe.)_
 - **Issue:** #24
-- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice**: ≈120 executable production lines + ≈100 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
+- **Size (estimate, not a stop instruction — ADR-017):** ~2 points, calibrated as a **narrow slice with a new Gradle module**: ≈150 executable production lines + ≈120 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code. _(recalibrated 2026-09-21: the Kotlin side is genuinely small, but the slice also stands up `:legacy-catalog` — its build file, 2–3 Java classes and a Java-side test — and wires it into `settings.gradle.kts` and `:shared:data`.)_
 - **Acceptance criteria (EARS):**
   - WHEN a history row carries a known event type on Android, THE SYSTEM SHALL render the friendly
     label supplied by the Java catalogue _(test: `ModelCatalogAdapterTest.mapsKnownEventLabels`)_
@@ -924,7 +1182,11 @@ graph TD
     `@JvmStatic`/`@JvmOverloads` without a Kotlin-only signature
     _(test: `LegacyCatalogInteropTest` — **written in Java** under `legacy-catalog/src/test/java`)_
   - WHILE running on iOS, THE SYSTEM SHALL render the raw values with no missing-symbol failure
-    _(test: existing `OpeningHistoryTest.unknownTypeShownRaw` still passes on the iOS simulator target)_
+    _(evidence, and deliberately **not** an iOS test run: the iOS CI job runs only on pushes to `main`
+    or by hand, so no simulator test executes on this PR. What is verified here is
+    `:shared:app:compileKotlinIosSimulatorArm64` green — the cross-compile of ADR-013, which is what
+    proves no missing symbol — plus `OpeningHistoryTest.unknownTypeShownRaw` passing on the Android
+    host, since it lives in `commonTest` and the iOS path runs the same code)_
 - **Test scenarios:** known label mapped; checked exception falling back; the Java-side test calling
   Kotlin; the iOS path unchanged.
 - **Rollout / kill switch:** the adapter is a decorator — removing the module restores raw labels.
@@ -933,24 +1195,181 @@ graph TD
 - **i18n / LGPD / factories:** the catalogue's labels are Portuguese constants inside the Java module;
   user-facing wrappers stay in Compose resources.
 - **Applies to / ADRs:** androidMain / JVM only. Implements ADR-007; rule 2 (inward dependencies) and
-  rule 4 (`commonMain` portability) must stay green — `:konture-test` is the proof.
+  rule 4 (`commonMain` portability) must stay green — `:konture-test` is the proof. ADR-007 also
+  specifies a **module guardrail** for this slice to add there: no module other than `:androidApp`
+  (through `:shared:data`) may consume `:legacy-catalog`. Adding it is part of this ticket.
 
 ---
+
+### [D-05] Name the device models the Java catalogue already knows
+- **Problem:** the device list renders the partner's raw model code — `DeviceListScreen` line reads
+  `"${kind.label} · ${row.model}"`, so every row shows something like `IOT-MFR1001-IB` next to
+  "Fechadura". P-01 built the Java catalogue that turns those codes into names, proved it with
+  `ModelCatalogAdapterTest.namesModelCodesFromTheSameTable`, and wired it **only** to the lock history
+  labels. So the ★ Java deliverable works, is tested, and is invisible on the first screen after login.
+  P-01's ticket did promise "device model codes render friendly names" in its expected behaviour, but
+  no acceptance criterion covered it and no `devices` file was in its Files list — the worker was right
+  not to reach outside its ticket, and this slice is that criterion, written properly.
+- **Scope:** resolving a device's model code through `ModelCatalog` when the row is built; the raw code
+  as the fallback; nothing else about the row.
+- **Non-goals:** the catalogue itself, the Java module and the bridge (P-01 and ADR-007/ADR-023 own
+  them); the lock history labels, already done; the row's kind, status, ordering, paging or filtering
+  (D-01a/D-01b/D-02 own those); the lock addressing (D-03/D-04); any new partner request — this slice
+  adds **zero** calls.
+- **Expected behaviour:** a device whose model code the catalogue knows shows the friendly name in the
+  list; one it does not know shows the raw code exactly as today. On iOS, where the JVM module does not
+  exist, every row shows the raw code and nothing fails — the same degradation P-01 already defines.
+- **Technical detail:** `ModelCatalog` is the domain contract P-01 added
+  (`shared/domain/.../domain/device/ModelCatalog.kt`), bound through
+  `PlatformModelCatalog` (`expect`/`actual` in `data.platform.catalog`, rule 8) with the Java-backed
+  implementation on Android and a pass-through on iOS. `LockAppModule` already fetches the binding by
+  hand; the devices feature needs its own injection point.
+
+  **Resolve at mapping time, not in the composable.** The row is built in `DeviceUiMapper`, which is
+  where `model` is read today; the lookup belongs there so the composable stays free of logic and the
+  behaviour is testable without Compose. The catalogue's checked exception must not escape — P-01's
+  `checkedExceptionFallsBackToRawValue` establishes the rule and this slice follows it: a lookup that
+  raises falls back to the raw code and never fails the row.
+
+  Whatever injects the catalogue must not make `DeviceUiMapper` a Koin singleton if it is a pure
+  function today — pass the resolved name in, or take the catalogue as a parameter. Keep it a
+  function of its inputs.
+- **Files:** `shared/app/.../app/devices/DeviceUiMapper.kt` (resolve the name),
+  `shared/app/.../app/devices/DeviceListViewModel.kt` (supply the catalogue),
+  `shared/app/.../app/devices/DeviceAppModule.kt` (the feature's Koin module — singular `Device`, per ADR-014),
+  `shared/app/src/commonTest/.../app/devices/DeviceUiMapperTest.kt` (extend),
+  `shared/app/src/commonTest/.../app/devices/DeviceListViewModelTest.kt` (extend),
+  `shared/app/src/commonTest/.../app/di/AppModulesTest.kt` (extend — P-01 added a case there proving
+  `ModelCatalog` resolves from the real graph; the devices side needs the same).
+- **Depends on:** P-01
+  _(it uses the `ModelCatalog` contract and the binding P-01 created. Base branch: **`main`**, cut
+  after P-01 merges — one PR at a time against `main`.)_
+- **Issue:** #69
+- **Size (estimate, not a stop instruction — ADR-017):** ~1 point, calibrated as a **wiring slice**: ≈30 executable production lines + ≈60 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
+- **Acceptance criteria (EARS):** SPEC **D5** and the ★ Java interoperability criterion.
+  - WHEN a device's model code is known to the catalogue, THE SYSTEM SHALL render the friendly name in
+    the list row _(test: `DeviceUiMapperTest.namesAKnownModelCode`)_
+  - IF the model code is unknown, THE SYSTEM SHALL render the raw code
+    _(test: `DeviceUiMapperTest.anUnknownModelCodeIsShownRaw`)_
+  - IF the catalogue raises its checked exception, THE SYSTEM SHALL render the raw code and SHALL NOT
+    fail the row _(test: `DeviceUiMapperTest.aRaisingCatalogueFallsBackToTheRawCode`)_
+  - THE SYSTEM SHALL resolve `ModelCatalog` from the real Koin graph for the devices feature
+    _(test: `AppModulesTest.deviceListResolvesTheModelCatalog`)_
+  - THE SYSTEM SHALL spend no partner request naming a model
+    _(test: `DeviceListViewModelTest.namingModelsCallsThePartnerZeroTimes`)_
+  Previews: the existing device-list previews gain a fixture whose model code the fake catalogue knows,
+  so the friendly name is visible in the preview; no new preview function is added.
+- **Test scenarios:** a known code; an unknown code; a catalogue that raises; the Koin binding
+  resolving; zero requests.
+- **Rollout / kill switch:** n/a — the raw code is the fallback, so the worst case is exactly today's
+  behaviour. Removing the `:legacy-catalog` module restores raw labels everywhere, which is the kill
+  switch ADR-007 already describes.
+- **Events / metrics:** none — pure mapping, and the zero-request criterion is asserted.
+- **i18n / LGPD / factories:** the catalogue's names are Portuguese constants inside the Java module
+  (P-01's decision); no new Compose string. No serial, `idProduto` or host in any fixture.
+- **Applies to / ADRs:** commonMain, with the Android/iOS split already provided by P-01. ADR-007 and
+  ADR-023 (the Java module and its bridge), ADR-014 (one Koin module per feature), ADR-006 (no request
+  added). Rule 3 holds: the devices package does not import the lock package — both reach the
+  catalogue through the domain contract.
+
+### [S-04] Keep the expiry banner honest after a renewal
+- **Problem:** S-03 made renewal possible and, by doing so, made a lie reachable. `AppUiState.expiringSoon`
+  is computed once inside `AppViewModel.onStart()` and then only ever set to `true` by a scheduled
+  one-shot `delay`; nothing ever clears it. So the evaluator renews a token, gets a fresh two-hour
+  session, returns to the device list — and the banner still reads "Token expira em breve". The one
+  action the app offers to fix expiry appears not to work, in front of the people grading it. The S-03
+  worker found this, reported it honestly and correctly refused to fix it: the files are outside its
+  ticket and the session-routing surface belongs to S-02b.
+- **Scope:** recomputing the expiry warning when a renewal succeeds, and rescheduling the one-shot
+  warning against the new deadline; the one-shot event that carries "renewed" from `AccountViewModel`
+  to `AppViewModel`.
+- **Non-goals:** changing how expiry is detected or what the banner says (S-02a/S-02b own both);
+  changing the renewal call, its DTO or the vault encoding (S-03 and ADR-020 own those); automatic or
+  background renewal; any new partner request — this slice makes **zero** API calls.
+- **Expected behaviour:** after a successful renewal the banner disappears, the user stays exactly
+  where they are, and the warning fires again only when the *new* session nears its end. A renewal
+  that fails changes nothing. Nothing about routing changes: the user is not sent to the token screen,
+  the account screen or anywhere else.
+- **Technical detail:** the fix is deliberately **not** "call `onStart()` again". `onStart()` rebuilds
+  `AppUiState` wholesale and resets `destination`, so reusing it would yank the user off the account
+  screen the moment they renewed — the exact opposite of S-03's "stays exactly where they were".
+
+  What is needed instead is a `refreshExpiry()` on `AppViewModel` that recomputes the warning from the
+  stored session and reschedules the pending one-shot `delay`, touching **no other field** of
+  `AppUiState`; plus a one-shot `renewed` event emitted by `AccountViewModel` and collected in
+  `App.kt`. The event flow is a `SharedFlow`, so **Turbine is the right tool for it** — and it is the
+  only thing here Turbine may touch: the `AppUiState` assertions read `state.value` after
+  `advanceUntilIdle()` on a `StandardTestDispatcher`, per CLAUDE.md.
+
+  The previous warning job must be cancelled before a new one is scheduled, or two renewals leave two
+  timers racing to set `expiringSoon`.
+- **Files:** `shared/app/.../app/AppViewModel.kt` (the `refreshExpiry()` intent and the reschedule),
+  `shared/app/.../app/App.kt` (collect the one-shot event),
+  `shared/app/.../app/session/AccountViewModel.kt` (emit `renewed` on success),
+  `shared/app/src/commonTest/kotlin/.../app/AppViewModelTest.kt` (extend),
+  `shared/app/src/commonTest/kotlin/.../app/session/AccountViewModelTest.kt` (extend).
+- **Depends on:** S-03
+  _(its real dependency, and it is in `main`. The positional edge on P-01 is retracted: P-01
+  turned out not to touch `App.kt`, `AppViewModel` or `AccountViewModel` at all, so there is
+  nothing to serialise against. Base branch: **`main`**.)_
+- **Issue:** #57
+- **Size (estimate, not a stop instruction — ADR-017):** ~1 point, calibrated as a **narrow slice**: ≈50 executable production lines + ≈80 test. Measure with `python tools/executable-lines.py <base>..<head>` and put both numbers in the PR body. Return `blocked` only if the extra work comes from **scope this ticket does not name** — an overrun inside the named scope is an estimation defect, not a reason to discard working code.
+- **Acceptance criteria (EARS):** SPEC **S7** and **S10**, the half S-03 could not reach.
+  - WHEN a renewal succeeds, THE SYSTEM SHALL clear the expiry banner
+    _(test: `AppViewModelTest.renewalClearsExpiringSoon`)_
+  - WHEN a renewal succeeds, THE SYSTEM SHALL leave `destination` untouched
+    _(test: `AppViewModelTest.renewalDoesNotChangeDestination` — the guard against the `onStart()`
+    shortcut; it fails if anyone implements the fix by re-running startup)_
+  - WHEN a renewal succeeds, THE SYSTEM SHALL schedule the next warning against the new deadline and
+    cancel the previous one _(test: `AppViewModelTest.renewalReschedulesTheSingleWarning` — virtual
+    clock; asserts the old timer does not fire and that exactly one warning arrives)_
+  - IF a renewal fails, THE SYSTEM SHALL leave the banner and the schedule as they were
+    _(test: `AppViewModelTest.failedRenewalChangesNothing`)_
+  - WHEN renewal succeeds, `AccountViewModel` SHALL emit exactly one `renewed` event
+    _(test: `AccountViewModelTest.emitsRenewedOnce` — Turbine, on the one-shot `SharedFlow`)_
+- **Test scenarios:** renewal clearing the banner; the destination surviving it; the old timer being
+  cancelled and the new one firing at the new deadline; a failed renewal as a no-op; the event emitted
+  once and not replayed to a new collector.
+- **Rollout / kill switch:** n/a — this removes a false statement from the UI and adds no call, no
+  dependency and no new screen. Its own failure mode is the behaviour that exists today. It is **not**
+  in the cut list: cutting it restores a bug that is visible during the demo.
+- **Events / metrics:** none — the slice spends zero partner requests, which the tests assert by
+  driving a fake repository that fails the test if called.
+- **i18n / LGPD / factories:** no new strings; the banner's existing Compose resources are reused.
+- **Applies to / ADRs:** commonMain. ADR-003 (intents on the ViewModel), ADR-020 (the session carries
+  its own lifetime — this is what makes the new deadline readable without a partner call). Found by
+  the S-03 worker and recorded in `AI-LOG.md`; this ticket is the follow-up it recommended.
 
 ## Summary
 
 | Graph depth | Slices | Requirements | Milestone (calendar) |
 |---|---|---|---|
 | 1 | S-01a ✅ | RF01, RF04, security | Wave 1 |
-| 2 | S-01b `[P]` · S-01c ✅ · S-02a `[P]` · D-01a `[P]` · V-01a `[P]` · L-01a `[P]` | RF01, RF02, RF03, RF04, RF05, RF06 | Wave 2 |
-| 3 | S-02b · D-01b · V-01b · L-01b · L-02 · L-03 · V-02 | RF01, RF02, RF03, RF04, RF05, RF06, RF09 | Wave 2/3 |
-| 4 | D-02 · S-03 | RF02, RF07, RF08, RF01 | Wave 3 |
-| 5 | P-01 | ★ Java | Wave 3 |
+| 2 | S-01b ✅ `[P]` · S-01c ✅ · D-01a ✅ `[P]` · V-01a ✅ `[P]` · L-01a ✅ `[P]` | RF01, RF02, RF03, RF04, RF05, RF06 | Wave 2 |
+| 3 | S-02a ✅ · D-01b ✅ · V-01b ✅ · L-01b ✅ | RF01, RF02, RF03, RF04, RF05, RF06 | Wave 2 |
+| 4 | S-02b ✅ · D-02 ✅ | RF01, RF02 | Wave 2/3 |
+| 5 | S-03 (PR #56) | RF01, RF04 | Wave 3 |
+| 6 | V-02 | RF03, RF09 | Wave 3 |
+| 7 | L-02 | RF05, RF06 | Wave 3 |
+| 8 | L-03 | RF07, RF08 | Wave 3 |
+| 9 | D-03 (PR #62) | RF02, RF05–RF08 (reachability) | Wave 3 |
+| 10 | D-04 ✅ | RF02, RF05 (addressing) | Wave 3 |
+| 11 | P-01 (PR #68) | ★ Java | Wave 3 |
+| 12 | D-05 | ★ Java, RF02 | Wave 3 |
+| 12 | S-04 | RF01 | Wave 3 |
 
 **Graph depth is not the calendar.** The orchestrator derives depth from `Depends on:` and dispatches
 one depth per invocation; the `Wave N` milestone is the day in `docs/PROCESS.md` §2 that the work is
-planned for. P-01 sits at depth 4 because it follows L-03, but it is still Wednesday's work — and the
-first item in the circuit-breaker cut list.
+planned for. P-01 sits at depth 11 because it follows the whole stack, but it is still Wednesday's work
+— and the first item in the circuit-breaker cut list.
+
+**Depths 5–12 are a single file, one slice at a time — that is ADR-019, not the dependency graph.**
+Logically V-02 needs only V-01b, L-02 only L-01b, and S-04 only S-03; none of them needs the slice it
+now follows. They were serialised because every one of them edits `App.kt`, `strings.xml` and
+`AI-LOG.md`, and ten merges of `main` into slice branches in one day proved that parallel branches off
+`main` spend more time in conflict resolution than the parallelism saves. Each slice branches from the
+previous slice's branch, and the stack is merged bottom-up. The cost is honest and stated here: the
+tail of this project is sequential by choice.
 
 Depth 1 holds a single slice on purpose: `docs/PROCESS.md` §2 states that the HTTP client, the
 envelope reader and the typed errors are built by the first functional slice that needs them, so
@@ -977,4 +1396,28 @@ Keystore/Keychain implementation behind the same interface. See `AI-LOG.md`.
 
 Not slices — tracked as chores: #6 docs, #7 KMP skeleton + CI, #8 `:konture-test` (wave 0, merged);
 #9 ADR-005 player checkpoint (filled by V-01); R8 on release, `docs/PRODUCT.md` → PDF, the final
-`AI-LOG.md` and the RF → PR table in the README (delivery, wave 3).
+`AI-LOG.md` and the RF → PR table in the README (delivery, wave 3)
+
+Also in that delivery branch, a **defect observed on a real device** (Galaxy A53, Android 16) and
+not yet owned by any slice: `MainActivity` calls `enableEdgeToEdge()` and **no screen handles window
+insets** — `safeDrawingPadding`, `systemBarsPadding` and `WindowInsets` appear nowhere in
+`shared/app` or `androidApp`. In landscape the controls sit under the navigation bar, on every
+screen. It is not a slice because it is one cross-cutting fix at the Compose root that would
+collide with every screen the stack is still rewriting; it lands once, after the chain, when the
+screens are final.
+
+In the same branch, and in the **same commit as its SPEC amendment**: `StreamState.Expired` became
+unreachable when V-02's retry ladder took over every player failure. SPEC §3 still lists "expired"
+among the screen's states, so the state, its string and its preview stay until the SPEC drops it —
+CLAUDE.md forbids fixing a SPEC divergence in code. The V-02 worker left a KDoc on the state saying
+it is orphaned and why, which is the honest interim.
+
+And two stale documents the L-02 worker found and correctly left alone, both of which now describe code that no longer exists:
+
+- `shared/CLAUDE.md` still lists `LockUiState.Offline` and `LockUiState.RemoteOpenDisabled` among the
+  screen's sealed types. L-01a made both readings of `Ready` instead, and the code now says
+  `LockUiState.Failed(name, LockError.Offline, …)`. This one is an **instruction file every worker
+  reads**, so it is the more expensive of the two — it is on the delivery list rather than fixed
+  mid-chain only because no remaining slice writes `LockUiState` variants.
+- `SmartHomeLockRepository`'s class KDoc still calls itself "the three lock reads against the partner
+  API (SPEC L1)"; it has held writes since L-01b and commands since L-02.

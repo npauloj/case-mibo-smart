@@ -31,7 +31,10 @@ Three Gradle modules; dependencies only point inward:
   `XScreenPreviews.kt` with a `PreviewParameterProvider` covering every state, `@PreviewLightDark`, names as
   metadata (`LockScreen_Locked`, `LockScreen_Locked_Dark`). Use `androidx.compose.ui.tooling.preview.Preview`.
 - One `StateFlow<State>` per screen; user intents are `suspend fun` on the ViewModel; hardware states are
-  sealed types (`LockUiState.CommandSent / Confirmed / CommandExpired / Offline / RemoteOpenDisabled`).
+  sealed types. `LockUiState` is `Loading`, `Ready`, `Commanding` (itself sealed: `CommandSent`,
+  `CommandExpired`, `CommandFailed`) and `Failed`. **Offline and remote-open-disabled are NOT states** —
+  offline is `Failed(name, LockError.Offline, …)` and remote-open is a flag on `Ready`, because both are
+  readings *about* a lock rather than modes the screen is in (L-01a).
 - Errors are values: `data` throws typed `SmartHomeApiException`s; each use case returns its own sealed result.
   Every `catch (Throwable)` rethrows `CancellationException`.
 - Request budget: the test account has ~300 requests. Cache the device list, classify devices by `modelo`

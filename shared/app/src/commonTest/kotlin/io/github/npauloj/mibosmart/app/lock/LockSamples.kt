@@ -117,17 +117,3 @@ internal fun openingHistoryViewModel(
         catalog = catalog,
         timeZone = LockSamples.Zone,
     )
-
-/**
- * A catalogue with exactly the entries a test names (ADR-007).
- *
- * The real one is the partner's Java library and exists on Android only; what the tab has to get
- * right is the same either way — the catalogue's words when there are any, the partner's raw `tipo`
- * when there are not.
- */
-internal class FakeModelCatalog(vararg entries: Pair<String, String>) : ModelCatalog {
-
-    private val labels = entries.toMap()
-
-    override fun label(code: String): String = labels[code] ?: code
-}

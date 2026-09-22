@@ -24,7 +24,7 @@ recomposition or on a timer.
 
 Screen state naming used below (ADR-003): `SessionState = NoToken | Valid(expiresAt) | Expired`;
 `LockState = Locked | Unlocked | CommandSent | Confirmed | CommandFailed | CommandExpired | RemoteOpenDisabled | Offline`;
-`StreamState = Creating | Live | Reconnecting(n) | Expired | QuotaExceeded | Offline | Failed`.
+`StreamState = Creating | Live | Reconnecting(n) | QuotaExceeded | Offline | Failed`.
 
 **Where each criterion is verified.** Locally on the JVM, in seconds: unit tests, Ktor `MockEngine`
 contract tests and architecture tests (`:konture-test`); screens are proven by their previews
@@ -269,13 +269,20 @@ plays, reconnects or fails; leave without leaking streaming quota.
 
 ### Screen states
 - creating · live (video + camera name + "ao vivo" badge + session consumption if available) ·
-  reconnecting(n) · expired · quota-exceeded · offline · failed (retry + web fallback) · web-fallback.
+  reconnecting(n) · quota-exceeded · offline · failed (retry + web fallback) · web-fallback.
+
+  **"expired" was removed on 2026-09-22.** V-02 gave every player failure a retry ladder that ends on
+  `failed` — with a named cause and the web player — so no path could reach a bare "the stream has
+  ended" any more. It survived as an unreachable state, a string in two languages and a preview, none
+  of which any test exercised. It is struck here and in the code in the same commit, because a SPEC
+  and a codebase that disagree are worse than either being wrong alone.
 
 ### Visual acceptance (previews)
 `LiveVideoScreenContent` with a `PreviewParameterProvider`; the player surface renders a placeholder under `LocalInspectionMode` (no Media3/VLCKit in previews); rule 11 guarantees the preview exists.
 - `LiveVideoScreen_Creating`, `LiveVideoScreen_Live`, `LiveVideoScreen_Reconnecting` (V3),
-  `LiveVideoScreen_Expired`, `LiveVideoScreen_QuotaExceeded` (V6), `LiveVideoScreen_Offline` (V7),
-  `LiveVideoScreen_Failed` (V4), `LiveVideoScreen_NoLiveCapability` (V1) — plus `_Dark` variants.
+  `LiveVideoScreen_QuotaExceeded` (V6), `LiveVideoScreen_Offline` (V7), `LiveVideoScreen_Failed` (V4),
+  `LiveVideoScreen_NoLiveCapability` (V1) — plus `_Dark` variants. `LiveVideoScreen_Expired` went with
+  the state it showed.
 
 ---
 

@@ -36,7 +36,6 @@ import io.github.npauloj.mibosmart.app.resources.live_error_offline
 import io.github.npauloj.mibosmart.app.resources.live_error_playback
 import io.github.npauloj.mibosmart.app.resources.live_error_rejected
 import io.github.npauloj.mibosmart.app.resources.live_error_unexpected
-import io.github.npauloj.mibosmart.app.resources.live_expired
 import io.github.npauloj.mibosmart.app.resources.live_no_capability
 import io.github.npauloj.mibosmart.app.resources.live_open_web_player
 import io.github.npauloj.mibosmart.app.resources.live_quota
@@ -140,7 +139,6 @@ fun LiveVideoScreenContent(
             StreamState.NoLiveCapability -> Explanation(Res.string.live_no_capability)
             StreamState.QuotaExceeded -> Explanation(Res.string.live_quota_exceeded)
             StreamState.CameraOffline -> Explanation(Res.string.live_camera_offline)
-            StreamState.Expired -> Explanation(Res.string.live_expired, onRetry)
             // The web player is offered only when the session carried a `monitor_url`: with none
             // there is nothing to open, and a dead button is worse than no button (SPEC V9, ADR-005).
             is StreamState.Failed ->

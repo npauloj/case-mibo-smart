@@ -46,16 +46,6 @@ sealed interface StreamState {
     data object CameraOffline : StreamState
 
     /**
-     * The stream stopped playing and the app is not trying again.
-     *
-     * Since V-02 every player failure goes through [PlaybackRetryPolicy] and ends on [Failed], which
-     * is the state SPEC V4 and U1 describe — with a named cause and the web player. This one stays
-     * because SPEC §3 still lists "expired" among the screen's states and the screen still renders
-     * it; retiring it is a SPEC change, not a code change (`CLAUDE.md`).
-     */
-    data object Expired : StreamState
-
-    /**
      * Nothing can be played, with a cause the user can read (SPEC U6): the session could not be
      * created, the retry ladder ran out (V4), the bytes could not be decoded (V5), or no first frame
      * arrived inside U1's budget.

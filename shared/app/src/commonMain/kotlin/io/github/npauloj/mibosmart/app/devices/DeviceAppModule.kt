@@ -12,7 +12,8 @@ import org.koin.dsl.module
  */
 internal val deviceAppModule: Module = module {
     factoryOf(::ListDevices)
-    // Not `viewModelOf`: the constructor's second parameter is the clock default, which Koin would
-    // try to resolve as a binding of its own.
-    viewModel { DeviceListViewModel(listDevices = get()) }
+    // Not `viewModelOf`: the constructor's last parameter is the clock default, which Koin would try
+    // to resolve as a binding of its own. The catalogue *is* a binding — the platform decides which
+    // one (ADR-007) — so it is asked for by hand, exactly as the lock feature does.
+    viewModel { DeviceListViewModel(listDevices = get(), catalog = get()) }
 }

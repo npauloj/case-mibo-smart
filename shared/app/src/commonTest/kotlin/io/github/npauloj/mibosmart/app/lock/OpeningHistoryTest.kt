@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.lock
 
+import io.github.npauloj.mibosmart.app.FakeModelCatalog
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.lock.OpeningKind
 import kotlin.test.Test

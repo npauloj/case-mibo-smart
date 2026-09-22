@@ -3,6 +3,9 @@ package io.github.npauloj.mibosmart.app.devices
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
+import io.github.npauloj.mibosmart.domain.device.ModelCatalog
+import io.github.npauloj.mibosmart.domain.device.RawCodes
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -12,6 +15,14 @@ import kotlin.time.Instant
 data class DeviceRow(
     val id: String,
     val name: String,
+    /**
+     * What the row prints for the model (SPEC D5, ADR-007).
+     *
+     * The partner's catalogue names the code when it has an entry — "IOT-ZG2-IB" reads "Central
+     * Zigbee" — and otherwise this is the code exactly as the partner sent it, which is also what
+     * every row shows on iOS, where the catalogue's Java library does not exist. The raw code is
+     * never lost to the app: `Device.model` still carries it, and the classifier still reads it.
+     */
     val model: String,
     val kind: DeviceKind,
     val isOnline: Boolean,
@@ -73,8 +84,17 @@ internal fun Duration.rounded(): Elapsed = when {
 /** The age of [this] as of [now], never negative — a device or a cache cannot be from the future. */
 internal fun Instant.ageAt(now: Instant): Elapsed = (now - this).coerceAtLeast(Duration.ZERO).rounded()
 
-/** Domain devices as rows (SPEC D6, U3). [now] is a parameter so the elapsed text is testable. */
-fun List<Device>.toRows(now: Instant): List<DeviceRow> {
+/**
+ * Domain devices as rows (SPEC D5, D6, U3).
+ *
+ * Both extras are parameters rather than dependencies of a service: this stays a function of its
+ * inputs, so a test asserts the elapsed text against a fixed [now] and the model names against a
+ * catalogue it wrote itself, with no Koin and no Compose in the way.
+ *
+ * @param catalog the partner's words for its own model codes (ADR-007). It defaults to [RawCodes] —
+ *   the codes as they came — which is what iOS runs, so the default path is the shipped one.
+ */
+fun List<Device>.toRows(now: Instant, catalog: ModelCatalog = RawCodes): List<DeviceRow> {
     val namesById = associate { it.id to it.name }
     return map { device ->
         // The same rule the tap will use (SPEC D6): a lock whose own row cannot be turned into an
@@ -88,7 +108,10 @@ fun List<Device>.toRows(now: Instant): List<DeviceRow> {
         DeviceRow(
             id = device.id.value,
             name = device.name,
-            model = device.model,
+            // SPEC D5: the row says "Central Zigbee", not "IOT-ZG2-IB", wherever the catalogue can
+            // say so. Resolved here rather than in the composable so the rule is asserted without
+            // Compose, and so the whole page is named in one pass over the loaded devices.
+            model = catalog.nameOf(device.model),
             kind = device.kind,
             isOnline = device.isOnline,
             origin = device.origin,
@@ -101,6 +124,24 @@ fun List<Device>.toRows(now: Instant): List<DeviceRow> {
         )
     }
 }
+
+/**
+ * What the catalogue calls [code], or [code] itself whenever the catalogue cannot say (ADR-007).
+ *
+ * A name is not worth a row. Android's catalogue is the partner's legacy Java SDK, whose checked
+ * exception `LegacyModelCatalog` already answers with the raw code; this is the same rule one level
+ * up, so a future table that throws something else costs a name and not the list. Cancellation is
+ * rethrown like everywhere else in this codebase: this runs inside the load's coroutine, and
+ * swallowing it would keep a cancelled load alive (ADR-002).
+ */
+private fun ModelCatalog.nameOf(code: String): String =
+    try {
+        label(code)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Throwable) {
+        code
+    }
 
 /** A device offline for a week does not need minutes — [rounded] decides which unit reads best. */
 private fun Instant?.toLastSeen(now: Instant): LastSeen =

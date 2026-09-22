@@ -25,6 +25,9 @@ internal suspend fun ListDevices.firstPage(origin: OriginFilter = OriginFilter.A
 /**
  * Domain devices for the app-side tests, with **placeholder** serials only — the test account's `ns`
  * values never enter a versioned file (ADR-008).
+ *
+ * @param model the partner's model code. It is named only by the tests that read it — SPEC D5's
+ *   catalogue lookup — and left as a word no catalogue knows everywhere else.
  */
 internal fun device(
     name: String,
@@ -36,10 +39,11 @@ internal fun device(
     origin: DeviceOrigin = DeviceOrigin.Linked,
     productId: String = PRODUCT_ID,
     parentProductId: String? = null,
+    model: String = "irrelevant",
 ) = Device(
     id = DeviceId(id),
     name = name,
-    model = "irrelevant",
+    model = model,
     status = if (isOnline) DeviceStatus.Online else DeviceStatus.Offline,
     lastSeen = lastSeen,
     origin = origin,

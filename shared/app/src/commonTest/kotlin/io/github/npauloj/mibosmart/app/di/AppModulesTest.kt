@@ -108,4 +108,26 @@ class AppModulesTest {
 
         koin.close()
     }
+
+    /**
+     * SPEC D5: the device list reaches the same catalogue the history tab does, and gets the same one.
+     *
+     * Its ViewModel asks Koin for `ModelCatalog` by hand, exactly as the lock's does, and the two
+     * features never import each other (rule 3) — the domain contract is all they share. So what can
+     * break by wiring is not "is it there", which the test above already covers, but "is it *one*":
+     * a second binding, or a `factory` instead of a `single`, would rebuild the partner's table on
+     * every screen that named a code.
+     */
+    @Test
+    fun deviceListResolvesTheModelCatalog() {
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+
+        assertSame(
+            koin.get<ModelCatalog>(),
+            koin.get<ModelCatalog>(),
+            "one table, read by every feature that names a code",
+        )
+
+        koin.close()
+    }
 }

@@ -5,6 +5,7 @@ import io.github.npauloj.mibosmart.domain.device.DeviceClassifier
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.DeviceStatus
+import io.github.npauloj.mibosmart.domain.device.ModelCatalog
 import io.github.npauloj.mibosmart.domain.device.orderedForList
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -14,9 +15,10 @@ import kotlin.time.Instant
  * Devices for the previews, with **placeholder** serials only — the test account's `ns` and
  * `idProduto` values never reach a versioned file (ADR-008).
  *
- * They are domain [Device]s put through the real classifier, ordering and [toRows], not hand-written
- * rows: a preview built from invented rows can show a layout the app can never produce, and the two
- * drift apart silently. This way the previews are also visual evidence of SPEC D5, U3 and U8.
+ * They are domain [Device]s put through the real classifier, ordering, catalogue and [toRows], not
+ * hand-written rows: a preview built from invented rows can show a layout the app can never produce,
+ * and the two drift apart silently. This way the previews are also visual evidence of SPEC D5, U3
+ * and U8.
  */
 internal object PreviewFixtures {
 
@@ -37,7 +39,21 @@ internal object PreviewFixtures {
         repeat(FULL_PAGE - size) { index ->
             add(device(index + FIRST_FILLER, "MTU 1001 ${index + 1}", "MTU 1001", isOnline = index % 2 == 0))
         }
-    }.orderedForList().toRows(NOW)
+    }.orderedForList().toRows(NOW, BundledCodes)
+
+    /**
+     * The two model codes the partner's bundled catalogue actually names (ADR-007), and nothing else.
+     *
+     * Copying only what `:legacy-catalog` really holds is the point: the preview shows a page with
+     * some rows named and the rest raw, which is what Android renders — and the raw ones are also
+     * exactly what every row looks like on iOS, where that Java library does not exist.
+     */
+    private object BundledCodes : ModelCatalog {
+
+        private val names = mapOf(HUB_MODEL to "Central Zigbee", "iM7-FC" to "Câmera Full Color")
+
+        override fun label(code: String): String = names[code] ?: code
+    }
 
     /** A lock always hangs off [HUB_ID] and always has both product ids — the addressable shape. */
     private fun lock(index: Int, name: String, model: String = "IOT-MFR1001-IB", isOnline: Boolean = true) =

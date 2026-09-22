@@ -64,12 +64,40 @@ Option 3, for the rest of this case.
 - Each stacked PR states its base branch and that **its CI ran against the stack, not against `main`**.
   A reviewer who reads "green" as "green on `main`" is being misled, and the PR body must not allow it.
 - Merge order is **bottom-up**, and the human gate does not move. Nothing here merges anything.
-- The stack is registered with GitHub (`POST /repos/{owner}/{repo}/stacks`), so merging the bottom PR
-  rebases the next one automatically.
+- ~~The stack is registered with GitHub (`POST /repos/{owner}/{repo}/stacks`), so merging the bottom PR
+  rebases the next one automatically.~~ **Struck 2026-09-22 — this was assumed and it was wrong in
+  practice; see the amendment below.**
 - **ADR-015's rule is not deleted, it is widened.** If this project continued past the case, the right
   move is option 2 — per-feature navigation destinations — and then stacking returns to being the
   narrow exception ADR-015 described.
 
+## Amendment, 2026-09-22 — how to actually merge a stack
+
+The rule above assumed the PRs were registered as a GitHub stack, which auto-rebases. **They were not.**
+They were ordinary PRs whose base happened to be the branch below. Merging them bottom-up therefore did
+what ordinary PRs do: each one merged **into its base branch**, not into `main`.
+
+The result: only the bottom PR (#56) reached `main`. The four above it — V-02, L-02, L-03 and D-03 —
+landed inside `slice/d-03`, a side branch, while `main` sat four slices behind and nobody noticed until
+`git log origin/main` was read. Nothing was lost: `slice/d-03`, `slice/l-02` and `slice/l-03` were
+byte-identical, and PR [#64](../../pull/64) brought all four into `main` in one go.
+
+**The missing step, which this amendment adds:** after merging the bottom PR, **re-target the next one
+to `main` before merging it**:
+
+```
+gh pr edit <n> --base main
+```
+
+Two corollaries learned the same day:
+
+- **Deleting a merged branch closes every PR that pointed at it.** When `slice/d-03` was deleted on
+  merge, PR #65 (`slice/d-04` → `slice/d-03`) was auto-closed by GitHub, and a closed PR's base cannot
+  be edited. It had to be reopened as a new PR (#66) against `main`.
+- **Prefer no stack at all once `main` contains the dependency.** The last four slices (D-04, P-01,
+  D-05, S-04) each branched from `main` and merged into `main`, one at a time. That is simpler than
+  stacking and has none of this failure mode; the stack only earns its cost while several slices are
+  genuinely in flight at once.
 ## Consequences
 
 - (+) The conflict class ends. A slice starts from the finished work below it, so `App.kt`,

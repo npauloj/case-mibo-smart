@@ -22,11 +22,15 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
 /**
- * The three lock reads against the partner API (SPEC L1).
+ * The lock's whole surface against the partner API: four reads (SPEC L1, L9) and three writes
+ * (SPEC L3, L6, L7).
  *
  * The session is read here rather than passed in from above: which credential a request carries is a
  * transport concern, and keeping it out of [LockRepository] is what lets a second partner implement
- * the same three functions (ADR-004).
+ * the same contract (ADR-004).
+ *
+ * Every write is gated by the kill switch of L-01b before it reaches this class; nothing here decides
+ * whether a command may be sent, only how it is spelled on the wire.
  */
 internal class SmartHomeLockRepository(
     private val api: SmartHomeApi,

@@ -16,7 +16,8 @@ private const val UI_MODE_NIGHT_YES = 0x20
  */
 internal class AccountUiStateProvider : PreviewParameterProvider<AccountUiState> {
 
-    override val values: Sequence<AccountUiState> = sequenceOf(Valid, ExpiringSoon, Expired)
+    override val values: Sequence<AccountUiState> =
+        sequenceOf(Valid, ExpiringSoon, Renewing, RenewalFailed, Expired)
 
     internal companion object {
 
@@ -27,12 +28,27 @@ internal class AccountUiStateProvider : PreviewParameterProvider<AccountUiState>
             requestCount = 12,
         )
 
-        /** Inside the last 10 minutes — the visual proof that SPEC S7 is visible here too. */
+        /**
+         * Inside the last 10 minutes — the visual proof that SPEC S7 is visible here too, and the
+         * one state that offers "Renovar" (SPEC S10).
+         */
         val ExpiringSoon = AccountUiState(
             tokenSuffix = SUFFIX,
             expiry = SessionExpiry.Remaining(hours = 0, minutes = 7, soon = true),
             requestCount = 148,
         )
+
+        /** The one request this screen ever sends, in flight: the action is disabled, not just busy. */
+        val Renewing = ExpiringSoon.copy(renewing = true)
+
+        /**
+         * The same screen after a renewal that did not happen (SPEC S10).
+         *
+         * Worth its own preview because the message has to read as "nothing was lost": the previous
+         * credential is still the session, so this is a note beside a working countdown and not an
+         * error state the user has to escape.
+         */
+        val RenewalFailed = ExpiringSoon.copy(requestCount = 149, renewFailed = true)
 
         /** Past the 2 h: the next request will be refused and the guard will act (SPEC S6). */
         val Expired = AccountUiState(
@@ -61,6 +77,16 @@ private fun AccountScreenValidPreview() = AccountScreenPreview(AccountUiStatePro
 @Composable
 private fun AccountScreenExpiringSoonPreview() = AccountScreenPreview(AccountUiStateProvider.ExpiringSoon)
 
+@Preview(name = "AccountScreen_Renewing")
+@Preview(name = "AccountScreen_Renewing_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AccountScreenRenewingPreview() = AccountScreenPreview(AccountUiStateProvider.Renewing)
+
+@Preview(name = "AccountScreen_RenewalFailed")
+@Preview(name = "AccountScreen_RenewalFailed_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AccountScreenRenewalFailedPreview() = AccountScreenPreview(AccountUiStateProvider.RenewalFailed)
+
 @Preview(name = "AccountScreen_Expired")
 @Preview(name = "AccountScreen_Expired_Dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
@@ -76,6 +102,6 @@ private fun AccountScreenAllStatesPreview(
 @Composable
 private fun AccountScreenPreview(state: AccountUiState) {
     AppTheme {
-        AccountScreenContent(state = state, onSignOut = {}, onBack = {})
+        AccountScreenContent(state = state, onRenew = {}, onSignOut = {}, onBack = {})
     }
 }

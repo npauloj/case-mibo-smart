@@ -7,6 +7,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
@@ -150,8 +151,8 @@ class SessionGuardTest {
 
         override suspend fun read(): Session? = stored
 
-        override suspend fun write(token: Token, issuedAt: Instant) {
-            stored = Session(token, issuedAt)
+        override suspend fun write(token: Token, issuedAt: Instant, lifetime: Duration) {
+            stored = Session(token, issuedAt, lifetime)
         }
 
         override suspend fun clear() {

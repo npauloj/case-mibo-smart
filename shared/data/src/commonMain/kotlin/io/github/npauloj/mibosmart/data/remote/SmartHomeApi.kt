@@ -46,6 +46,15 @@ internal class SmartHomeApi(
         setBody(ListDevicesRequestDto(pageSize = pageSize, page = page, origin = origin))
     }
 
+    /**
+     * `POST /autenticacao/renovar-token/v1` — a second credential for the same account (SPEC S10).
+     *
+     * The path is the description's, not the Swagger's `/autenticacao/renovarToken`, which does not
+     * answer (`docs/api-contract.md` §2, probed 2026-09-21).
+     */
+    suspend fun renewToken(token: Token, request: RenewTokenRequestDto): JsonElement =
+        post(RENEW_TOKEN_PATH, token) { setBody(request) }
+
     /** `POST /produtos/funcoes/v1` — what a device announces it can do (SPEC V1). */
     suspend fun readDeviceFunctions(token: Token, request: CameraNamespaceRequestDto): JsonElement =
         post(FUNCTIONS_PATH, token) { setBody(request) }
@@ -128,6 +137,7 @@ internal class SmartHomeApi(
     internal companion object {
         /** The `origem` of "everything the account has" (`docs/api-contract.md` §3). */
         const val ALL_ORIGINS = "todos"
+        private const val RENEW_TOKEN_PATH = "/autenticacao/renovar-token/v1"
         private const val LIST_DEVICES_PATH = "/produtos/listar-dispositivos/v1"
         private const val FUNCTIONS_PATH = "/produtos/funcoes/v1"
         private const val CREATE_STREAM_PATH = "/cameras/criar-fluxo-video/v1"

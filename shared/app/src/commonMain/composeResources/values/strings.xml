@@ -28,6 +28,9 @@
     <string name="account_expires_in_minutes">Expira em %1$s min</string>
     <string name="account_expired">Sessão expirada</string>
     <string name="account_requests">%1$s requisições nesta sessão</string>
+    <string name="account_renew">Renovar</string>
+    <string name="account_renewing">Renovando…</string>
+    <string name="account_renew_failed">Não foi possível renovar agora. Sua sessão atual continua valendo.</string>
     <string name="account_logout">Sair</string>
     <string name="account_logout_failed">Não foi possível apagar o token deste aparelho</string>
 

@@ -14,6 +14,7 @@ import org.koin.dsl.module
 internal val sessionAppModule: Module = module {
     factoryOf(::AuthenticateToken)
     factoryOf(::Logout)
+    factoryOf(::RenewToken)
     factoryOf(::SessionStartup)
     // A domain policy, wired here because this is the feature that owns it: the guard has no state of
     // its own, so a factory is one object per use rather than one to keep alive (ADR-014).

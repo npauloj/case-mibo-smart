@@ -4,6 +4,8 @@ import app.cash.turbine.test
 import io.github.npauloj.mibosmart.app.FixedClock
 import io.github.npauloj.mibosmart.data.remote.RequestCounter
 import io.github.npauloj.mibosmart.data.session.InMemorySessionStore
+import io.github.npauloj.mibosmart.domain.error.SmartHomeException
+import io.github.npauloj.mibosmart.domain.session.RenewedSession
 import io.github.npauloj.mibosmart.domain.session.Session
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
@@ -16,6 +18,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -122,6 +125,93 @@ class AccountViewModelTest {
     }
 
     /**
+     * SPEC S10: "Renovar" is offered only where it buys something — inside the last 10 minutes.
+     *
+     * A session with hours left would spend a request of the ~300 the account has to move a deadline
+     * nobody is near (ADR-006); an expired one would spend it to be refused, since renewing needs a
+     * credential the partner still accepts (SPEC S6).
+     */
+    @Test
+    fun offersRenewalOnlyWhileTheSessionIsAboutToExpire() = runTest(dispatcher) {
+        val calm = viewModelFor(issuedAt = NOW)
+        val expiring = viewModelFor(issuedAt = NOW - Session.WARN_AFTER)
+        val expired = viewModelFor(issuedAt = NOW - Session.LIFETIME)
+
+        runCurrent()
+
+        assertFalse(calm.state.value.canRenew, "a fresh session was asked to renew itself")
+        assertTrue(expiring.state.value.canRenew, "a session in its last minutes offered no way out")
+        assertFalse(expired.state.value.canRenew, "an expired session offered a renewal it cannot make")
+    }
+
+    /**
+     * A renewal the partner answered rewrites the card without moving the user (SPEC S10).
+     *
+     * Both halves are asserted: the suffix, because it proves the *new* credential is what the screen
+     * is describing, and the countdown, because it proves the deadline came from `tempoExpiracao`
+     * (15 min here) and not from a local two-hour count.
+     */
+    @Test
+    fun renewingReplacesTheSessionOnTheSameScreen() = runTest(dispatcher) {
+        val store = storeWith(NOW - Session.WARN_AFTER)
+        val viewModel = viewModelFor(
+            store = store,
+            partner = FakeSessionRepository(renewal = { RenewedSession(Token(RENEWED), 15.minutes) }),
+        )
+        runCurrent()
+
+        viewModel.onRenew()
+
+        val state = viewModel.state.value
+        assertEquals(RENEWED.takeLast(4), state.tokenSuffix, "the card still describes the old credential")
+        assertEquals(SessionExpiry.Remaining(hours = 0, minutes = 15, soon = false), state.expiry)
+        assertFalse(state.renewing, "the action stayed disabled after the answer came back")
+    }
+
+    /**
+     * A renewal that failed says so and changes nothing else (SPEC S10).
+     *
+     * The session is still the one the user had, and still valid — renewal adds a credential rather
+     * than replacing one (measured 2026-09-21) — so there is nothing to route away from.
+     */
+    @Test
+    fun aFailedRenewalKeepsTheSessionAndSaysSo() = runTest(dispatcher) {
+        val store = storeWith(NOW - Session.WARN_AFTER)
+        val viewModel = viewModelFor(
+            store = store,
+            partner = FakeSessionRepository(renewal = { throw SmartHomeException.Offline(cause = null) }),
+        )
+        runCurrent()
+
+        viewModel.onRenew()
+
+        assertTrue(viewModel.state.value.renewFailed, "a failed renewal was reported as a success")
+        assertTrue(viewModel.state.value.canRenew, "the way to try again disappeared with the failure")
+        assertEquals(Token(TOKEN), store.read()?.token, "a failed renewal touched the stored session")
+    }
+
+    /** ADR-006: a second tap while the first is in flight is a second request, so it is refused. */
+    @Test
+    fun aSecondTapWhileRenewingSpendsNothing() = runTest(dispatcher) {
+        val partnerAnswered = CompletableDeferred<RenewedSession>()
+        val partner = FakeSessionRepository(renewal = { partnerAnswered.await() })
+        val viewModel = viewModelFor(issuedAt = NOW - Session.WARN_AFTER, partner = partner)
+        runCurrent()
+
+        viewModel.renew()
+        runCurrent()
+        viewModel.renew()
+        runCurrent()
+
+        assertTrue(viewModel.state.value.renewing, "the screen did not show the renewal in flight")
+        assertEquals(1, partner.calls, "a second tap sent a second renewal")
+
+        partnerAnswered.complete(RenewedSession(Token(RENEWED), 15.minutes))
+        runCurrent()
+        assertFalse(viewModel.state.value.renewing)
+    }
+
+    /**
      * "Sair" empties the vault and announces it once (SPEC S8).
      *
      * `signedOut` is a one-shot navigation event, which is the one place this repository allows
@@ -165,11 +255,13 @@ class AccountViewModelTest {
         store: SessionStore? = null,
         counter: RequestCounter = RequestCounter(),
         debug: DebugBuild = DebugBuild(true),
+        partner: FakeSessionRepository = FakeSessionRepository(),
     ): AccountViewModel {
         val sessionStore = store ?: storeWith(issuedAt)
         return AccountViewModel(
             sessionStartup = SessionStartup(sessionStore),
             logout = Logout(sessionStore),
+            renewToken = RenewToken(partner, sessionStore, FixedClock(NOW)),
             requestCounter = counter,
             debugBuild = debug,
             clock = FixedClock(NOW),
@@ -178,6 +270,9 @@ class AccountViewModelTest {
 
     private companion object {
         val TOKEN = TokenSamples.Valid
+
+        /** The credential a renewal hands back — a different suffix, so the card cannot fake it. */
+        val RENEWED = TokenSamples.ValidHexBody
         val NOW = TokenSamples.Now
     }
 

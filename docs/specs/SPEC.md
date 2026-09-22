@@ -130,20 +130,26 @@ understandable. **Out of scope:** generating tokens, GDI login, multi-account.
   credential rather than replacing one — the previous token keeps working (see S6).
   WHEN the session is about to expire, THE SYSTEM SHALL offer "Renovar" and, on success, replace the stored
   token without leaving the current screen; IF renewal fails, THE SYSTEM SHALL keep the current token and
-  show the error state of S6. _(test: `RenewTokenTest.replacesStoredToken`, `RenewTokenTest.failureKeepsCurrentToken`)_
+  show the error state of S6. WHEN renewal succeeds, THE SYSTEM SHALL take the new session's deadline from
+  `tempoExpiracao` rather than from a local two-hour count (ADR-020).
+  _(test: `RenewTokenTest.replacesStoredToken`, `RenewTokenTest.failureKeepsCurrentToken`,
+  `RenewTokenTest.usesServerSuppliedDeadline`, and `RenewTokenTest.exactRequest` in `:shared:data`,
+  where `MockEngine` lives)_
   Wave 3; first in the cut list after the Java module.
 
 ### Screen states
 - Token screen: idle · typing (masked with visible `Ot_` prefix, last 4 and counter — S1.1) ·
   invalid-format (S1.2, "Validar" disabled, no API call) · validating (button spinner, input locked) ·
   error (inline message).
-- Account screen (no network): suffix, "expira em …", "Sair", debug request counter (ADR-006).
+- Account screen: suffix, "expira em …", "Sair", debug request counter (ADR-006). Nothing on it reaches
+  the partner except "Renovar", which appears only inside S7's last 10 minutes and only when tapped (S10).
 
 ### Visual acceptance (previews)
 `TokenScreenContent` / `AccountScreenContent`, each with a `PreviewParameterProvider`; rule 11 guarantees the preview exists.
 - `TokenScreen_Idle`, `TokenScreen_Typing` (S1.1 mask + counter), `TokenScreen_InvalidFormat` (S1.2),
   `TokenScreen_Validating`, `TokenScreen_Error` (S1, S3, S4) — plus `_Dark` variants.
-- `AccountScreen_Valid`, `AccountScreen_ExpiringSoon` (S7 banner), `AccountScreen_Expired` — plus `_Dark` variants.
+- `AccountScreen_Valid`, `AccountScreen_ExpiringSoon` (S7 banner + the S10 "Renovar" action),
+  `AccountScreen_Renewing`, `AccountScreen_RenewalFailed`, `AccountScreen_Expired` — plus `_Dark` variants.
 
 ---
 

@@ -54,6 +54,8 @@ import io.github.npauloj.mibosmart.app.resources.device_last_seen_never
 import io.github.npauloj.mibosmart.app.resources.device_list_loading
 import io.github.npauloj.mibosmart.app.resources.device_list_loading_more
 import io.github.npauloj.mibosmart.app.resources.device_list_title
+import io.github.npauloj.mibosmart.app.resources.device_lock_hub_not_loaded
+import io.github.npauloj.mibosmart.app.resources.device_lock_product_id_missing
 import io.github.npauloj.mibosmart.app.resources.device_origin_linked
 import io.github.npauloj.mibosmart.app.resources.device_origin_shared
 import io.github.npauloj.mibosmart.app.resources.device_retry
@@ -66,6 +68,7 @@ import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.OriginFilter
+import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -74,17 +77,21 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun DeviceListScreen(
     onOpenLiveVideo: (Device) -> Unit,
+    onOpenLock: (Device, LockAddress) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DeviceListViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // SPEC U2: a tap on a camera row *is* the navigation — one event, consumed once, no confirmation
-    // step in between. Keyed on the ViewModel so a recomposition does not re-subscribe.
+    // SPEC U2: a tap on a camera or a lock row *is* the navigation — one event, consumed once, no
+    // confirmation step in between. Keyed on the ViewModel so a recomposition does not re-subscribe.
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
                 is DeviceListEvent.OpenLiveVideo -> onOpenLiveVideo(event.camera)
+                // The address comes with the event: it was assembled from the rows on screen, and the
+                // lock screen has no list of its own to find the hub in (api-contract §5).
+                is DeviceListEvent.OpenLock -> onOpenLock(event.lock, event.address)
             }
         }
     }
@@ -96,6 +103,7 @@ fun DeviceListScreen(
         onSelectFilter = viewModel::selectFilter,
         onLoadMore = viewModel::loadMore,
         onCameraTap = viewModel::onCameraTap,
+        onLockTap = viewModel::onLockTap,
         modifier = modifier,
     )
 }
@@ -110,6 +118,7 @@ fun DeviceListScreenContent(
     onSelectFilter: (OriginFilter) -> Unit,
     onLoadMore: () -> Unit,
     onCameraTap: (DeviceRow) -> Unit,
+    onLockTap: (DeviceRow) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 24.dp)) {
@@ -136,7 +145,12 @@ fun DeviceListScreenContent(
                 // page is SPEC D2 — all three beat a spinner or an error.
                 state.rows.isNotEmpty() -> Column {
                     state.staleFor?.let { StaleBanner(staleFor = it, onRetry = onRetry) }
-                    DeviceRows(state = state, onLoadMore = onLoadMore, onCameraTap = onCameraTap)
+                    DeviceRows(
+                        state = state,
+                        onLoadMore = onLoadMore,
+                        onCameraTap = onCameraTap,
+                        onLockTap = onLockTap,
+                    )
                 }
 
                 state.isLoading -> CenteredMessage { LoadingIndicator() }
@@ -204,6 +218,7 @@ private fun DeviceRows(
     state: DeviceListUiState,
     onLoadMore: () -> Unit,
     onCameraTap: (DeviceRow) -> Unit,
+    onLockTap: (DeviceRow) -> Unit,
 ) {
     val listState = rememberLazyListState()
     // SPEC D2: the next page is asked for while the user still has a screenful to read, so the list
@@ -225,7 +240,7 @@ private fun DeviceRows(
 
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         items(state.rows, key = DeviceRow::id) { row ->
-            DeviceRowItem(row, onCameraTap)
+            DeviceRowItem(row, onCameraTap, onLockTap)
             HorizontalDivider()
         }
         if (state.isLoadingMore) item { LoadingMoreFooter() }
@@ -238,15 +253,25 @@ private fun DeviceRows(
 }
 
 @Composable
-private fun DeviceRowItem(row: DeviceRow, onCameraTap: (DeviceRow) -> Unit) {
-    // SPEC U2: the camera row is the two-tap path to the picture. Locks are actionable too (SPEC D6),
-    // but their destination is another slice's; a row that reacted to a tap by doing nothing would
-    // read as a broken app, so only the camera takes one.
-    val opensLiveVideo = row.kind == DeviceKind.Camera
-
+private fun DeviceRowItem(
+    row: DeviceRow,
+    onCameraTap: (DeviceRow) -> Unit,
+    onLockTap: (DeviceRow) -> Unit,
+) {
+    // SPEC U2: a camera row is the two-tap path to the picture and a lock row the two-tap path to the
+    // door. Which rows take a tap at all is `isActionable`, decided in the mapper: hubs and the rest
+    // never do, and neither does a lock this page cannot address — a row that reacted to a tap by
+    // doing nothing would read as a broken app.
     Column(
         modifier = Modifier.fillMaxWidth()
-            .clickable(enabled = opensLiveVideo) { onCameraTap(row) }
+            .clickable(enabled = row.isActionable) {
+                when (row.kind) {
+                    DeviceKind.Camera -> onCameraTap(row)
+                    DeviceKind.Lock -> onLockTap(row)
+                    // Informational rows (SPEC D6); `isActionable` already keeps the tap off them.
+                    DeviceKind.Hub, is DeviceKind.Other -> Unit
+                }
+            }
             .padding(vertical = 12.dp),
     ) {
         Text(
@@ -278,6 +303,15 @@ private fun DeviceRowItem(row: DeviceRow, onCameraTap: (DeviceRow) -> Unit) {
         // SPEC D6: a sub-device is only addressable through its hub, so the row says which one.
         row.parentName?.let {
             Text(text = it, style = MaterialTheme.typography.labelSmall)
+        }
+        // SPEC U6: when the row cannot open, it names the cause in one sentence and offers no dead
+        // action — the alternative is a lock screen with nothing to address.
+        row.unavailable?.let {
+            Text(
+                text = stringResource(it.message),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -379,6 +413,13 @@ private val DeviceKind.label: StringResource
         DeviceKind.Lock -> Res.string.device_kind_lock
         DeviceKind.Hub -> Res.string.device_kind_hub
         is DeviceKind.Other -> Res.string.device_kind_other
+    }
+
+/** Why a lock row is not tappable, in the user's words rather than the contract's (SPEC U6). */
+private val LockAddressing.Unavailable.message: StringResource
+    get() = when (this) {
+        LockAddressing.Unavailable.HubNotLoaded -> Res.string.device_lock_hub_not_loaded
+        LockAddressing.Unavailable.ProductIdMissing -> Res.string.device_lock_product_id_missing
     }
 
 private val DeviceOrigin.label: StringResource

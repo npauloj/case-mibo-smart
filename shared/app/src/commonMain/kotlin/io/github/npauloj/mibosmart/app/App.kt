@@ -73,14 +73,18 @@ fun App(viewModel: AppViewModel = koinViewModel()) {
  * The destinations reachable with a session: the device list, the lock screen, and the live video of
  * one camera.
  *
- * The list → live edge is the one SPEC U2 measures: tapping a camera row puts the picture on screen
- * with nothing in between. The lock edge is still missing on purpose — it belongs to the lock
- * slice — and each destination states in one place what it has to be handed: [LockDestination] the
- * composite address of `docs/api-contract.md` §5, and the camera its own [Device], whose `ns` is
- * what `criar-fluxo-video` addresses and whose `status` decides SPEC V7 without a request.
+ * Both edges are the one SPEC U2 measures: tapping a camera row puts the picture on screen and
+ * tapping a lock row puts the door on screen, with nothing in between. Each destination states in one
+ * place what it has to be handed — [LockDestination] the composite address of
+ * `docs/api-contract.md` §5, and the camera its own [Device], whose `ns` is what `criar-fluxo-video`
+ * addresses and whose `status` decides SPEC V7 without a request.
  *
- * Leaving the live screen returns to the list *without* rebuilding it: the ViewModel behind
- * `DeviceListScreen` survives, so coming back costs no request (SPEC D7).
+ * The lock's address is assembled by the list and arrives with the tap, because only the list holds
+ * the hub row the address needs: this navigator joins the two feature packages, which may not import
+ * each other (rule 3), and neither of them spends a request doing it (ADR-006).
+ *
+ * Leaving either screen returns to the list *without* rebuilding it: the ViewModel behind
+ * `DeviceListScreen` survives, so coming back costs no request and keeps its chip and rows (SPEC D7).
  */
 @Composable
 private fun SignedIn(expiringSoon: Boolean, onOpenAccount: () -> Unit) {
@@ -93,7 +97,10 @@ private fun SignedIn(expiringSoon: Boolean, onOpenAccount: () -> Unit) {
         watching != null -> LiveVideoScreen(camera = watching, onBack = { camera = null })
         selected != null -> LockScreen(destination = selected, onBack = { lock = null })
         else -> DeviceListDestination(expiringSoon, onOpenAccount) {
-            DeviceListScreen(onOpenLiveVideo = { camera = it })
+            DeviceListScreen(
+                onOpenLiveVideo = { camera = it },
+                onOpenLock = { device, address -> lock = LockDestination(device, address) },
+            )
         }
     }
 }

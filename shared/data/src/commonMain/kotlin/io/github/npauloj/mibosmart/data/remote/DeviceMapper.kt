@@ -18,6 +18,9 @@ import kotlinx.datetime.toInstant
  * The identity stays the plain `ns`. The composite address a lock endpoint needs
  * (`<lock-ns>_<hub-ns>_<hub-idProduto>`, `docs/api-contract.md` §5) is built by the slice that calls
  * those endpoints: encoding it here would put a lock detail in the identity of every camera and hub.
+ * What this mapper does owe that slice is the raw `idProduto` of every device — the hub's is one of
+ * the three parts of the namespace, and neither is recoverable from a later call the budget would pay
+ * for (ADR-006).
  */
 internal fun DeviceDto.toDevice(): Device = Device(
     id = DeviceId(serial),
@@ -38,6 +41,9 @@ internal fun DeviceDto.toDevice(): Device = Device(
     },
     kind = DeviceClassifier.classify(model = model, isSubDevice = isSubDevice),
     parent = parentSerial?.takeIf { it.isNotBlank() }?.let(::DeviceId),
+    // Carried verbatim, blank included: "the partner sent none" is a fact the lock edge acts on
+    // (SPEC L1), and normalising it to null here would only move the same decision one layer up.
+    productId = productId,
 )
 
 /**

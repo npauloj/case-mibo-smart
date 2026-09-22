@@ -2,6 +2,7 @@ package io.github.npauloj.mibosmart.app.lock
 
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
+import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
@@ -15,5 +16,9 @@ internal val lockAppModule: Module = module {
     factoryOf(::ChangeVolume)
     factoryOf(::EnableRemoteOpen)
     factoryOf(::ToggleLock)
+    factoryOf(::OpeningHistory)
     viewModelOf(::LockViewModel)
+    // Not `viewModelOf`: the constructor's last parameter is the device's time zone, a default
+    // rather than a binding, which Koin would otherwise try to resolve.
+    viewModel { OpeningHistoryViewModel(openingHistory = get(), clock = get()) }
 }

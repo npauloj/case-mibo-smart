@@ -4,6 +4,7 @@ import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockRepository
 import io.github.npauloj.mibosmart.domain.lock.LockState
+import io.github.npauloj.mibosmart.domain.lock.OpeningEvent
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 
 /**
@@ -25,6 +26,9 @@ import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
  *   lock whose three reads on entry work and whose confirmation never comes.
  * @param obeysCommands whether `controle-fechadura` actually moves the door. `false` is the lock
  *   that takes the command and does nothing — the disagreement of SPEC L4.
+ * @param history what `historico-abertura` answers, in the partner's own order. It is deliberately
+ *   **not** sorted here: SPEC L9's "newest first" is the use case's rule, and a fake that handed it
+ *   the answer already sorted would prove nothing.
  */
 internal class FakeLockRepository(
     private val state: LockState = LockSamples.Locked,
@@ -33,10 +37,14 @@ internal class FakeLockRepository(
     private val remoteOpenAfterEnabling: Boolean = true,
     private val answerConfirmation: suspend () -> Unit = {},
     private val obeysCommands: Boolean = true,
+    private val history: List<OpeningEvent> = emptyList(),
 ) : LockRepository {
 
     val reads = mutableListOf<Read>()
     val writes = mutableListOf<Write>()
+
+    /** The `quantidade` of every `historico-abertura` this lock was asked for (SPEC L9). */
+    val requestedEntries = mutableListOf<Int>()
 
     /** Every request this lock was asked to make, read or write — what the account is billed for. */
     val calls: Int get() = reads.size + writes.size
@@ -58,6 +66,13 @@ internal class FakeLockRepository(
     override suspend fun readVolume(address: LockAddress): VolumeLevel {
         record(Read(Read.VOLUME, address))
         return state.volume
+    }
+
+    /** The `quantidade` asked for is recorded too: SPEC L9 fixes it at 50 and the account pays once. */
+    override suspend fun readOpeningHistory(address: LockAddress, entries: Int): List<OpeningEvent> {
+        record(Read(Read.HISTORY, address))
+        requestedEntries += entries
+        return history
     }
 
     override suspend fun changeVolume(address: LockAddress, volume: VolumeLevel) {
@@ -97,6 +112,7 @@ internal class FakeLockRepository(
             const val OPEN_STATE = "status-abertura"
             const val REMOTE_OPEN = "status-abrir-remoto"
             const val VOLUME = "volume"
+            const val HISTORY = "historico-abertura"
 
             /** The three reads of SPEC L1: what opening the screen costs. */
             val ALL = setOf(OPEN_STATE, REMOTE_OPEN, VOLUME)

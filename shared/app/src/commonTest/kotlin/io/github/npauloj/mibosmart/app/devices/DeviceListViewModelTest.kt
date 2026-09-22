@@ -14,6 +14,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -207,13 +208,139 @@ class DeviceListViewModelTest {
             assertEquals("iM3-C", event.camera.name)
             assertEquals(DeviceKind.Camera, event.camera.kind)
 
-            // SPEC D6: a lock row has no destination in this slice, and inventing one would open the
-            // live screen on a device that has no video.
+            // SPEC D6: a lock has its own destination, and sending it to this one would open the live
+            // screen on a device that has no video.
             viewModel.onCameraTap(viewModel.state.value.rows.first { it.name == "MFR 1001" })
             advanceUntilIdle()
             expectNoEvents()
         }
         assertEquals(1, repository.calls, "navigating must not reload the list (SPEC D7)")
+    }
+
+    /**
+     * SPEC U2 and D6: a lock row opens the lock screen the way a camera row opens the picture — one
+     * event, no intermediate screen, and the list left exactly as it was to come back to.
+     */
+    @Test
+    fun lockTapEmitsOpenLock() = runTest(dispatcher) {
+        val repository = FakeDeviceRepository { lockAndHub() }
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.selectFilter(OriginFilter.Linked)
+        advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.onLockTap(viewModel.lockRow())
+            advanceUntilIdle()
+
+            val event = assertIs<DeviceListEvent.OpenLock>(awaitItem())
+            assertEquals(LOCK_NAME, event.lock.name)
+            assertEquals(DeviceKind.Lock, event.lock.kind)
+
+            // SPEC D7: the tap navigates and nothing else — so `onBack` finds the same chip and the
+            // same rows, because this ViewModel never rebuilt them.
+            assertEquals(OriginFilter.Linked, viewModel.state.value.filter)
+            assertEquals(listOf(LOCK_NAME, HUB_NAME), viewModel.state.value.rows.map { it.name })
+            expectNoEvents()
+        }
+    }
+
+    /**
+     * SPEC L1 and `docs/api-contract.md` §5: all four parts, each read off a row the app holds.
+     *
+     * The hub's product id is the part nothing else in the app can supply — it is on the *hub's* row,
+     * not the lock's — which is why it is asserted beside the other three and not assumed.
+     */
+    @Test
+    fun openLockCarriesTheCompositeAddress() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeDeviceRepository { lockAndHub() })
+        advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.onLockTap(viewModel.lockRow())
+            advanceUntilIdle()
+
+            val address = assertIs<DeviceListEvent.OpenLock>(awaitItem()).address
+            assertEquals(LOCK_NAMESPACE, address.lock.value)
+            assertEquals(HUB_NAMESPACE, address.hub.value)
+            assertEquals(HUB_PRODUCT_ID, address.hubProductId)
+            assertEquals(LOCK_PRODUCT_ID, address.lockProductId)
+        }
+    }
+
+    /**
+     * SPEC D2 and D6: the hub is on a page nobody has loaded, so there is no `ns` to build — the row
+     * is shown, says so, and takes no tap. Fetching pages until a hub turns up is the spending
+     * ADR-006 forbids, and guessing one addresses another device.
+     */
+    @Test
+    fun aLockWithoutItsHubIsNotActionable() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeDeviceRepository { lockAndHub(withHub = false) })
+        advanceUntilIdle()
+
+        val row = viewModel.lockRow()
+        assertEquals(LockAddressing.Unavailable.HubNotLoaded, row.unavailable)
+        assertFalse(row.isActionable, "a row that cannot open must not offer the tap")
+
+        viewModel.events.test {
+            viewModel.onLockTap(row)
+            advanceUntilIdle()
+
+            expectNoEvents()
+        }
+    }
+
+    /**
+     * The guard the composite address depends on: a blank `idProduto` is a part of the namespace the
+     * partner never sent, and an `ns` short of one part is another device's.
+     *
+     * Both sides are asserted because they fail differently on the wire — the lock's own id is sent
+     * beside the namespace, the hub's is *inside* it — and only one of the two is on the row the user
+     * tapped (`docs/api-contract.md` §5).
+     */
+    @Test
+    fun aLockWithABlankProductIdIsNotActionable() = runTest(dispatcher) {
+        val blanks = listOf(
+            lockAndHub(lockProductId = ""),
+            lockAndHub(hubProductId = ""),
+        )
+
+        blanks.forEach { page ->
+            val viewModel = viewModel(FakeDeviceRepository { page })
+            advanceUntilIdle()
+
+            val row = viewModel.lockRow()
+            assertEquals(LockAddressing.Unavailable.ProductIdMissing, row.unavailable)
+            assertFalse(row.isActionable)
+
+            viewModel.events.test {
+                viewModel.onLockTap(row)
+                advanceUntilIdle()
+
+                expectNoEvents()
+            }
+        }
+    }
+
+    /**
+     * ADR-006: the whole point of assembling the address from loaded rows — opening a lock spends
+     * nothing. The fake fails the test outright if it is asked for a page after the list has loaded.
+     */
+    @Test
+    fun openingALockCallsThePartnerZeroTimes() = runTest(dispatcher) {
+        var loaded = false
+        val repository = FakeDeviceRepository {
+            if (loaded) fail("opening a lock spent a partner request (ADR-006)")
+            lockAndHub()
+        }
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        loaded = true
+
+        viewModel.onLockTap(viewModel.lockRow())
+        advanceUntilIdle()
+
+        assertEquals(1, repository.calls, "only the list's own page 1")
     }
 
     /** SPEC D4: the list opens on the chip the user left it on, and asks for that `origem`. */
@@ -265,6 +392,10 @@ class DeviceListViewModelTest {
 
     private fun viewModel(repository: FakeDeviceRepository) =
         DeviceListViewModel(listDevices = listDevices(repository), now = { NOW })
+
+    /** The lock row as the screen would hand it back — by name, so a reorder cannot pick the hub. */
+    private fun DeviceListViewModel.lockRow(): DeviceRow =
+        state.value.rows.single { it.name == LOCK_NAME }
 
     private companion object {
         val NOW = Instant.parse("2026-09-21T12:00:00Z")

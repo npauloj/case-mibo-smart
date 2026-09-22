@@ -191,11 +191,18 @@ internal object LockUiMapper {
     private fun lastSeenOrNull(device: Device, now: Instant): LastSeen? {
         if (device.status == DeviceStatus.Online) return null
         val lastSeen = device.lastSeen ?: return LastSeen.Never
-        return elapsedSince(lastSeen, now)
+        return elapsedSince(past = lastSeen, now = now)
     }
 
-    private fun elapsedSince(lastSeen: Instant, now: Instant): LastSeen {
-        val elapsed = now - lastSeen
+    /**
+     * How long ago [past] was, as of [now] — the one place this screen's feature rounds time.
+     *
+     * Internal rather than private because the history tab counts the same way: "há 5 min" on an
+     * opening (SPEC U4) and "última atualização há 5 min" on an offline lock (SPEC U3) are two
+     * sentences over one rule, and a second copy of the thresholds is how they drift apart.
+     */
+    internal fun elapsedSince(past: Instant, now: Instant): LastSeen {
+        val elapsed = now - past
         return when {
             elapsed < Duration.ZERO || elapsed.inWholeMinutes < 1 -> LastSeen.Moments
             elapsed.inWholeHours < 1 -> LastSeen.Minutes(elapsed.inWholeMinutes.toInt())

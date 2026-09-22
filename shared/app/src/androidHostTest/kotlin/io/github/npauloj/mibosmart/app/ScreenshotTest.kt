@@ -1,8 +1,12 @@
 package io.github.npauloj.mibosmart.app
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import com.github.takahirom.roborazzi.captureRoboImage
+import io.github.npauloj.mibosmart.app.camera.LiveVideoScreenContent
+import io.github.npauloj.mibosmart.app.camera.StreamStateProvider
 import io.github.npauloj.mibosmart.app.devices.DeviceListScreenContent
 import io.github.npauloj.mibosmart.app.devices.DeviceListUiStateProvider
 import io.github.npauloj.mibosmart.app.lock.LockScreenContent
@@ -21,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * One golden per screen state, drawn on the host (ADR-024).
+ * One golden per screen state, drawn on the host (ADR-024): six screens, 42 states.
  *
  * **The state list is not maintained here.** Each screen's `PreviewParameterProvider` is already the
  * inventory of its states — that is what the previews are for — so this file names those same states
@@ -81,7 +85,8 @@ class ScreenshotTest {
             listOf(
                 "Loading" to Loading, "Locked" to Locked, "Unlocked" to Unlocked,
                 "CommandSent" to CommandSent, "CommandExpired" to CommandExpired,
-                "CommandCheckFailed" to CommandCheckFailed, "RemoteOpenDisabled" to RemoteOpenDisabled,
+                "CommandCheckFailed" to CommandCheckFailed, "CommandFailed" to CommandFailed,
+                "RemoteOpenDisabled" to RemoteOpenDisabled,
                 "VolumeChanging" to VolumeChanging, "VolumeFailed" to VolumeFailed,
                 "WritesDisabled" to WritesDisabled, "Offline" to Offline, "Error" to Error,
             )
@@ -96,6 +101,38 @@ class ScreenshotTest {
             onEnableRemoteOpen = {},
             onBack = {},
         )
+    }
+
+    /**
+     * The player surface is an `expect` composable backed by Media3 on Android (ADR-005), which cannot
+     * be instantiated on the host. `LocalInspectionMode` is what the previews already use to make it
+     * render a placeholder instead — so the goldens show the same thing a preview does, and no socket
+     * is opened and no streaming quota is spent by a test.
+     */
+    @Test
+    fun liveVideoScreen() = captureAll(
+        screen = "LiveVideoScreen",
+        provider = StreamStateProvider(),
+        states = with(StreamStateProvider) {
+            listOf(
+                "Creating" to Creating, "Live" to Live, "Reconnecting" to Reconnecting,
+                "QuotaExceeded" to QuotaExceeded, "Offline" to Offline,
+                "NoLiveCapability" to NoLiveCapability, "Failed" to Failed,
+                "FailedWithoutFallback" to FailedWithoutFallback, "WebFallback" to WebFallback,
+            )
+        },
+    ) { state ->
+        CompositionLocalProvider(LocalInspectionMode provides true) {
+            LiveVideoScreenContent(
+                cameraName = "Câmera da sala",
+                state = state,
+                onPlayerEvent = {},
+                onRetry = {},
+                onWebPlayer = {},
+                onCloseWebPlayer = {},
+                onBack = {},
+            )
+        }
     }
 
     @Test

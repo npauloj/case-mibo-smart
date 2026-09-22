@@ -6,6 +6,8 @@ import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.DeviceStatus
+import io.github.npauloj.mibosmart.domain.device.ModelCatalog
+import io.github.npauloj.mibosmart.domain.device.RawCodes
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.OpeningEvent
@@ -105,9 +107,27 @@ internal fun lockViewModel(
  * criterion (SPEC U4), and either the machine's clock or its time zone would otherwise decide what
  * the test asserts.
  */
-internal fun openingHistoryViewModel(repository: FakeLockRepository): OpeningHistoryViewModel =
+internal fun openingHistoryViewModel(
+    repository: FakeLockRepository,
+    catalog: ModelCatalog = RawCodes,
+): OpeningHistoryViewModel =
     OpeningHistoryViewModel(
         openingHistory = OpeningHistory(repository),
         clock = FixedClock(LockSamples.Now),
+        catalog = catalog,
         timeZone = LockSamples.Zone,
     )
+
+/**
+ * A catalogue with exactly the entries a test names (ADR-007).
+ *
+ * The real one is the partner's Java library and exists on Android only; what the tab has to get
+ * right is the same either way — the catalogue's words when there are any, the partner's raw `tipo`
+ * when there are not.
+ */
+internal class FakeModelCatalog(vararg entries: Pair<String, String>) : ModelCatalog {
+
+    private val labels = entries.toMap()
+
+    override fun label(code: String): String = labels[code] ?: code
+}

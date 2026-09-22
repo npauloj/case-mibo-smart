@@ -40,3 +40,5 @@ include(":shared:data")
 include(":shared:app")
 include(":androidApp")
 include(":konture-test")
+// The legacy partner SDK, JVM only: consumed by `:shared:data`'s Android source set alone (ADR-007).
+include(":legacy-catalog")

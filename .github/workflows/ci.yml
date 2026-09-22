@@ -54,6 +54,12 @@ jobs:
           :shared:app:testAndroidHostTest
           --stacktrace
 
+      # The Java half of the interop (ADR-007): a Java test calling the Kotlin bridge, which only
+      # the JVM module can compile. It runs here rather than inside the step above because the
+      # shared modules have no `test` task of this shape.
+      - name: Java interop tests (legacy partner catalogue, JVM)
+        run: ./gradlew :legacy-catalog:test --stacktrace
+
       # Coverage is measured, not gated (ADR-006): the aggregated report is an artifact and its
       # per-module numbers go into docs/PRODUCT.md at delivery.
       - name: Coverage report (Kover, measured only)
@@ -67,6 +73,7 @@ jobs:
           path: |
             shared/*/build/reports/tests/
             konture-test/build/reports/tests/
+            legacy-catalog/build/reports/tests/
             build/reports/kover/
           if-no-files-found: ignore
 

@@ -11,7 +11,7 @@ how compliance is checked. New decisions made during implementation are appended
 | [ADR-004](ADR-004-partner-agnostic-domain.md) | Partner-agnostic domain; the partner contract lives only in `:shared:data` | Accepted |
 | [ADR-005](ADR-005-live-video-native-players.md) | Live video via `expect/actual` native players (fMP4), WebView on `monitor_url` as fallback | Accepted |
 | [ADR-006](ADR-006-local-persistence-and-request-budget.md) | Minimal local persistence and a request-budget discipline (cache, no polling) | Accepted |
-| [ADR-007](ADR-007-java-interop-module.md) | Honest Java interop: one small Java module consumed from Kotlin | Proposed |
+| [ADR-007](ADR-007-java-interop-module.md) | Honest Java interop: one small Java module consumed from Kotlin | Accepted |
 | [ADR-008](ADR-008-token-security.md) | Token security: native secure storage, redacted logs, nothing versioned | Accepted |
 | [ADR-009](ADR-009-architecture-tests.md) | Architecture tests with Konture in `:konture-test`, first job of CI; Konsist as plan B | Accepted |
 | [ADR-010](ADR-010-session-store-contract-handover.md) | `SessionStore` lands narrow in S-01a and widens to ADR-008's `SecureTokenStore` in S-01b | Accepted |
@@ -27,6 +27,7 @@ how compliance is checked. New decisions made during implementation are appended
 | [ADR-020](ADR-020-the-session-carries-its-own-lifetime.md) | The session carries its own lifetime, and the vault entry carries it too (extends ADR-008) | Accepted |
 | [ADR-021](ADR-021-a-command-is-a-state-about-a-lock.md) | A lock command is a state *about* a lock, and its failure notice has a lifetime (refines ADR-003) | Accepted |
 | [ADR-022](ADR-022-the-history-is-a-tab-with-its-own-viewmodel.md) | The opening history is a tab of the lock screen with a ViewModel of its own (refines ADR-003/006) | Accepted |
+| [ADR-023](ADR-023-the-kotlin-bridge-lives-in-the-legacy-module.md) | The Kotlin bridge lives inside `:legacy-catalog`, which is Java *and* Kotlin (amends ADR-007) | Accepted |
 
 Each of ADR-001..008 ends with a **Guardrail** section naming the architecture-test rule (numbered 1–11
 in ADR-009) that makes the decision executable; ADR-006 is covered by the Kover gate instead.

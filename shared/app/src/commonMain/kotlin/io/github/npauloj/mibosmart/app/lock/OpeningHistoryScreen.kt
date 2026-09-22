@@ -149,8 +149,9 @@ private fun ErrorSection(state: OpeningHistoryUiState.Failed, onRetry: () -> Uni
  * How the door was opened, in the user's words (SPEC L9, U4).
  *
  * Every branch produces something: a remote opening with no name still reads "Abertura remota", and
- * a `tipo` the app has never seen is shown as the partner wrote it. A row is never blank and is
- * never dropped — an opening nobody can explain is exactly the one worth seeing.
+ * a `tipo` the app has never seen is shown as the partner's catalogue calls it, or as the partner
+ * wrote it. A row is never blank and is never dropped — an opening nobody can explain is exactly
+ * the one worth seeing.
  */
 @Composable
 private fun OpeningRow.label(): String = when (kind) {
@@ -159,9 +160,11 @@ private fun OpeningRow.label(): String = when (kind) {
         ?: stringResource(Res.string.lock_history_remote)
 
     OpeningKind.Local -> stringResource(Res.string.lock_history_local)
-    // The partner's own word, unless it sent an empty one — in which case the only honest thing left
-    // to say is that the door was opened.
-    is OpeningKind.Unknown -> kind.type.ifBlank { stringResource(Res.string.lock_history_unknown) }
+    // The catalogue's words when the partner's legacy SDK has them (ADR-007) — on iOS, and for a
+    // `tipo` nobody catalogued, this is the raw word. An empty one leaves only the one honest thing
+    // left to say: that the door was opened.
+    is OpeningKind.Unknown ->
+        (catalogLabel ?: kind.type).ifBlank { stringResource(Res.string.lock_history_unknown) }
 }
 
 /**

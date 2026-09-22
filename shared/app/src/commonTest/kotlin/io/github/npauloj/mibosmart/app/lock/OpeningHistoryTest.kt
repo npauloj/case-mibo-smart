@@ -70,6 +70,36 @@ class OpeningHistoryTest {
         assertEquals(OpeningKind.Unknown("biometria"), rows.first().kind)
     }
 
+    /**
+     * ADR-007: the partner's catalogue names an opening this app has no word of its own for.
+     *
+     * The raw `tipo` stays on the row beside the label — it is what the partner said, and the two
+     * are not the same claim — so nothing is lost by a catalogue that turns out to be wrong. A code
+     * the catalogue has never heard of keeps reading exactly as [unknownTypeShownRaw] asserts, which
+     * is also what the whole of iOS does.
+     */
+    @Test
+    fun catalogNamesAnUnknownType() = runTest {
+        val viewModel = openingHistoryViewModel(
+            FakeLockRepository(
+                history = listOf(
+                    LockSamples.opening(minutesAgo = 1, kind = OpeningKind.Unknown("biometria")),
+                    LockSamples.opening(minutesAgo = 2, kind = OpeningKind.Unknown("teclado")),
+                    LockSamples.opening(minutesAgo = 3, kind = OpeningKind.Local),
+                ),
+            ),
+            catalog = FakeModelCatalog("biometria" to "Abertura por biometria"),
+        )
+
+        viewModel.onOpen(LockSamples.Address)
+
+        val rows = viewModel.entries()
+        assertEquals("Abertura por biometria", rows[0].catalogLabel)
+        assertEquals(OpeningKind.Unknown("biometria"), rows[0].kind, "the partner's word is not overwritten")
+        assertEquals("teclado", rows[1].catalogLabel, "a code nobody catalogued stays the code")
+        assertEquals(null, rows[2].catalogLabel, "an opening the app names itself is not the catalogue's business")
+    }
+
     /** SPEC L10: the partner answered and the door has not been opened — an answer, not an error. */
     @Test
     fun emptyState() = runTest {

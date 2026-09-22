@@ -2,6 +2,8 @@ package io.github.npauloj.mibosmart.app.lock
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.npauloj.mibosmart.domain.device.ModelCatalog
+import io.github.npauloj.mibosmart.domain.device.RawCodes
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.OpeningEvent
 import io.github.npauloj.mibosmart.domain.lock.OpeningKind
@@ -60,12 +62,17 @@ sealed interface OpeningHistoryUiState {
  *   was (SPEC U4). It is local wall-clock time, as the partner sent it.
  * @property actor who opened the door, when the entry names anyone. Personal data: it lives in this
  *   state for as long as the screen is on and is never written to a log (SPEC L9, LGPD).
+ * @property catalogLabel what the partner's catalogue calls an opening the app has no word of its
+ *   own for, or the raw `tipo` when it has no entry either (ADR-007). It is null on the kinds the
+ *   app *does* name — those read from Compose resources, like every other sentence in the UI — and
+ *   the raw word on iOS, where the catalogue's Java library does not exist.
  */
 data class OpeningRow(
     val kind: OpeningKind,
     val actor: String?,
     val age: LastSeen,
     val absoluteTime: String,
+    val catalogLabel: String? = null,
 )
 
 /**
@@ -77,12 +84,16 @@ data class OpeningRow(
  *
  * @param clock where "há 5 min" is measured from, so the rule is asserted with a fixed instant
  *   instead of the machine running the tests (SPEC U4).
+ * @param catalog the partner's words for an opening type this app does not model (ADR-007). It
+ *   defaults to [RawCodes] — the codes as they came — because that is what iOS runs and what a
+ *   preview shows; Android's Koin graph hands over the Java-backed one.
  * @param timeZone which zone turns the partner's zone-less `tempoLocal` into an age. It is the
  *   device's, which is what "local" means here — and a parameter for the same reason as [clock].
  */
 class OpeningHistoryViewModel(
     private val openingHistory: OpeningHistory,
     private val clock: Clock,
+    private val catalog: ModelCatalog = RawCodes,
     private val timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ) : ViewModel() {
 
@@ -139,6 +150,9 @@ class OpeningHistoryViewModel(
         actor = actor,
         age = LockUiMapper.elapsedSince(at.toInstant(timeZone), now),
         absoluteTime = at.asAbsoluteText(),
+        // Only the openings the app cannot name itself: "Abertura remota" is this app's sentence and
+        // stays a Compose resource, catalogue or no catalogue (ADR-007).
+        catalogLabel = (kind as? OpeningKind.Unknown)?.let { catalog.label(it.type) },
     )
 }
 

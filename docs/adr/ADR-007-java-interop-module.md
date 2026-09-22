@@ -1,6 +1,7 @@
 # ADR-007. Honest Java interop: one small Java module consumed from Kotlin
 
-Status: Proposed (2026-09-20) — scheduled for wave 3; first item to cut if time runs out
+Status: Accepted (2026-09-22) — implemented by slice P-01; the module's shape is amended by
+[ADR-023](ADR-023-the-kotlin-bridge-lives-in-the-legacy-module.md)
 
 ## Context
 

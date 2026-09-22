@@ -19,6 +19,7 @@ internal val lockAppModule: Module = module {
     factoryOf(::OpeningHistory)
     viewModelOf(::LockViewModel)
     // Not `viewModelOf`: the constructor's last parameter is the device's time zone, a default
-    // rather than a binding, which Koin would otherwise try to resolve.
-    viewModel { OpeningHistoryViewModel(openingHistory = get(), clock = get()) }
+    // rather than a binding, which Koin would otherwise try to resolve. The catalogue *is* a
+    // binding — the platform decides which one (ADR-007) — so it is asked for by hand.
+    viewModel { OpeningHistoryViewModel(openingHistory = get(), clock = get(), catalog = get()) }
 }

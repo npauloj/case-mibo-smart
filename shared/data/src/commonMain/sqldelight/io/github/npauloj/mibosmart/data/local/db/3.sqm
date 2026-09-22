@@ -1,0 +1,12 @@
+-- Version 3 -> 4: a cached sub-device carries its hub's `idProduto` (D-04, api-contract §3).
+--
+-- With this column a lock is addressable from its own cached row, so a cold start opens the lock
+-- screen whether or not the hub happens to be on the stored page. The kill switch of
+-- SchemaVersion.kt moves with it in the same commit: this migration only guarantees that an existing
+-- `mibosmart.db` still *opens*, and the NULL it backfills is exactly what must never reach a
+-- `LockAddress`. Dropping those rows is DEVICE_CACHE_SCHEMA_VERSION's job, and it costs one request.
+--
+-- Nullable rather than `NOT NULL DEFAULT ''`, because ALTER TABLE would otherwise have to invent a
+-- value for every existing row, and a blank hub product id reads as "the partner sent one and it was
+-- empty" instead of "this device has no parent".
+ALTER TABLE cachedDevice ADD COLUMN parentProductId TEXT;

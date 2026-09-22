@@ -246,10 +246,11 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * SPEC L1 and `docs/api-contract.md` §5: all four parts, each read off a row the app holds.
+     * SPEC L1 and `docs/api-contract.md` §5: all four parts, each read off the lock's own row.
      *
-     * The hub's product id is the part nothing else in the app can supply — it is on the *hub's* row,
-     * not the lock's — which is why it is asserted beside the other three and not assumed.
+     * The hub's product id is the part nothing else in the app can supply, and the partner sends it
+     * on the sub-device (`idProdutoDispositivoPai`, §3) — which is why it is asserted beside the
+     * other three and not assumed.
      */
     @Test
     fun openLockCarriesTheCompositeAddress() = runTest(dispatcher) {
@@ -269,24 +270,33 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * SPEC D2 and D6: the hub is on a page nobody has loaded, so there is no `ns` to build — the row
-     * is shown, says so, and takes no tap. Fetching pages until a hub turns up is the spending
-     * ADR-006 forbids, and guessing one addresses another device.
+     * SPEC D2, D6 and L1: the list is paged, so a lock is routinely on screen while its hub is not —
+     * and that must not cost the user the lock, because the partner already put the hub's `ns` and
+     * `idProduto` on the lock's own row (`docs/api-contract.md` §3).
+     *
+     * The page here has no hub row at all, which is the strongest form of the case: searching the
+     * loaded rows for one would find nothing, so a tap that still opens the lock proves the address
+     * came from the lock itself.
      */
     @Test
-    fun aLockWithoutItsHubIsNotActionable() = runTest(dispatcher) {
+    fun aLockIsAddressableWithoutItsHubOnScreen() = runTest(dispatcher) {
         val viewModel = viewModel(FakeDeviceRepository { lockAndHub(withHub = false) })
         advanceUntilIdle()
 
         val row = viewModel.lockRow()
-        assertEquals(LockAddressing.Unavailable.HubNotLoaded, row.unavailable)
-        assertFalse(row.isActionable, "a row that cannot open must not offer the tap")
+        assertNull(row.unavailable, "every part of the address is on the lock's own row")
+        assertTrue(row.isActionable)
 
         viewModel.events.test {
             viewModel.onLockTap(row)
             advanceUntilIdle()
 
-            expectNoEvents()
+            // The hub's product id is the one part D-03 could only reach through the hub's row, so
+            // it is what says the address really came from the lock's own. The other three are
+            // `openLockCarriesTheCompositeAddress`'s.
+            val address = assertIs<DeviceListEvent.OpenLock>(awaitItem()).address
+            assertEquals(HUB_PRODUCT_ID, address.hubProductId)
+            assertEquals(HUB_NAMESPACE, address.hub.value)
         }
     }
 
@@ -294,9 +304,9 @@ class DeviceListViewModelTest {
      * The guard the composite address depends on: a blank `idProduto` is a part of the namespace the
      * partner never sent, and an `ns` short of one part is another device's.
      *
-     * Both sides are asserted because they fail differently on the wire — the lock's own id is sent
-     * beside the namespace, the hub's is *inside* it — and only one of the two is on the row the user
-     * tapped (`docs/api-contract.md` §5).
+     * Both sides are asserted because they are two different fields of the row — the lock's own
+     * `idProduto`, sent beside the namespace, and its `idProdutoDispositivoPai`, joined *inside* it
+     * (`docs/api-contract.md` §3, §5).
      */
     @Test
     fun aLockWithABlankProductIdIsNotActionable() = runTest(dispatcher) {
@@ -319,6 +329,30 @@ class DeviceListViewModelTest {
 
                 expectNoEvents()
             }
+        }
+    }
+
+    /**
+     * A lock row that arrived without `idProdutoDispositivoPai` at all — absent, not blank.
+     *
+     * It takes the same path as a blank one on purpose: the user can do nothing about either, and
+     * the only alternative to refusing is joining three parts and a hole into a namespace that
+     * belongs to some other device (`docs/api-contract.md` §5).
+     */
+    @Test
+    fun aLockWithoutAParentProductIdIsNotActionable() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeDeviceRepository { lockAndHub(hubProductId = null) })
+        advanceUntilIdle()
+
+        val row = viewModel.lockRow()
+        assertEquals(LockAddressing.Unavailable.ProductIdMissing, row.unavailable)
+        assertFalse(row.isActionable, "a row that cannot open must not offer the tap")
+
+        viewModel.events.test {
+            viewModel.onLockTap(row)
+            advanceUntilIdle()
+
+            expectNoEvents()
         }
     }
 

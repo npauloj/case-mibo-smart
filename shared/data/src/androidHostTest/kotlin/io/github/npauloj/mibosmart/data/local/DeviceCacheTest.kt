@@ -70,22 +70,41 @@ class DeviceCacheTest {
     }
 
     /**
-     * The `2.sqm` half of the migration rule: a row written before `productId` was a column would
-     * read back with the `''` the migration backfills, and a blank product id must never reach a
+     * SPEC L1 and `docs/api-contract.md` §3: the hub's product id survives the file too, on the
+     * sub-device's own row — which is what lets a cold start open a lock whose hub is not even on the
+     * cached page (ADR-006, SPEC D2).
+     */
+    @Test
+    fun parentProductIdSurvivesTheRoundTrip() = runTest {
+        val cache = SqlDeviceCache(inMemoryDriver())
+
+        cache.write(PAGE, FETCHED_AT)
+        val cached = assertNotNull(cache.read()).devices.associateBy { it.name }
+
+        assertEquals(HUB_PRODUCT_ID, assertNotNull(cached["MFR 1001"]).parentProductId)
+        // Null, not "": nothing here is a sub-device, and a blank would read as a parent whose id
+        // the partner sent empty — the difference the lock edge refuses on.
+        assertNull(assertNotNull(cached["MCA 1002"]).parentProductId)
+        assertNull(assertNotNull(cached["iM7-FC"]).parentProductId)
+    }
+
+    /**
+     * The migration half of the rule: a row written before the newest column existed would read back
+     * with whatever the migration backfills — `''` for `productId` (`2.sqm`), NULL for
+     * `parentProductId` (`3.sqm`) — and a missing part of a lock address must never reach a
      * `LockAddress`. So it is dropped and refetched instead.
      *
      * It is written at the version *before* the shipped one on purpose: that is what pins
-     * [DEVICE_CACHE_SCHEMA_VERSION] to the column, and the test fails if the next schema change
-     * forgets to bump it.
+     * [DEVICE_CACHE_SCHEMA_VERSION] to the current shape.
      */
     @Test
-    fun rowsWrittenBeforeTheProductIdColumnAreDiscarded() = runTest {
+    fun rowsWrittenBeforeTheCurrentShapeAreDiscarded() = runTest {
         val driver = inMemoryDriver()
         SqlDeviceCache(driver, schemaVersion = DEVICE_CACHE_SCHEMA_VERSION - 1).write(PAGE, FETCHED_AT)
 
         val shipped = SqlDeviceCache(driver)
 
-        assertNull(shipped.read(), "a pre-migration row would have surfaced with a blank product id")
+        assertNull(shipped.read(), "a pre-migration row would have surfaced short of an address part")
     }
 
     /** A cache nobody ever wrote to is a miss, not an empty list — the caller must still fetch. */
@@ -146,6 +165,7 @@ class DeviceCacheTest {
                 parent = HUB,
                 origin = DeviceOrigin.Shared,
                 productId = LOCK_PRODUCT_ID,
+                parentProductId = HUB_PRODUCT_ID,
             ),
             device("PLACEHOLDER-CAM-NS-2", "iM3-C", "iM3-C", isOnline = false, lastSeen = LAST_SEEN),
         )
@@ -159,6 +179,7 @@ class DeviceCacheTest {
             parent: String? = null,
             origin: DeviceOrigin = DeviceOrigin.Linked,
             productId: String = "",
+            parentProductId: String? = null,
         ) = Device(
             id = DeviceId(id),
             name = name,
@@ -169,6 +190,7 @@ class DeviceCacheTest {
             kind = DeviceClassifier.classify(model = model, isSubDevice = parent != null),
             parent = parent?.let(::DeviceId),
             productId = productId,
+            parentProductId = parentProductId,
         )
     }
 }

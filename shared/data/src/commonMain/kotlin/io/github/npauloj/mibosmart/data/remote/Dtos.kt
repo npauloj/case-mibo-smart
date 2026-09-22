@@ -61,6 +61,11 @@ internal data class ListDevicesRequestDto(
  *
  * Only the fields this case reads. `idProduto` is here although the list does not show it, because it
  * is `""` on some cameras and the lock slice needs to know that before it addresses one.
+ *
+ * [parentSerial] and [parentProductId] are the two the partner sends **only** when `subdispositivo`
+ * is true, which is why they are nullable: a hub and a camera have no parent to name. Together with
+ * this row's own `ns` and `idProduto` they are all four parts of a lock address (§5), so a lock is
+ * addressable from its own row alone — no other row, and no second call, has to be found first.
  */
 @Serializable
 internal data class DeviceDto(
@@ -73,6 +78,7 @@ internal data class DeviceDto(
     @SerialName("idProduto") val productId: String = "",
     @SerialName("ultimaVezOnline") val lastSeen: String? = null,
     @SerialName("dispositivoPai") val parentSerial: String? = null,
+    @SerialName("idProdutoDispositivoPai") val parentProductId: String? = null,
 )
 
 /**

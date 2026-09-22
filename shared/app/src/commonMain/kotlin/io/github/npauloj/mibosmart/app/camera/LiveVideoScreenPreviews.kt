@@ -27,7 +27,6 @@ internal class StreamStateProvider : PreviewParameterProvider<StreamState> {
         Creating,
         Live,
         Reconnecting,
-        Expired,
         QuotaExceeded,
         Offline,
         NoLiveCapability,
@@ -51,7 +50,6 @@ internal class StreamStateProvider : PreviewParameterProvider<StreamState> {
         val Creating = StreamState.Creating(StreamStep.CreatingSession)
         val Live = StreamState.Live(SESSION, firstFrame = true)
         val Reconnecting = StreamState.Reconnecting(attempt = 2, total = PlaybackRetryPolicy.MAX_ATTEMPTS)
-        val Expired = StreamState.Expired
         val QuotaExceeded = StreamState.QuotaExceeded
         val Offline = StreamState.CameraOffline
         val NoLiveCapability = StreamState.NoLiveCapability
@@ -84,11 +82,6 @@ private fun LiveVideoScreenLivePreview() = LiveVideoScreenPreview(StreamStatePro
 @Composable
 private fun LiveVideoScreenReconnectingPreview() =
     LiveVideoScreenPreview(StreamStateProvider.Reconnecting)
-
-@Preview(name = "LiveVideoScreen_Expired")
-@Preview(name = "LiveVideoScreen_Expired_Dark", uiMode = UI_MODE_NIGHT_YES)
-@Composable
-private fun LiveVideoScreenExpiredPreview() = LiveVideoScreenPreview(StreamStateProvider.Expired)
 
 @Preview(name = "LiveVideoScreen_QuotaExceeded")
 @Preview(name = "LiveVideoScreen_QuotaExceeded_Dark", uiMode = UI_MODE_NIGHT_YES)

@@ -108,7 +108,6 @@
     <string name="live_no_capability">This camera does not announce live video</string>
     <string name="live_quota_exceeded">Streaming quota exhausted</string>
     <string name="live_camera_offline">Camera offline</string>
-    <string name="live_expired">The stream has ended</string>
     <string name="live_retry">Try again</string>
     <string name="live_open_web_player">Open in the web player</string>
     <string name="live_close_web_player">Back to the video</string>

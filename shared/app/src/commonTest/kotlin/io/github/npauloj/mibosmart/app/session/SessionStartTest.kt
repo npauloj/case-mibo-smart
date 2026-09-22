@@ -41,20 +41,27 @@ class SessionStartTest {
     /**
      * A stored session goes straight to the device list, and costs the account nothing.
      *
-     * The call counter is the real assertion here: the account has a request budget (ADR-006) and
-     * SPEC S5 is explicit that startup makes **no** validation call. A token that has expired
-     * meanwhile is caught by the first real request, not by a probe (SPEC E5, S6).
+     * **The "costs nothing" half is structural, not asserted here, and that is deliberate.**
+     * [SessionStartup] is constructed from a [io.github.npauloj.mibosmart.domain.session.SessionStore]
+     * and nothing else — there is no repository, no client, no seam through which startup could reach
+     * the partner. A counter would have nothing to count.
+     *
+     * This used to be a `FakeSessionRepository` and an `assertEquals(0, repository.calls)`. The fake
+     * was never passed to the ViewModel, so the assertion was true by construction and could not
+     * fail: it read as proof and verified nothing. Removed on 2026-09-22 rather than left as false
+     * comfort.
+     *
+     * **If [SessionStartup] ever gains a repository, this test must gain a real counter** — that is
+     * the moment SPEC S5 (startup makes no validation call) and ADR-006 stop being free.
      */
     @Test
     fun storedTokenSkipsEntry() = runTest(dispatcher) {
-        val repository = FakeSessionRepository()
         val store = InMemorySessionStore().apply { write(Token(TOKEN), TokenSamples.Now) }
         val viewModel = appViewModel(store, FixedClock(TokenSamples.Now))
 
         runCurrent()
 
         assertEquals(AppDestination.DeviceList, viewModel.state.value.destination)
-        assertEquals(0, repository.calls, "startup must not spend a request validating a stored token")
     }
 
     @Test

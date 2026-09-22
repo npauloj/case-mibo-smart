@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +48,11 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun App(viewModel: AppViewModel = koinViewModel()) {
     AppTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
+        // `safeDrawingPadding` once, here, rather than per screen: `MainActivity` calls
+        // `enableEdgeToEdge()`, so without it the content draws under the system bars and in
+        // landscape the controls sit beneath the navigation bar — on every screen. Applying it at
+        // the root is also what stops the next screen from being born with the same defect.
+        Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             val state by viewModel.state.collectAsStateWithLifecycle()
             when (state.destination) {
                 null -> Unit

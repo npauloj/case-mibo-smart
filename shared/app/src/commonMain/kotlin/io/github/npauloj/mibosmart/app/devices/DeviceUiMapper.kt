@@ -20,8 +20,16 @@ data class DeviceRow(
     val parentName: String?,
     /** Only for an offline device: when the partner last saw it (SPEC U3). */
     val lastSeen: LastSeen?,
-    /** Cameras and locks open a screen; hubs and the rest do not (SPEC D6). */
+    /** Cameras and addressable locks open a screen; hubs and the rest do not (SPEC D6). */
     val isActionable: Boolean,
+    /**
+     * Why this row opens nothing although its kind normally would, or null when it does (SPEC D6).
+     *
+     * Only a lock can carry one, and only because the address is assembled from loaded rows rather
+     * than fetched: the row stays on screen and explains itself instead of taking a tap it cannot
+     * honour (SPEC U6).
+     */
+    val unavailable: LockAddressing.Unavailable?,
 )
 
 /**
@@ -69,6 +77,13 @@ internal fun Instant.ageAt(now: Instant): Elapsed = (now - this).coerceAtLeast(D
 fun List<Device>.toRows(now: Instant): List<DeviceRow> {
     val namesById = associate { it.id to it.name }
     return map { device ->
+        // The same rule the tap will use (SPEC D6): a lock the list cannot address is drawn as one
+        // that says why, never as one that opens a screen with nothing to talk to.
+        val unavailable = if (device.kind == DeviceKind.Lock) {
+            addressing(device) as? LockAddressing.Unavailable
+        } else {
+            null
+        }
         DeviceRow(
             id = device.id.value,
             name = device.name,
@@ -80,7 +95,8 @@ fun List<Device>.toRows(now: Instant): List<DeviceRow> {
             // this load never saw would be worse than the row saying nothing about its parent.
             parentName = device.parent?.let(namesById::get),
             lastSeen = if (device.isOnline) null else device.lastSeen.toLastSeen(now),
-            isActionable = device.isActionable,
+            isActionable = device.isActionable && unavailable == null,
+            unavailable = unavailable,
         )
     }
 }

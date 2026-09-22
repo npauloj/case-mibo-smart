@@ -66,6 +66,7 @@ internal object LockSamples {
         origin = DeviceOrigin.Linked,
         kind = DeviceKind.Lock,
         parent = DeviceId(HUB_NAMESPACE),
+        productId = LOCK_PRODUCT_ID,
     )
 
     fun destination(

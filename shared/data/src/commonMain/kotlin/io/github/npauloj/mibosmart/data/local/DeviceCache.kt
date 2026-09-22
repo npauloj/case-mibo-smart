@@ -74,6 +74,10 @@ internal class SqlDeviceCache(
                     // thing `parent` records (Device.parent, api-contract §5).
                     isSubDevice = (device.parent != null).toLong(),
                     fetchedAt = fetchedAt.toEpochMilliseconds(),
+                    // Stored, unlike `kind`, because it is not derivable from anything else on the
+                    // row: it is the partner's own `idProduto`, and the lock edge needs it back
+                    // without a second call (SPEC L1, ADR-006).
+                    productId = device.productId,
                 )
             }
         }
@@ -124,4 +128,5 @@ private fun CachedDevice.toDevice(): Device = Device(
     origin = if (origin == "linked") DeviceOrigin.Linked else DeviceOrigin.Shared,
     kind = DeviceClassifier.classify(model = model, isSubDevice = isSubDevice != 0L),
     parent = parentId?.let(::DeviceId),
+    productId = productId,
 )

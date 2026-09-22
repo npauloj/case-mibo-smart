@@ -105,6 +105,8 @@
     <string name="device_kind_lock">Fechadura</string>
     <string name="device_kind_hub">Central</string>
     <string name="device_kind_other">Dispositivo</string>
+    <string name="device_lock_hub_not_loaded">Central desta fechadura ainda não carregada — role a lista para carregá-la</string>
+    <string name="device_lock_product_id_missing">Fechadura sem identificador de produto — não é possível controlá-la</string>
     <string name="device_last_seen_never">Nunca visto online</string>
     <string name="device_last_seen_minutes">Visto pela última vez há %1$s min</string>
     <string name="device_last_seen_hours">Visto pela última vez há %1$s h</string>

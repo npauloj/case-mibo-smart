@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.OriginFilter
+import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,6 +72,17 @@ sealed interface DeviceListEvent {
 
     /** SPEC U2: a camera row opens the live screen directly — no intermediate screen or dialog. */
     data class OpenLiveVideo(val camera: Device) : DeviceListEvent
+
+    /**
+     * SPEC U2 and D6: a lock row opens the lock screen the same way, with the lock already addressed.
+     *
+     * The [address] travels with the event because it is assembled from rows *this* list holds
+     * (`docs/api-contract.md` §5): the lock screen has no list to look its hub up in, and asking the
+     * partner for one would spend a request on a fact already on screen (ADR-006). The two are kept
+     * apart rather than packed into the lock feature's own destination type — `app.devices` must not
+     * import `app.lock` (rule 3), and the navigator that knows both is what joins them.
+     */
+    data class OpenLock(val lock: Device, val address: LockAddress) : DeviceListEvent
 }
 
 /**
@@ -101,7 +113,7 @@ class DeviceListViewModel(
 
     private val mutableEvents = MutableSharedFlow<DeviceListEvent>(extraBufferCapacity = 1)
 
-    /** Emitted once per tap on a camera row; the screen navigates, the state does not change. */
+    /** Emitted once per tap on a camera or lock row; the screen navigates, the state does not change. */
     val events: SharedFlow<DeviceListEvent> = mutableEvents.asSharedFlow()
 
     /** The one list job of SPEC D11 — see [start]. */
@@ -197,6 +209,23 @@ class DeviceListViewModel(
     fun onCameraTap(row: DeviceRow) {
         val camera = loaded.firstOrNull { it.id.value == row.id && it.kind == DeviceKind.Camera } ?: return
         viewModelScope.launch { mutableEvents.emit(DeviceListEvent.OpenLiveVideo(camera)) }
+    }
+
+    /**
+     * A tap on a lock row (SPEC U2, D6, L1).
+     *
+     * The address is assembled here, from [loaded] and nothing else, so opening a lock costs zero
+     * partner requests (ADR-006). When the rows on screen cannot produce all four parts — the hub is
+     * on a page nobody has loaded, or an `idProduto` came back blank — **no event is emitted**: the
+     * row already says so and stays untappable, because an address guessed from three of four parts
+     * would command a different device (`docs/api-contract.md` §5).
+     */
+    fun onLockTap(row: DeviceRow) {
+        val lock = loaded.firstOrNull { it.id.value == row.id && it.kind == DeviceKind.Lock } ?: return
+        val addressable = loaded.addressing(lock) as? LockAddressing.Addressable ?: return
+        viewModelScope.launch {
+            mutableEvents.emit(DeviceListEvent.OpenLock(lock = lock, address = addressable.address))
+        }
     }
 
     /**

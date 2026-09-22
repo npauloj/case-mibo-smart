@@ -105,6 +105,26 @@ class ListDevicesTest {
         assertEquals("2026-09-18T13:27:04Z", assertNotNull(offlineCamera.lastSeen).toString())
     }
 
+    /**
+     * SPEC L1: `idProduto` reaches the domain, because the lock edge needs the hub's **and** the
+     * lock's to address a door (`docs/api-contract.md` §5) and the list is the only response that
+     * carries either. Blank stays blank: that is what the lock edge refuses on (D-03).
+     */
+    @Test
+    fun carriesTheProductId() = runTest {
+        val repository = repositoryAnswering(mutableListOf()) { respondWithDevices(PAGE) }
+
+        val devices = repository.firstPage().associateBy { it.name }
+
+        assertEquals("PLACEHOLDER-LOCK-ID", assertNotNull(devices["MFR 1001"]).productId)
+        assertEquals("PLACEHOLDER-HUB-ID", assertNotNull(devices["MCA 1002"]).productId)
+        assertEquals(
+            "",
+            assertNotNull(devices["iM3-C"]).productId,
+            "`idProduto` is \"\" on some cameras and must survive as blank, not become a guess",
+        )
+    }
+
     /** SPEC U3: a device the partner never saw online has no timestamp, and that must not throw. */
     @Test
     fun aDeviceWithoutLastSeenKeepsANullInstant() = runTest {

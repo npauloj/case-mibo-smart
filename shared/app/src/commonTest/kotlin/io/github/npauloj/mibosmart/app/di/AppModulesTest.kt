@@ -7,6 +7,7 @@ import io.github.npauloj.mibosmart.app.lock.ToggleLock
 import io.github.npauloj.mibosmart.app.session.AuthenticateToken
 import io.github.npauloj.mibosmart.app.session.Logout
 import io.github.npauloj.mibosmart.app.session.SessionStartup
+import io.github.npauloj.mibosmart.domain.device.ModelCatalog
 import io.github.npauloj.mibosmart.domain.session.RefusedRequests
 import io.github.npauloj.mibosmart.domain.session.SessionGuard
 import kotlin.test.Test
@@ -78,6 +79,23 @@ class AppModulesTest {
         val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
 
         assertNotNull(koin.get<WatchLiveVideo>())
+
+        koin.close()
+    }
+
+    /**
+     * The code catalogue (ADR-007), whose binding is the platform's rather than a feature's.
+     *
+     * The history tab asks Koin for it by hand, so a missing binding would be a crash on the tab and
+     * nowhere earlier. Which implementation answers depends on the platform — the Java-backed one on
+     * Android, [io.github.npauloj.mibosmart.domain.device.RawCodes] on iOS — and this asserts only
+     * that one of them is there, which is the part that can break by wiring.
+     */
+    @Test
+    fun theCodeCatalogueResolvesFromTheRealGraph() {
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+
+        assertNotNull(koin.get<ModelCatalog>())
 
         koin.close()
     }

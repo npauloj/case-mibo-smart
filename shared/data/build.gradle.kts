@@ -48,6 +48,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.sqldelight.android.driver)
+            // The partner's legacy Java SDK (ADR-007): a JVM library, so only the Android source set
+            // can see it — and only this module may depend on it (`:konture-test` enforces that).
+            implementation(projects.legacyCatalog)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

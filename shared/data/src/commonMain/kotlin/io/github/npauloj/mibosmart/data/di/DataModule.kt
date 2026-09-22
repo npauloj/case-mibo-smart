@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.data.di
 
 import io.github.npauloj.mibosmart.data.camera.cameraDataModule
+import io.github.npauloj.mibosmart.data.catalog.catalogDataModule
 import io.github.npauloj.mibosmart.data.device.deviceDataModule
 import io.github.npauloj.mibosmart.data.lock.lockDataModule
 import io.github.npauloj.mibosmart.data.platform.log.platformLogger
@@ -54,6 +55,7 @@ fun dataModule(apiHost: String): Module = module {
  */
 private val featureModules: List<Module> = listOf(
     cameraDataModule,
+    catalogDataModule,
     deviceDataModule,
     lockDataModule,
     sessionDataModule,

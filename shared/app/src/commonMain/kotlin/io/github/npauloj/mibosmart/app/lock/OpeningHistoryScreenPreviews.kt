@@ -31,9 +31,10 @@ internal class OpeningHistoryUiStateProvider : PreviewParameterProvider<OpeningH
          * SPEC L9 and U4 in one frame: newest first, both times on every row, and every kind of
          * opening the contract can produce.
          *
-         * The last three rows are the ones worth looking at — a remote opening that names nobody, a
-         * `tipo` this app has never seen, and one the partner sent empty. None of them is blank and
-         * none of them is missing, which is the acceptance criterion made visible.
+         * The last four rows are the ones worth looking at — a remote opening that names nobody, a
+         * `tipo` this app has never seen that the partner's catalogue does name (ADR-007), one
+         * nobody catalogued, and one the partner sent empty. None of them is blank and none of them
+         * is missing, which is the acceptance criterion made visible.
          */
         val List = OpeningHistoryUiState.Entries(
             rows = listOf(
@@ -41,7 +42,14 @@ internal class OpeningHistoryUiStateProvider : PreviewParameterProvider<OpeningH
                 OpeningRow(OpeningKind.Remote, "Ana", LastSeen.Minutes(5), "21/09/2026 11:55"),
                 OpeningRow(OpeningKind.Local, null, LastSeen.Hours(3), "21/09/2026 09:00"),
                 OpeningRow(OpeningKind.Remote, null, LastSeen.Days(2), "19/09/2026 18:42"),
-                OpeningRow(OpeningKind.Unknown("biometria"), null, LastSeen.Days(4), "17/09/2026 07:15"),
+                OpeningRow(
+                    OpeningKind.Unknown("biometria"),
+                    null,
+                    LastSeen.Days(4),
+                    "17/09/2026 07:15",
+                    catalogLabel = "Abertura por biometria",
+                ),
+                OpeningRow(OpeningKind.Unknown("teclado"), null, LastSeen.Days(6), "15/09/2026 08:30"),
                 OpeningRow(OpeningKind.Unknown(""), null, LastSeen.Days(9), "12/09/2026 22:05"),
             ),
         )

@@ -4,7 +4,9 @@ import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -70,13 +72,14 @@ class DeviceUiMapperTest {
         assertNull(listOf(online).toRows(NOW).single().lastSeen)
     }
 
-    /** SPEC D6: cameras and locks open a screen; hubs and the rest are informational. */
+    /** SPEC D6: cameras and addressable locks open a screen; hubs and the rest are informational. */
     @Test
     fun onlyCamerasAndLocksAreActionable() {
         val devices = listOf(
             device("camera", kind = DeviceKind.Camera),
-            device("lock", kind = DeviceKind.Lock),
-            device("hub", kind = DeviceKind.Hub),
+            // The lock comes with its hub: without one it has no address, which is the next test.
+            device("lock", kind = DeviceKind.Lock, parent = DeviceId(HUB_ID)),
+            device("hub", id = HUB_ID, kind = DeviceKind.Hub),
             device("sensor", kind = DeviceKind.Other("MSM 1001")),
         )
 
@@ -84,6 +87,28 @@ class DeviceUiMapperTest {
             listOf(true, true, false, false),
             devices.toRows(NOW).map { it.isActionable },
         )
+        assertTrue(devices.toRows(NOW).all { it.unavailable == null })
+    }
+
+    /**
+     * SPEC D6 and D2: a lock the loaded rows cannot address is still listed — it just says why and
+     * takes no tap, instead of opening a screen with nothing to talk to (SPEC U6).
+     */
+    @Test
+    fun aLockThatCannotBeAddressedSaysSoInsteadOfOpening() {
+        val orphan = device("MFR 2040", kind = DeviceKind.Lock, parent = DeviceId("PLACEHOLDER-ABSENT-HUB"))
+        val withoutProductId = listOf(
+            device("MFR 1001", kind = DeviceKind.Lock, parent = DeviceId(HUB_ID), productId = ""),
+            device("MCA 1002", id = HUB_ID, kind = DeviceKind.Hub),
+        )
+
+        val orphanRow = listOf(orphan).toRows(NOW).single()
+        val blankRow = withoutProductId.toRows(NOW).first { it.name == "MFR 1001" }
+
+        assertEquals(LockAddressing.Unavailable.HubNotLoaded, orphanRow.unavailable)
+        assertEquals(LockAddressing.Unavailable.ProductIdMissing, blankRow.unavailable)
+        assertFalse(orphanRow.isActionable)
+        assertFalse(blankRow.isActionable)
     }
 
     private companion object {

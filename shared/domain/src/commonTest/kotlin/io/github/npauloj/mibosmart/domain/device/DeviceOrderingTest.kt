@@ -62,5 +62,6 @@ class DeviceOrderingTest {
         origin = DeviceOrigin.Linked,
         kind = kind,
         parent = null,
+        productId = "irrelevant-to-ordering",
     )
 }

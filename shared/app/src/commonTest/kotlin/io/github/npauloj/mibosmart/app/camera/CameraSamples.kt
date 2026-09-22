@@ -27,6 +27,8 @@ internal object CameraSamples {
         origin = DeviceOrigin.Linked,
         kind = DeviceKind.Camera,
         parent = null,
+        // Blank, as the partner sends it for this camera family — streaming addresses the plain `ns`.
+        productId = "",
     )
 }
 

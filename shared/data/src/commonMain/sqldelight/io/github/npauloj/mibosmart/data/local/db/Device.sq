@@ -15,7 +15,11 @@ CREATE TABLE cachedDevice (
   origin TEXT NOT NULL,
   parentId TEXT,
   isSubDevice INTEGER NOT NULL,
-  fetchedAt INTEGER NOT NULL
+  fetchedAt INTEGER NOT NULL,
+  -- The partner's `idProduto`, which the lock edge needs for both the lock and its hub (D-03,
+  -- api-contract §5). Last, and with the same default as `2.sqm`, so a file created here and a file
+  -- migrated there end up with the same table.
+  productId TEXT NOT NULL DEFAULT ''
 );
 
 -- One row, id 0: the schema version the rows above were written with (see SchemaVersion.kt).
@@ -38,8 +42,8 @@ selectAll:
 SELECT * FROM cachedDevice;
 
 insert:
-INSERT OR REPLACE INTO cachedDevice(id, name, model, online, lastSeen, origin, parentId, isSubDevice, fetchedAt)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO cachedDevice(id, name, model, online, lastSeen, origin, parentId, isSubDevice, fetchedAt, productId)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteAll:
 DELETE FROM cachedDevice;

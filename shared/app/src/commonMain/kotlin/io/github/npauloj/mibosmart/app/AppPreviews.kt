@@ -39,6 +39,7 @@ private fun DeviceListDestinationPreview(expiringSoon: Boolean) {
                 onSelectFilter = {},
                 onLoadMore = {},
                 onCameraTap = {},
+                onLockTap = {},
             )
         }
     }

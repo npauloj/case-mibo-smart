@@ -83,6 +83,8 @@
     <string name="device_kind_lock">Lock</string>
     <string name="device_kind_hub">Hub</string>
     <string name="device_kind_other">Device</string>
+    <string name="device_lock_hub_not_loaded">This lock\'s hub is not loaded yet — scroll the list to load it</string>
+    <string name="device_lock_product_id_missing">Lock without a product id — it cannot be controlled</string>
     <string name="device_last_seen_never">Never seen online</string>
     <string name="device_last_seen_minutes">Last seen %1$s min ago</string>
     <string name="device_last_seen_hours">Last seen %1$s h ago</string>

@@ -1,0 +1,10 @@
+-- Version 2 -> 3: a cached device carries the partner's `idProduto` (D-03, api-contract §5).
+--
+-- The column widens the row shape, so the kill switch of SchemaVersion.kt moves with it in the same
+-- commit: this migration only guarantees that an existing `mibosmart.db` still *opens*, and the
+-- default it backfills is exactly the blank value that must never reach a `LockAddress`. Dropping
+-- those rows is DEVICE_CACHE_SCHEMA_VERSION's job, and it costs one request.
+--
+-- Appended rather than inserted: ALTER TABLE can only add at the end, so `Device.sq` declares it
+-- last too and a fresh file matches a migrated one column for column.
+ALTER TABLE cachedDevice ADD COLUMN productId TEXT NOT NULL DEFAULT '';

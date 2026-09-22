@@ -20,7 +20,7 @@ private const val UI_MODE_NIGHT_YES = 0x20
 internal class DeviceListUiStateProvider : PreviewParameterProvider<DeviceListUiState> {
 
     override val values: Sequence<DeviceListUiState> =
-        sequenceOf(Loading, Success, LoadingMore, Empty, Error, Stale)
+        sequenceOf(Loading, Success, LoadingMore, Empty, Error, Stale, LockWithoutHub)
 
     internal companion object {
         val Loading = DeviceListUiState(isLoading = true)
@@ -45,6 +45,12 @@ internal class DeviceListUiStateProvider : PreviewParameterProvider<DeviceListUi
             rows = PreviewFixtures.fullPage,
             staleFor = Elapsed(amount = 14, unit = ElapsedUnit.Minutes),
         )
+
+        /**
+         * SPEC D2 and D6: a lock whose hub is on a page nobody loaded — the row is there, it says
+         * why it opens nothing, and it does not react to a tap.
+         */
+        val LockWithoutHub = DeviceListUiState(rows = PreviewFixtures.lockWithoutHub)
     }
 }
 
@@ -78,6 +84,12 @@ private fun DeviceListErrorPreview() = DeviceListPreview(DeviceListUiStateProvid
 @Composable
 private fun DeviceListStalePreview() = DeviceListPreview(DeviceListUiStateProvider.Stale)
 
+@Preview(name = "DeviceListScreen_LockWithoutHub")
+@Preview(name = "DeviceListScreen_LockWithoutHub_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DeviceListLockWithoutHubPreview() =
+    DeviceListPreview(DeviceListUiStateProvider.LockWithoutHub)
+
 /** All states side by side, straight from the provider. */
 @Preview(name = "DeviceListScreen_AllStates")
 @Composable
@@ -95,6 +107,7 @@ private fun DeviceListPreview(state: DeviceListUiState) {
             onSelectFilter = {},
             onLoadMore = {},
             onCameraTap = {},
+            onLockTap = {},
         )
     }
 }

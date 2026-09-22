@@ -12,7 +12,7 @@ import io.github.npauloj.mibosmart.domain.lock.LockAddress
  */
 sealed interface LockAddressing {
 
-    /** The four parts `docs/api-contract.md` §5 needs, all read off rows the app actually holds. */
+    /** The four parts `docs/api-contract.md` §5 needs, all read off the lock's own row. */
     data class Addressable(val address: LockAddress) : LockAddressing
 
     /**
@@ -25,36 +25,36 @@ sealed interface LockAddressing {
     sealed interface Unavailable : LockAddressing {
 
         /**
-         * The hub the lock hangs from is not among the loaded rows (SPEC D2).
+         * The row does not carry all four parts (`docs/api-contract.md` §3, §5).
          *
-         * The list is paged, so this is the ordinary case of a lock on page 1 and its hub on page 2 —
-         * and fetching pages until one turns up is exactly the spending ADR-006 forbids.
+         * One reason and not several: `idProduto` arrives blank on some devices, and
+         * `dispositivoPai` / `idProdutoDispositivoPai` arrive only on sub-devices — but a lock
+         * missing any of them is equally unaddressable, and splitting that into separate sentences
+         * would ask the user to tell apart cases they can do nothing about either way.
          */
-        data object HubNotLoaded : Unavailable
-
-        /** The partner sent no `idProduto` for the lock or for its hub, so two of the four parts
-         * cannot both be filled (`docs/api-contract.md` §5). */
         data object ProductIdMissing : Unavailable
     }
 }
 
 /**
- * How the partner would address [lock], assembled **only** from the devices in this list.
+ * How the partner would address [lock], assembled from [lock]'s own row and nothing else.
  *
- * Nothing here calls anything: the hub is looked up among the rows already loaded, which is what
- * makes opening a lock cost zero requests (ADR-006).
+ * Nothing here calls anything, and nothing here searches: the partner puts the hub's `ns` and the
+ * hub's `idProduto` on the sub-device's row (`docs/api-contract.md` §3), so every part is already in
+ * hand. That is what makes opening a lock cost zero requests (ADR-006) *and* what makes it work while
+ * the hub sits on a page nobody has loaded.
  */
-internal fun List<Device>.addressing(lock: Device): LockAddressing {
-    val hub = lock.parent?.let { parent -> firstOrNull { it.id == parent } }
-        ?: return LockAddressing.Unavailable.HubNotLoaded
-    if (lock.productId.isBlank() || hub.productId.isBlank()) {
+internal fun addressing(lock: Device): LockAddressing {
+    val hub = lock.parent
+    val hubProductId = lock.parentProductId?.takeIf { it.isNotBlank() }
+    if (hub == null || hubProductId == null || lock.productId.isBlank()) {
         return LockAddressing.Unavailable.ProductIdMissing
     }
     return LockAddressing.Addressable(
         LockAddress(
             lock = lock.id,
-            hub = hub.id,
-            hubProductId = hub.productId,
+            hub = hub,
+            hubProductId = hubProductId,
             lockProductId = lock.productId,
         ),
     )

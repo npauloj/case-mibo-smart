@@ -74,10 +74,11 @@ internal class SqlDeviceCache(
                     // thing `parent` records (Device.parent, api-contract §5).
                     isSubDevice = (device.parent != null).toLong(),
                     fetchedAt = fetchedAt.toEpochMilliseconds(),
-                    // Stored, unlike `kind`, because it is not derivable from anything else on the
-                    // row: it is the partner's own `idProduto`, and the lock edge needs it back
-                    // without a second call (SPEC L1, ADR-006).
+                    // Stored, unlike `kind`, because neither is derivable from anything else on the
+                    // row: they are the partner's own `idProduto` for this device and for its hub,
+                    // and the lock edge needs both back without a second call (SPEC L1, ADR-006).
                     productId = device.productId,
+                    parentProductId = device.parentProductId,
                 )
             }
         }
@@ -129,4 +130,5 @@ private fun CachedDevice.toDevice(): Device = Device(
     kind = DeviceClassifier.classify(model = model, isSubDevice = isSubDevice != 0L),
     parent = parentId?.let(::DeviceId),
     productId = productId,
+    parentProductId = parentProductId,
 )

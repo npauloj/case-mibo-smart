@@ -5,6 +5,7 @@ import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
@@ -77,8 +78,13 @@ class DeviceUiMapperTest {
     fun onlyCamerasAndLocksAreActionable() {
         val devices = listOf(
             device("camera", kind = DeviceKind.Camera),
-            // The lock comes with its hub: without one it has no address, which is the next test.
-            device("lock", kind = DeviceKind.Lock, parent = DeviceId(HUB_ID)),
+            // The lock carries both product ids: without one it has no address, which is the next test.
+            device(
+                "lock",
+                kind = DeviceKind.Lock,
+                parent = DeviceId(HUB_ID),
+                parentProductId = HUB_PRODUCT_ID,
+            ),
             device("hub", id = HUB_ID, kind = DeviceKind.Hub),
             device("sensor", kind = DeviceKind.Other("MSM 1001")),
         )
@@ -91,24 +97,51 @@ class DeviceUiMapperTest {
     }
 
     /**
-     * SPEC D6 and D2: a lock the loaded rows cannot address is still listed — it just says why and
-     * takes no tap, instead of opening a screen with nothing to talk to (SPEC U6).
+     * SPEC D6 and D2: a lock whose own row is short of a part of its address is still listed — it
+     * just says why and takes no tap, instead of opening a screen with nothing to talk to (SPEC U6).
+     *
+     * Each way the row can be short of one, since they arrive as different fields: the lock's own
+     * `idProduto` blank, and the hub's `idProdutoDispositivoPai` absent (`docs/api-contract.md` §3).
      */
     @Test
     fun aLockThatCannotBeAddressedSaysSoInsteadOfOpening() {
-        val orphan = device("MFR 2040", kind = DeviceKind.Lock, parent = DeviceId("PLACEHOLDER-ABSENT-HUB"))
-        val withoutProductId = listOf(
-            device("MFR 1001", kind = DeviceKind.Lock, parent = DeviceId(HUB_ID), productId = ""),
-            device("MCA 1002", id = HUB_ID, kind = DeviceKind.Hub),
+        val hub = device("MCA 1002", id = HUB_ID, kind = DeviceKind.Hub)
+        val blankOwnId = device(
+            "MFR 1001",
+            kind = DeviceKind.Lock,
+            parent = DeviceId(HUB_ID),
+            productId = "",
+            parentProductId = HUB_PRODUCT_ID,
+        )
+        val noParentId = device("MFR 2040", kind = DeviceKind.Lock, parent = DeviceId(HUB_ID))
+
+        val rows = listOf(hub, blankOwnId, noParentId).toRows(NOW).associateBy { it.name }
+
+        listOf("MFR 1001", "MFR 2040").forEach { name ->
+            val row = assertNotNull(rows[name])
+            assertEquals(LockAddressing.Unavailable.ProductIdMissing, row.unavailable, name)
+            assertFalse(row.isActionable, name)
+        }
+    }
+
+    /**
+     * SPEC D2 and D6: the hub is on a page nobody loaded, and the lock opens anyway — the parts of
+     * the address are on its own row, so the only thing the missing hub costs is its name.
+     */
+    @Test
+    fun aLockWhoseHubIsNotOnThePageIsStillAddressable() {
+        val lock = device(
+            "MFR 1001",
+            kind = DeviceKind.Lock,
+            parent = DeviceId("PLACEHOLDER-ABSENT-HUB"),
+            parentProductId = HUB_PRODUCT_ID,
         )
 
-        val orphanRow = listOf(orphan).toRows(NOW).single()
-        val blankRow = withoutProductId.toRows(NOW).first { it.name == "MFR 1001" }
+        val row = listOf(lock).toRows(NOW).single()
 
-        assertEquals(LockAddressing.Unavailable.HubNotLoaded, orphanRow.unavailable)
-        assertEquals(LockAddressing.Unavailable.ProductIdMissing, blankRow.unavailable)
-        assertFalse(orphanRow.isActionable)
-        assertFalse(blankRow.isActionable)
+        assertNull(row.unavailable)
+        assertTrue(row.isActionable)
+        assertNull(row.parentName, "the hub's name is the one thing the page really does not have")
     }
 
     private companion object {

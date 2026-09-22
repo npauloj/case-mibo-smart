@@ -29,6 +29,8 @@ internal object CameraSamples {
         parent = null,
         // Blank, as the partner sends it for this camera family — streaming addresses the plain `ns`.
         productId = "",
+        // A camera is not a sub-device, so the partner sends no parent at all.
+        parentProductId = null,
     )
 }
 

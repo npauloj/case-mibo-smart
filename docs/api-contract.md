@@ -195,6 +195,10 @@ Every lock endpoint addresses the lock as a sub-device of its hub:
 - `ns` = `<lock-ns>_<hub-ns>_<hub-idProduto>` (three real identifiers joined by `_`; concrete example in the local copy of the contract)
 - `idProduto` = the lock's own `<lock-idProduto>`
 
+All four identifiers come off the **lock's own row** in `listar-dispositivos` (§3): `ns`, `idProduto`,
+`dispositivoPai` (= `<hub-ns>`) and `idProdutoDispositivoPai` (= `<hub-idProduto>`). The hub's row is
+not needed to address the lock, so a lock on a loaded page is addressable whether or not its hub is.
+
 | Endpoint | Request body | Observed `data` |
 |---|---|---|
 | `POST /fechaduras/controle-fechadura/v1` | `{ ns, idProduto, aberto: true\|false }` (true = open, false = lock) | not probed (changes state) |

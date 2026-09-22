@@ -63,5 +63,6 @@ class DeviceOrderingTest {
         kind = kind,
         parent = null,
         productId = "irrelevant-to-ordering",
+        parentProductId = null,
     )
 }

@@ -63,6 +63,7 @@ fun App(viewModel: AppViewModel = koinViewModel()) {
                 AppDestination.Account -> AccountScreen(
                     onBack = viewModel::closeAccount,
                     onSignedOut = viewModel::onSignedOut,
+                    onRenewed = viewModel::onRenewed,
                 )
             }
         }

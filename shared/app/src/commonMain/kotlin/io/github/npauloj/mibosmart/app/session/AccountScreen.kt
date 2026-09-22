@@ -44,6 +44,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun AccountScreen(
     onBack: () -> Unit,
     onSignedOut: () -> Unit,
+    onRenewed: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AccountViewModel = koinViewModel(),
 ) {
@@ -51,6 +52,12 @@ fun AccountScreen(
 
     LaunchedEffect(viewModel) {
         viewModel.signedOut.collect { onSignedOut() }
+    }
+
+    // The renewal moved the deadline, and the banner of SPEC S7 is owned one level up. This screen
+    // needs nothing from the event; it only carries it, exactly as it carries `signedOut`.
+    LaunchedEffect(viewModel) {
+        viewModel.renewed.collect { onRenewed() }
     }
 
     AccountScreenContent(

@@ -70,6 +70,7 @@ internal fun lockViewModel(
     val lockWrites = LockWritesSwitch(writesEnabled)
     return LockViewModel(
         loadLock = LoadLock(repository),
+        toggleLock = ToggleLock(repository, lockWrites),
         changeLockVolume = ChangeVolume(repository, lockWrites),
         enableLockRemoteOpen = EnableRemoteOpen(repository, lockWrites),
         lockWrites = lockWrites,

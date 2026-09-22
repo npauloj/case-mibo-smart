@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.data.remote
 
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -34,6 +35,14 @@ internal object LockRequests {
             namespace = compositeNamespace(address),
             productId = address.lockProductId,
             volume = volume.level,
+        )
+
+    /** The command itself: the same address, plus the state the door is asked for (SPEC L3). */
+    fun command(address: LockAddress, command: LockCommand): LockCommandRequestDto =
+        LockCommandRequestDto(
+            namespace = compositeNamespace(address),
+            productId = address.lockProductId,
+            isOpen = command.opensTheDoor,
         )
 
     /**
@@ -88,6 +97,20 @@ internal data class LockChangeVolumeRequestDto(
     @SerialName("ns") val namespace: String,
     @SerialName("idProduto") val productId: String,
     @SerialName("volume") val volume: Int,
+)
+
+/**
+ * `controle-fechadura`: `{ ns, idProduto, aberto: true|false }` (`docs/api-contract.md` §5).
+ *
+ * `aberto` is the **requested** state, not a report: `true` opens the door and `false` locks it.
+ * Unlike `habilitar`, both values are ones the app legitimately sends, so this one is a parameter —
+ * and [SerialName] is where the partner's word for it stops.
+ */
+@Serializable
+internal data class LockCommandRequestDto(
+    @SerialName("ns") val namespace: String,
+    @SerialName("idProduto") val productId: String,
+    @SerialName("aberto") val isOpen: Boolean,
 )
 
 /**

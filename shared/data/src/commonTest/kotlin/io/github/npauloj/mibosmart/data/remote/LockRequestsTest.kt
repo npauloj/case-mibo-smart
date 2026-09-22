@@ -7,6 +7,7 @@ import io.github.npauloj.mibosmart.data.session.SessionSamples
 import io.github.npauloj.mibosmart.domain.device.DeviceId
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import io.github.npauloj.mibosmart.domain.session.Token
@@ -104,6 +105,32 @@ class LockRequestsTest {
     }
 
     /**
+     * SPEC L3: `aberto` is the state the door is **asked for**, and both values are real.
+     *
+     * The direction is the whole contract (`docs/api-contract.md` §5) and it is the one field in the
+     * app whose inversion would open a door instead of locking it, so both commands are put on the
+     * wire and read back rather than one being assumed from the other.
+     */
+    @Test
+    fun commandSendsTheRequestedOpenState() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val repository = repositoryAnswering(requests, signedIn())
+
+        repository.command(ADDRESS, LockCommand.Open)
+        repository.command(ADDRESS, LockCommand.Close)
+
+        assertEquals(
+            listOf("/fechaduras/controle-fechadura/v1", "/fechaduras/controle-fechadura/v1"),
+            requests.map { it.url.encodedPath },
+        )
+        val opening = requests.first().bodyText()
+        assertTrue(opening.contains(""""ns":"${LOCK_NAMESPACE}_${HUB_NAMESPACE}_$HUB_PRODUCT_ID""""), opening)
+        assertTrue(opening.contains(""""idProduto":"$LOCK_PRODUCT_ID""""), opening)
+        assertTrue(opening.contains(""""aberto":true"""), "unexpected request body: $opening")
+        assertTrue(requests.last().bodyText().contains(""""aberto":false"""), requests.last().bodyText())
+    }
+
+    /**
      * SPEC L2: the app enables remote opening and has no way to disable it.
      *
      * `habilitar` is fixed at `true` in the request type, so this asserts a property of the code
@@ -181,7 +208,8 @@ class LockRequestsTest {
         // The writes' success payload was never probed — it changes a real device
         // (`docs/api-contract.md` §8, open question 4). An envelope with an empty `data` is the
         // least the reader accepts, and the repository reads nothing out of it anyway.
-        endsWith("mudar-volume/v1") || endsWith("habilitar-abrir-remoto/v1") ->
+        endsWith("mudar-volume/v1") || endsWith("habilitar-abrir-remoto/v1") ||
+            endsWith("controle-fechadura/v1") ->
             """{"status":"sucesso","data":{}}"""
 
         else -> """{"status":"sucesso","data":{"volume":$volumeLevel}}"""

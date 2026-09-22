@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.app.lock
 
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
+import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import kotlin.test.Test
@@ -41,6 +42,28 @@ class LockViewModelTest {
             repository.reads.map { it.endpoint }.toSet(),
             "this slice may only read: no request of it changes the lock",
         )
+    }
+
+    /**
+     * SPEC L2, the half the precondition exists for: no remote opening, no command.
+     *
+     * The screen disables the control, but that is an affordance. What is asserted here is that the
+     * lock is never asked: `controle-fechadura` against a door that has not granted the right would
+     * spend a request to be refused, and the app has no business finding out that way.
+     */
+    @Test
+    fun remoteDisabledBlocksCommand() = runTest {
+        val repository = FakeLockRepository(
+            LockState(isOpen = false, isRemoteOpenEnabled = false, volume = VolumeLevel.Mute),
+        )
+        val viewModel = viewModelWith(repository)
+        viewModel.onOpen(LockSamples.destination())
+
+        viewModel.onCommand(LockCommand.Open)
+
+        val state = assertIs<LockUiState.Ready>(viewModel.state.value, "the command must not change the state")
+        assertFalse(state.canCommand, "a lock that refuses commands must not offer one")
+        assertEquals(emptyList(), repository.writes, "a command reached a lock that has not granted it")
     }
 
     @Test

@@ -1,6 +1,7 @@
 package io.github.npauloj.mibosmart.app.devices
 
 import app.cash.turbine.test
+import io.github.npauloj.mibosmart.app.FakeModelCatalog
 import io.github.npauloj.mibosmart.domain.device.CachedDevices
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
@@ -422,6 +423,28 @@ class DeviceListViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, repository.calls)
+    }
+
+    /**
+     * SPEC D5 and ADR-006: the whole page is named, and the partner is asked nothing for it.
+     *
+     * The catalogue is a table already in memory, so the only call this test may see is the one page
+     * load of SPEC D1 — a lookup that had gone to the network would show up here as a second one.
+     */
+    @Test
+    fun namingModelsCallsThePartnerZeroTimes() = runTest(dispatcher) {
+        val repository = FakeDeviceRepository {
+            listOf(device("MCA 1002", kind = DeviceKind.Hub, model = "IOT-ZG2-IB"))
+        }
+        val viewModel = DeviceListViewModel(
+            listDevices = listDevices(repository),
+            catalog = FakeModelCatalog("IOT-ZG2-IB" to "Central Zigbee"),
+            now = { NOW },
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("Central Zigbee"), viewModel.state.value.rows.map { it.model })
+        assertEquals(1, repository.calls, "only the page itself; naming its rows is free")
     }
 
     private fun viewModel(repository: FakeDeviceRepository) =

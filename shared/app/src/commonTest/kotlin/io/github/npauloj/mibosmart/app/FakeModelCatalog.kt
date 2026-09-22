@@ -17,3 +17,15 @@ internal class FakeModelCatalog(vararg entries: Pair<String, String>) : ModelCat
 
     override fun label(code: String): String = labels[code] ?: code
 }
+
+/**
+ * A catalogue that answers nothing but a failure — the partner's SDK on a bad day.
+ *
+ * Android's adapter already turns the SDK's checked exception into the raw code, so nothing the app
+ * ships throws from here today. This is what proves the callers do not *depend* on that: a table
+ * that starts raising must cost a name and never a screen.
+ */
+internal object RaisingModelCatalog : ModelCatalog {
+
+    override fun label(code: String): String = throw IllegalStateException("catalogue unavailable")
+}

@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
+import io.github.npauloj.mibosmart.domain.device.ModelCatalog
 import io.github.npauloj.mibosmart.domain.device.OriginFilter
+import io.github.npauloj.mibosmart.domain.device.RawCodes
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -100,11 +102,16 @@ sealed interface DeviceListEvent {
  * configuration change would pay for a second page 1. Coming back to the list reuses this ViewModel
  * and therefore makes no call at all (SPEC D7).
  *
+ * @param catalog the partner's words for its own model codes (SPEC D5, ADR-007). It is read off a
+ *   table already in memory, so naming every row on a page costs **no** partner request (ADR-006).
+ *   It defaults to [RawCodes] — the codes as they came — which is what iOS runs; Android's Koin graph
+ *   hands over the Java-backed one.
  * @param now where "visto pela última vez há X" is measured from. It is read once per load rather
  *   than per frame: a list that re-renders must not renumber itself under the user's eyes.
  */
 class DeviceListViewModel(
     private val listDevices: ListDevices,
+    private val catalog: ModelCatalog = RawCodes,
     private val now: () -> Instant = { Clock.System.now() },
 ) : ViewModel() {
 
@@ -271,7 +278,7 @@ class DeviceListViewModel(
     private suspend fun renderCache() {
         val cached = listDevices.cached().takeIf { it.isNotEmpty() } ?: return
         loaded = cached
-        mutableState.update { it.copy(rows = cached.toRows(now())) }
+        mutableState.update { it.copy(rows = cached.toRows(now(), catalog)) }
     }
 
     /**
@@ -310,7 +317,7 @@ class DeviceListViewModel(
             else -> loadedPage
         }
         val at = now()
-        mutableState.update { it.applied(result, loaded.toRows(at), isFirstPage, at) }
+        mutableState.update { it.applied(result, loaded.toRows(at, catalog), isFirstPage, at) }
     }
 
     /**

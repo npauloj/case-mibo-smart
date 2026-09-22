@@ -247,6 +247,45 @@ class AccountViewModelTest {
         assertTrue(viewModel.state.value.signOutFailed, "a failed logout was reported as a success")
     }
 
+    /**
+     * A renewal the partner answered is announced exactly once, and never replayed (SPEC S10).
+     *
+     * Turbine is used here and nowhere else in this file: `renewed` is a one-shot `SharedFlow`, which
+     * is the single case `CLAUDE.md` reserves it for. The second collector is the real assertion — it
+     * pins `replay = 0`, so a screen opened later is not handed a renewal that already happened and
+     * does not clear a banner that is telling the truth about the session on screen now.
+     */
+    @Test
+    fun emitsRenewedOnce() = runTest(dispatcher) {
+        val viewModel = viewModelFor(
+            issuedAt = NOW - Session.WARN_AFTER,
+            partner = FakeSessionRepository(renewal = { RenewedSession(Token(RENEWED), 15.minutes) }),
+        )
+        runCurrent()
+
+        viewModel.renewed.test {
+            viewModel.onRenew()
+            awaitItem()
+            expectNoEvents()
+        }
+
+        viewModel.renewed.test { expectNoEvents() }
+    }
+
+    /** A renewal that failed announces nothing: the deadline did not move (SPEC S10). */
+    @Test
+    fun aFailedRenewalAnnouncesNothing() = runTest(dispatcher) {
+        val viewModel = viewModelFor(
+            issuedAt = NOW - Session.WARN_AFTER,
+            partner = FakeSessionRepository(renewal = { throw SmartHomeException.Offline(cause = null) }),
+        )
+        runCurrent()
+
+        viewModel.renewed.test {
+            viewModel.onRenew()
+            expectNoEvents()
+        }
+    }
     private suspend fun storeWith(issuedAt: Instant): SessionStore =
         InMemorySessionStore().apply { write(Token(TOKEN), issuedAt) }
 

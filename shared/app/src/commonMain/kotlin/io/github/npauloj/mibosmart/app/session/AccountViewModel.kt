@@ -113,6 +113,20 @@ class AccountViewModel(
      */
     val signedOut: SharedFlow<Unit> = mutableSignedOut.asSharedFlow()
 
+    private val mutableRenewed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /**
+     * Emitted once per renewal the partner actually answered (SPEC S10).
+     *
+     * The screen itself needs nothing from this — [onOpen] already rebuilt the card. It exists for
+     * [io.github.npauloj.mibosmart.app.AppViewModel], which owns the expiry banner of SPEC S7 and has
+     * no other way to learn that the deadline moved.
+     *
+     * `replay = 0` is load-bearing: a collector that arrives later must not be handed a renewal that
+     * already happened and clear a banner that is telling the truth about the *current* session.
+     */
+    val renewed: SharedFlow<Unit> = mutableRenewed.asSharedFlow()
+
     init {
         viewModelScope.launch { onOpen() }
     }
@@ -157,7 +171,10 @@ class AccountViewModel(
             // The card is rebuilt from the vault rather than patched: the suffix, the deadline and the
             // request count have all changed, and `onOpen` is already the one description of how the
             // screen reads a session. The user does not move — this screen *is* where they were.
-            RenewalResult.Success -> onOpen()
+            RenewalResult.Success -> {
+                onOpen()
+                mutableRenewed.emit(Unit)
+            }
             RenewalResult.Failed -> mutableState.update { it.copy(renewing = false, renewFailed = true) }
             // The vault was emptied while the tap was in flight; there is no session left to show.
             RenewalResult.NoSession -> mutableSignedOut.emit(Unit)

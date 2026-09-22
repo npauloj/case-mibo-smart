@@ -88,6 +88,34 @@ class AppViewModel(
         viewModelScope.launch { onStart() }
     }
 
+    /**
+     * The account screen renewed the session, so the deadline moved (SPEC S7, S10).
+     *
+     * Deliberately **not** [onStart]: that one rebuilds [AppUiState] wholesale and resets `returnTo`,
+     * which would throw the user off the account screen at the exact moment they renewed — the
+     * opposite of what S-03 promises. This touches one field and reschedules one timer.
+     */
+    fun onRenewed() {
+        viewModelScope.launch { refreshExpiry() }
+    }
+
+    /**
+     * Recomputes the warning of SPEC S7 from the stored session, and nothing else.
+     *
+     * The cancel comes first on purpose: without it a second renewal leaves two timers racing, and
+     * the loser sets `expiringSoon = true` over a session that has hours left.
+     *
+     * A vault emptied while the tap was in flight routes nowhere from here — `RenewalResult.NoSession`
+     * already emits `signedOut`, and that path owns the routing (SPEC S6).
+     */
+    suspend fun refreshExpiry() {
+        val session = sessionStartup() ?: return
+        val sessionState = session.stateAt(clock.now())
+
+        expiryWarning?.cancel()
+        mutableState.update { it.copy(expiringSoon = sessionState == SessionState.ExpiringSoon) }
+        if (sessionState == SessionState.Valid) warnWhenItExpires(session)
+    }
     /** The account screen, reached from the device list and left the same way (SPEC S8). */
     fun openAccount() {
         mutableState.update { it.copy(destination = AppDestination.Account) }

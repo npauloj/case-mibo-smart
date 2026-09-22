@@ -27,6 +27,15 @@ sealed interface StreamState {
      */
     data class Live(val session: StreamSession, val firstFrame: Boolean = false) : StreamState
 
+    /**
+     * V4: the app is trying again by itself, and says which attempt this is ("Reconectando (2/3)…").
+     *
+     * The number is in the state rather than in the screen because it is the *rule's* number: the
+     * ladder of [PlaybackRetryPolicy] decides how many attempts there are, and a screen that counted
+     * on its own could disagree with the policy that is spending the account's quota (SPEC V3, U1).
+     */
+    data class Reconnecting(val attempt: Int, val total: Int) : StreamState
+
     /** V1: the camera does not announce `RTSV`, or the live-video kill switch is off. */
     data object NoLiveCapability : StreamState
 
@@ -36,15 +45,39 @@ sealed interface StreamState {
     /** V7: the camera is offline. Nothing was created and nothing will be. */
     data object CameraOffline : StreamState
 
-    /** The stream stopped playing. The retry policy and the web fallback are V-02's. */
+    /**
+     * The stream stopped playing and the app is not trying again.
+     *
+     * Since V-02 every player failure goes through [PlaybackRetryPolicy] and ends on [Failed], which
+     * is the state SPEC V4 and U1 describe — with a named cause and the web player. This one stays
+     * because SPEC §3 still lists "expired" among the screen's states and the screen still renders
+     * it; retiring it is a SPEC change, not a code change (`CLAUDE.md`).
+     */
     data object Expired : StreamState
 
-    /** The session could not be created, with a cause the user can read (SPEC U6). */
-    data class Failed(val error: StreamError) : StreamState
+    /**
+     * Nothing can be played, with a cause the user can read (SPEC U6): the session could not be
+     * created, the retry ladder ran out (V4), the bytes could not be decoded (V5), or no first frame
+     * arrived inside U1's budget.
+     *
+     * @property monitorUrl the partner's own player page for the session that failed, when there was
+     *   one. It is what decides whether the screen offers "Abrir no player web" at all: `monitor_url`
+     *   is nullable and unverified (ADR-005, ADR-006), and an action that would open nothing is worse
+     *   than no action (SPEC V6, V9).
+     */
+    data class Failed(val error: StreamError, val monitorUrl: String? = null) : StreamState
+
+    /** V9: the user asked for the partner's own player page, and it is on screen now. */
+    data class WebFallback(val url: String) : StreamState
 }
 
 /** The step [StreamState.Creating] is on, as words the screen can show (SPEC V3). */
 enum class StreamStep { CheckingCapability, CreatingSession, Connecting }
 
-/** Why creating a session failed, one user-facing sentence each (SPEC U6, E2, ADR-012). */
-enum class StreamError { TokenRejected, TokenExpired, Offline, UnexpectedResponse, Failed }
+/**
+ * Why there is no picture, one user-facing sentence each (SPEC U6, E2, ADR-012).
+ *
+ * [Playback] is the only one that does not come from the partner's answer: it is what the app says
+ * when the session was created and the video still never played (SPEC V4, V5, U1).
+ */
+enum class StreamError { TokenRejected, TokenExpired, Offline, UnexpectedResponse, Failed, Playback }

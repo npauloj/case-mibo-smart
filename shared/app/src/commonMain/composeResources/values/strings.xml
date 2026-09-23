@@ -59,6 +59,7 @@
     <string name="lock_remote_open_disabled_explanation">Esta fechadura não aceita comandos do aplicativo enquanto a abertura remota estiver desativada. Ela precisa ser habilitada antes que abrir ou fechar por aqui funcione.</string>
     <string name="lock_volume_changing">Mudando o volume da fechadura para %1$s…</string>
     <string name="lock_volume_failed">Não foi possível mudar o volume: %1$s</string>
+    <string name="lock_volume_unavailable">A fechadura não informou o volume.</string>
     <string name="lock_enable_remote_open">Habilitar abertura remota</string>
     <string name="lock_enable_remote_open_consequence">Habilitar muda o que a porta permite: com a abertura remota ligada, quem tiver acesso a esta conta pode abrir a fechadura pelo aplicativo. O aplicativo não desfaz isso — desligar só na própria fechadura.</string>
     <string name="lock_enable_remote_open_failed">Não foi possível habilitar a abertura remota: %1$s</string>

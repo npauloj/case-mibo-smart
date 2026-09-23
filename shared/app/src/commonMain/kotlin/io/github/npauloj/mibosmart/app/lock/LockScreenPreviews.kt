@@ -34,6 +34,7 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
             RemoteOpenDisabled,
             VolumeChanging,
             VolumeFailed,
+            VolumeUnknown,
             WritesDisabled,
             Offline,
             Error,
@@ -99,6 +100,19 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
         /** SPEC U6: the write did not happen, the reading did not move, and the reason is named. */
         val VolumeFailed = Locked.copy(
             writeFailure = WriteFailure(LockWrite.Volume(VolumeLevel.High), LockError.Offline),
+        )
+
+        /**
+         * The door answered and the volume did not (ADR-026).
+         *
+         * The frame that proves the screen survives a partial read: "Fechada" is on it, every command
+         * is available, and only the selector is out — amber, not red, and saying which reading is
+         * missing. Measured 2026-09-23, this is the state of five of the six locks in the test
+         * account, so it is the common case rather than an edge one.
+         */
+        val VolumeUnknown = LockUiState.Ready(
+            deviceName = LOCK_NAME,
+            lock = LockState(isOpen = false, isRemoteOpenEnabled = true, volume = null),
         )
 
         /**
@@ -177,6 +191,11 @@ private fun LockScreenOfflinePreview() = LockScreenPreview(LockUiStateProvider.O
 @Preview(name = "LockScreen_Error_Dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
 private fun LockScreenErrorPreview() = LockScreenPreview(LockUiStateProvider.Error)
+
+@Preview(name = "LockScreen_VolumeUnknown")
+@Preview(name = "LockScreen_VolumeUnknown_Dark", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun LockScreenVolumeUnknownPreview() = LockScreenPreview(LockUiStateProvider.VolumeUnknown)
 
 /** All states side by side, straight from the provider. */
 @Preview(name = "LockScreen_AllStates")

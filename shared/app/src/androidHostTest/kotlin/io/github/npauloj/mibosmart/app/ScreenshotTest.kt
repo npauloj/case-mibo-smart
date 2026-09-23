@@ -88,6 +88,7 @@ class ScreenshotTest {
                 "CommandCheckFailed" to CommandCheckFailed, "CommandFailed" to CommandFailed,
                 "RemoteOpenDisabled" to RemoteOpenDisabled,
                 "VolumeChanging" to VolumeChanging, "VolumeFailed" to VolumeFailed,
+                "VolumeUnknown" to VolumeUnknown,
                 "WritesDisabled" to WritesDisabled, "Offline" to Offline, "Error" to Error,
             )
         },

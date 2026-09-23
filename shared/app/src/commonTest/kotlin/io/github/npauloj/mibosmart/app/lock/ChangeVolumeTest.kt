@@ -126,7 +126,7 @@ class ChangeVolumeTest {
         val viewModel = lockViewModel(repository)
 
         viewModel.onOpen(LockSamples.destination())
-        viewModel.onChangeVolume(LockSamples.Locked.volume)
+        viewModel.onChangeVolume(checkNotNull(LockSamples.Locked.volume))
 
         assertEquals(emptyList(), repository.writes)
     }

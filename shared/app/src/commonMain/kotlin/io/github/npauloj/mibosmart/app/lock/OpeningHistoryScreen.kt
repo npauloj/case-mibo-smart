@@ -32,6 +32,9 @@ import io.github.npauloj.mibosmart.app.resources.lock_history_title
 import io.github.npauloj.mibosmart.app.resources.lock_history_unknown
 import io.github.npauloj.mibosmart.app.resources.lock_history_when
 import io.github.npauloj.mibosmart.app.resources.lock_retry
+import io.github.npauloj.mibosmart.app.ui.StateNotice
+import io.github.npauloj.mibosmart.app.ui.StateTone
+import io.github.npauloj.mibosmart.app.ui.TabularSmall
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.OpeningKind
 import org.jetbrains.compose.resources.stringResource
@@ -95,7 +98,8 @@ fun OpeningHistoryContent(
 
 @Composable
 private fun EmptyNotice() {
-    Text(text = stringResource(Res.string.lock_history_empty), style = MaterialTheme.typography.bodyMedium)
+    // `Settled`, not a failure tone: a door nobody has opened is an answer, not a problem (SPEC L10).
+    StateNotice(tone = StateTone.Settled, text = stringResource(Res.string.lock_history_empty))
 }
 
 /**
@@ -124,9 +128,12 @@ private fun OpeningEntry(row: OpeningRow) {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(text = row.label(), style = MaterialTheme.typography.titleSmall)
+        // A column of times only reads as a column if the digits line up, which a proportional
+        // face will not do. This is the clearest case in the app for the data face.
         Text(
             text = stringResource(Res.string.lock_history_when, row.age.asRelativeText(), row.absoluteTime),
-            style = MaterialTheme.typography.bodySmall,
+            style = TabularSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

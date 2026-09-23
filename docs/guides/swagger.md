@@ -54,10 +54,10 @@ repositório (placeholders `<lock-ns>`, `<hub-idProduto>` etc. nos docs versiona
 | Achado | Onde vive no código |
 |---|---|
 | **HTTP é sempre 200**, inclusive em erro; o resultado está no corpo | leitor de envelope em `:shared:data` ([ADR-002](../adr/ADR-002-errors-as-values.md)) |
-| **Dois envelopes**: `{statusCode, body:{status, data|msg}}` na maioria; `{status, data|msg}` plano em streaming e em toda falha de autenticação | o leitor desembrulha `body` quando existe e lê `status/data/msg` |
+| **Dois envelopes**: `{statusCode, body:{status, data\|msg}}` na maioria; `{status, data\|msg}` plano em streaming e em toda falha de autenticação | o leitor desembrulha `body` quando existe e lê `status/data/msg` |
 | Token inválido → `{"status":"erro","msg":"Erro desconhecido, por favor tente novamente mais tarde"}`; sem token → `"Token não está presente na requisição"` | regra de negócio no caso de uso: "Erro desconhecido" em requisição válida = token rejeitado (E3) |
 | `data` de `listar-dispositivos` é um **array sem metadados** de total/páginas | paginação "cega": para quando a página vem vazia ou curta (D6–D8) |
-| Campos do dispositivo: `ns`, `modelo`, `nome`, `status` (`online|offline`), `idProduto` (pode ser vazio), `subdispositivo`, `dispositivoPai`, `idProdutoDispositivoPai`, `origem`, `ultimaVezOnline` (ISO compacto, UTC) | DTOs com `@SerialName` em `:shared:data`; domínio só com nomes em inglês ([ADR-004](../adr/ADR-004-partner-agnostic-domain.md)) |
+| Campos do dispositivo: `ns`, `modelo`, `nome`, `status` (`online\|offline`), `idProduto` (pode ser vazio), `subdispositivo`, `dispositivoPai`, `idProdutoDispositivoPai`, `origem`, `ultimaVezOnline` (ISO compacto, UTC) | DTOs com `@SerialName` em `:shared:data`; domínio só com nomes em inglês ([ADR-004](../adr/ADR-004-partner-agnostic-domain.md)) |
 | Câmera = `funcoes` contém `RTSV`; fechadura = `modelo` começa com `MFR` e é sub-dispositivo; hub = `IOT-ZG2` | classificação por `modelo` primeiro, `funcoes` só para confirmar streaming (economiza requisições) |
 | Fechadura usa `ns` composto `<lock>_<hub>_<idProdutoHub>` + `idProduto`; `volume/v1` exige `productId` no `required` mas o campo é `idProduto` | enviado em dobro pela camada de dados; o domínio nunca vê isso |
 | Abertura remota precisa estar habilitada (`status-abrir-remoto`) antes de `controle-fechadura` | estado `RemoteOpenDisabled` na máquina de estado da fechadura (L-series) |

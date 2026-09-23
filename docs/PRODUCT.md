@@ -1,6 +1,7 @@
 # Case Mibo Smart — Documento de produto e arquitetura
 
-> Rascunho para o PDF de entrega (quarta 23/09). Itens marcados `TODO` dependem da implementação.
+> Documento de entrega, fechado em 23/09/2026. Os números desta versão foram medidos na data;
+> o que ficou em aberto está nomeado no §11, com o motivo.
 > Referências: `docs/adr/` (decisões), `docs/specs/SPEC.md` (critérios de aceite),
 > `docs/api-contract.md` (contrato observado), `AI-LOG.md` (uso de IA),
 > guias práticos em `docs/guides/` ([token](guides/token.md), [leitura do Swagger](guides/swagger.md),
@@ -84,8 +85,45 @@ iosApp           host SwiftUI (Swift não hospeda `actual` Kotlin)
   estados de hardware modelados como tipos selados (ADR-003).
 - Erro é valor: a camada de dados lança exceções tipadas; cada caso de uso devolve o resultado da sua
   intenção (`Loaded | Empty | TokenRejected | Offline | Failure`) (ADR-002).
-- `TODO` diagrama de sequência do vídeo (criar sessão → player em < 15 s → encerrar sessão) e da
-  fechadura (comando → confirmação → estado).
+**Vídeo ao vivo** — a janela de 15 s é do parceiro, não nossa: a url expira se nenhum player a abrir
+nesse prazo, e é por isso que o caso de uso **publica** estados em vez de devolver um (ADR-005).
+
+```
+usuário    ViewModel          parceiro (portal)        player (Media3)
+   │          │                      │                       │
+  toque ─────▶│                      │                       │
+   │          │ criar-fluxo-video ──▶│                       │
+   │          │◀── url, session_id, monitor_url, quota_gb     │   ◀── medido 23/09: só
+   │          │                      │                       │       no host do portal
+   │          │ Creating ────────────────────────────────────▶ prepare(url)
+   │          │                      │                       │
+   │          │           ┌─ 1º quadro em ≤ 20 s ────────────┤  [ASSUMED]
+   │          │           │  Live                            │
+   │          │           └─ nada  → Reconnecting 1s/3s/7s ──┤  teto de 2 sessões novas
+   │          │                                 └─ Failed + "Abrir no player web"
+   │          │                      │                       │
+  sair ──────▶│ encerrar-sessao ────▶│   (NonCancellable)    │ release()
+```
+
+**Fechadura** — o comando e a confirmação são coisas separadas, e é essa separação que o app não
+esconde: nenhuma tela afirma que a porta abriu antes de a leitura concordar (ADR-021).
+
+```
+usuário    ViewModel                    parceiro
+   │          │                            │
+ "Abrir" ────▶│ controle-fechadura ───────▶│
+   │          │◀── aceito                  │        CommandSent — todo controle morto
+   │          │                            │
+   │          │ status-abertura ──────────▶│        uma leitura, sem polling (ADR-006)
+   │          │◀── aberto: true            │        concorda  → Ready(destrancada)
+   │          │◀── aberto: false           │        discorda  → CommandExpired
+   │          │                            │                    (âmbar, com "Verificar")
+   │          │◀── erro                    │        → CommandFailed, e a porta fica como estava
+```
+
+O `CommandExpired` é o estado mais importante das duas telas: ele diz *"o comando saiu e a porta não
+respondeu"*, que não é a mesma coisa que *"a porta recusou"* — e ninguém consegue distinguir as duas
+daqui.
 
 ## 5. Stack e justificativas
 
@@ -109,7 +147,29 @@ iosApp           host SwiftUI (Swift não hospeda `actual` Kotlin)
 - Fechadura é sub-dispositivo: `ns` composto `lock_hub_idProdutoHub`; abertura remota precisa estar
   habilitada; `volume/v1` exige `productId` mas o campo é `idProduto` (enviado em dobro).
 - Stream expira em 15 s sem player; sessão encerrada ao sair, inclusive sob cancelamento.
-- `TODO` tabela final "contradição do contrato → onde está tratada no código (arquivo/teste)".
+### 6.1 Cada contradição e onde ela é defendida
+
+As oito estão listadas no §7 do `docs/api-contract.md`. Nenhuma virou um `if` espalhado: cada uma tem
+um lugar só, e um teste que falha se esse lugar mudar.
+
+| # | Contradição do contrato | Onde é tratada | Teste que a prova |
+|---|---|---|---|
+| 1 | HTTP é sempre `200`; o Swagger documenta `402/404/500` como código HTTP | `EnvelopeReader` lê o status do **corpo** | `EnvelopeReaderTest.unknownErrorOnOkIsJustAnApiError` |
+| 2 | Dois formatos de envelope (A embrulhado, B plano) para a mesma API | `EnvelopeReader` aceita os dois | `EnvelopeReaderTest.wrappedSuccess` · `.flatSuccess` |
+| 3 | Token recusado é indistinguível de erro genérico, exceto pelo texto | regra de negócio no caso de uso, **não** no client (ADR-002) | `EnvelopeReaderTest.forbiddenIsTokenExpiredWithServerMessage` · `.forbiddenWithUnparseableBodyStillExpires` |
+| 4 | `volume/v1` exige `productId`, mas a propriedade é `idProduto` | `LockRequests.volume` manda os dois, e a quarentena fica nele | `LockRequestsTest.volumeRequestCarriesBothIds` |
+| 5 | A página de docs mostra `GET` com `{ns, idProduto}`; o Swagger, `POST` com `{tamanhoPagina, pagina, origem}` | vale o Swagger, verificado na prática | `ListDevicesTest.firstPageUsesDefaults` |
+| 6 | `renovarToken` tem caminho diferente no Swagger e na descrição | `SmartHomeApi.RENEW_TOKEN_PATH` fixa o que responde | `RenewTokenTest.exactRequest` |
+| 7 | **Dois hosts** — API nas descrições, portal no `host:` do Swagger | `SmartHomeApi.streamingBaseUrl`: streaming no portal, o resto na API (ADR-025) | `WatchLiveVideoTest.streamingCallsGoToThePortalHostAndTheRestDoesNot` |
+| 8 | Filtro usa plural `vinculados`; o campo do dispositivo usa singular `vinculado` | `OriginFilter` traduz numa direção só | `OriginFilterTest.mapsToWireValues` |
+
+A número **7 merece destaque**, porque foi a única que escapou: estava documentada desde o começo e
+mesmo assim o app chamou `criar-fluxo-video` no host errado desde o commit 0. Os dois hosts respondem
+`200`, devolvem uma `url` plausível e nenhum reporta erro — nada dentro do app podia distingui-los, e
+nenhum teste com `MockEngine` também, porque as fixtures foram escritas a partir do Swagger. O custo
+não foi a imagem que faltava: o host errado não devolve `session_id`, então o encerramento de sessão
+era código morto, e **27 sessões ficaram abertas numa conta compartilhada**. Está inteiro no ADR-025 e
+nas linhas do `AI-LOG.md` de 23/09.
 
 ## 7. Estados de hardware tratados
 
@@ -118,7 +178,17 @@ iosApp           host SwiftUI (Swift não hospeda `actual` Kotlin)
 - Câmera: criando sessão · ao vivo · reconectando (n/3) · expirada · cota esgotada · offline · falha
   com fallback web.
 - Sessão: sem token · válida (expira em …) · expirada (rota para a tela de token com mensagem específica).
-- `TODO` capturas de tela de cada estado.
+**As capturas existem como teste, não como anexo neste documento.** São 42 goldens — um por estado das
+seis telas — gravados por `ScreenshotTest` (Roborazzi + Robolectric, ADR-024) e publicados como
+artefato do job `verify`. Não estão versionadas de propósito: a rasterização de fonte difere entre
+sistemas operacionais, então uma imagem gravada numa máquina Windows diverge da do runner Linux em
+cada pixel de antialiasing, por motivo que nada tem a ver com a UI. O `.gitignore` carrega essa
+exclusão com data de validade escrita: ela sai no dia em que uma baseline gravada pelo CI for
+commitada, e aí o conjunto vira porta de regressão em vez de figuras anexadas ao PR.
+
+O inventário dos estados não é mantido à mão: cada tela tem um `PreviewParameterProvider` com todos os
+seus estados, e o `ScreenshotTest` afirma, por tela, que nomeou **todos** eles. Acrescentar um estado
+sem acrescentar a captura quebra o build.
 
 ## 8. Segurança
 
@@ -133,20 +203,101 @@ iosApp           host SwiftUI (Swift não hospeda `actual` Kotlin)
 - TDD cirúrgico nas regras críticas: paginação/filtro, tradução de erro/token, máquina de estado da
   fechadura, política de retry do vídeo. UI e player fora do TDD.
 - Uso de IA documentado em `AI-LOG.md` — inclusive o que a IA errou e como foi corrigido.
-- `TODO` números finais: testes por módulo, cobertura das regras críticas, resultado do CI.
+### 9.1 Números, medidos em 23/09/2026
+
+| Módulo | Testes | O que eles cobrem |
+|---|---|---|
+| `:shared:domain` | 19 | modelos, formato do token, ordenação, resultados selados |
+| `:shared:data` | 84 | contrato na fiação (`MockEngine`), envelopes, mappers, cache SQLDelight, cofre |
+| `:shared:app` | 195 | casos de uso, máquinas de estado das telas, 42 goldens de screenshot |
+| `:konture-test` | 11 | as regras de arquitetura, como teste que falha o build |
+| `:legacy-catalog` | 5 | a interoperabilidade Java → Kotlin, escrita em Java (ADR-023) |
+| **Total** | **314** | |
+
+Cobertura agregada: **61,5 % de linhas, 61 % de ramos** (Kover). Três leituras que o número sozinho
+esconde:
+
+- Ele exclui, **por decisão explícita**, `*.platform*` e `*.ui.*` — as pontes `expect/actual` e a UI
+  Compose. Essas são provadas por preview e golden, não por teste unitário, e contá-las inflaria o
+  denominador com código que nenhum teste unitário deveria tocar.
+- Até 23/09 o agregado **omitia o `:shared:data` inteiro** — o módulo com o contrato, os mappers e o
+  cache, e o mais testado dos três. O número publicado teria sido 53,2 %. A omissão foi corrigida ao
+  fechar este documento; um número que exclui em silêncio o módulo mais coberto lê como o todo e não é.
+- A cobertura **não é porta de merge** (ADR-006). É medida e publicada; o que barra é o teste de
+  arquitetura e a suíte.
+
+**CI:** três estágios — `verify` (arquitetura + testes JVM + goldens, em todo PR), `android` (APK e
+lint) e `ios` (macOS: testes no simulador, link do framework, `xcodebuild`), este só em push para
+`main` ou por disparo manual, porque minuto de macOS custa 10× em repositório privado. Os três
+estiveram verdes em `main` pela primeira vez em 22/09. **Em 23/09 o CI está bloqueado por cobrança da
+conta do GitHub Actions**, não por código: `"The job was not started because recent account payments
+have failed or your spending limit needs to be increased"`. A verificação desta entrega foi rodada
+localmente, com a mesma lista de tarefas do workflow.
 
 ## 10. Como rodar
 
 - Android: `./gradlew :androidApp:assembleDebug` e instalar; colar o token temporário na tela inicial.
-- iOS: abrir `iosApp` no Xcode (macOS) — `TODO` confirmar passos após onda 3.
-- Testes: `TODO` comandos finais por módulo (ver `docs/guides/running.md`).
+- **iOS (macOS):** abra `iosApp/iosApp.xcodeproj`, escolha o scheme `iosApp` e um simulador, Run. O
+  build phase chama `./gradlew :shared:app:embedAndSignAppleFrameworkForXcode`; no simulador não há
+  assinatura, e o `Config.xcconfig` deve continuar **sem** `TEAM_ID`.
+- **iOS sem Mac:** GitHub → *Actions* → workflow *CI* → *Run workflow*. O job `ios` roda em
+  `macos-latest` (testes no simulador, framework e `xcodebuild`) e também a cada push em `main`.
+- **Testes:**
+
+  ```bash
+  # regras de negócio e contrato — JVM, segundos
+  ./gradlew :shared:domain:testAndroidHostTest :shared:data:testAndroidHostTest :shared:app:testAndroidHostTest
+
+  # arquitetura (falha o build, não é aviso)
+  ./gradlew :konture-test:test
+
+  # interoperabilidade Java → Kotlin
+  ./gradlew :legacy-catalog:test
+
+  # capturas de tela: grava os goldens (pesado; o CI é o lugar dele)
+  ./gradlew :shared:app:recordRoborazziAndroidHostTest
+
+  # iOS (só macOS)
+  ./gradlew :shared:domain:iosSimulatorArm64Test :shared:data:iosSimulatorArm64Test :shared:app:iosSimulatorArm64Test
+  ```
+
+  Antes de rodar qualquer um: copie `local.properties.example` para `local.properties` e preencha
+  `smarthome.apiHost` e `smarthome.portalHost`. Sem eles o build falha com mensagem clara, em vez de
+  embutir um host padrão — e **nenhum teste fala com a API real**; os de contrato usam `MockEngine`.
 - Token: gerado na plataforma Open Casa Inteligente → Contas → Token Temporário (validade 2 h) — ver `docs/guides/token.md`.
 
 ## 11. O que ficou de fora e por quê
 
-- `TODO` preencher na quarta com o que realmente não entrou (e o motivo: prazo, cota, contrato).
-- Renovação de token (S10): planejada para a onda 3 e primeira na lista de corte; o endpoint
-  `renovarToken` só é chamado de verdade no início da onda 3, porque rotaciona o token em uso.
+**O vídeo nunca mostrou um quadro.** É o item mais honesto desta lista e o único que não depende de
+prazo. O app estava chamando `criar-fluxo-video` no host errado desde o commit 0 — corrigido, com
+ADR-025 e teste de regressão. Com o host certo, a sessão é criada e o `/stream/<id>` do portal
+devolve `200 video/mp4 chunked` e **encerra em exatos 15 s com zero byte**, nas duas câmeras, em todos
+os canais e perfis, conectando 0,1 s depois de criar. É o transcodificador desistindo do upstream
+*dele*. Que já funcionou é medido: dez sessões do mesmo dia consumiram 0,87 Mbit/s constante, e uma
+sessão que não recebe nada registra `mb_consumed: 0.0`. O caminho carregou vídeo e parou. Se as 27
+sessões que deixamos abertas contribuíram para esse estado, não sei — e é por isso que está escrito no
+ADR-025 em vez de omitido.
+
+**Números `[ASSUMED]` do vídeo.** Os atrasos de 1/3/7 s e o orçamento de 20 s para o primeiro quadro
+estão implementados e provados em relógio virtual — o **mecanismo** é testado, os **números** não foram
+observados contra hardware. Seguem marcados como tal no ADR-005 e na SPEC.
+
+**Renovação de token (S10):** entregou. O endpoint foi sondado em 21/09 e o comportamento surpreendeu
+de um jeito útil — renovar **acrescenta** uma credencial em vez de substituir, e o token anterior
+continua valendo. Está no ADR-020.
+
+**Baseline de goldens não commitada.** Ela só pode nascer no runner Linux (ADR-024) e o CI está
+bloqueado por cobrança. Enquanto isso as capturas são artefato do PR, não porta de regressão.
+
+**Fora do escopo do case, e registrado como próximo passo de produto** (detalhe no §5–6 de
+`docs/research/user-feedback.md`): gravações, timeline e cartão SD — o maior cluster de reclamação
+depois de vídeo e propaganda; notificações de dispositivo com granularidade, que **não** contradizem a
+U7 (o que os usuários odeiam é push de marketing, o que pedem é alerta de segurança — são coisas
+opostas); um app e uma conta para todas as linhas; pareamento resiliente a Wi-Fi + dados móveis.
+
+**E um achado que não é backlog de produto:** um relato de 2026-03-06 descreve senha excluída na
+fechadura continuando a abrir a porta, com o histórico sem identificar qual senha foi usada. Isso pede
+tratamento de incidente, não card de feature, e está assim classificado na pesquisa.
 
 ## 12. Roteiro da apresentação (20 min)
 

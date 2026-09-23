@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.kover)
     alias(libs.plugins.mokkery)
     // The device-list cache (ADR-006). Pinned in the catalog since wave 0; this is the module that
     // owns persistence, so it is the only one that applies it.

@@ -14,6 +14,11 @@ plugins {
 
 dependencies {
     kover(projects.shared.domain)
+    // `:shared:data` was missing here until 2026-09-23, so the aggregate reported a number that left
+    // out the module holding the API contract, the mappers, the envelope parser and the cache — the
+    // most heavily unit-tested of the three. A coverage figure that silently excludes the best-covered
+    // module is worse than none, because it reads as the whole and is not.
+    kover(projects.shared.data)
     kover(projects.shared.app)
 }
 

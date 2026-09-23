@@ -63,6 +63,7 @@ import io.github.npauloj.mibosmart.app.resources.device_stale_days
 import io.github.npauloj.mibosmart.app.resources.device_stale_hours
 import io.github.npauloj.mibosmart.app.resources.device_stale_minutes
 import io.github.npauloj.mibosmart.app.resources.device_status_online
+import io.github.npauloj.mibosmart.app.ui.LocalAppColors
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
@@ -173,8 +174,10 @@ fun DeviceListScreenContent(
 @Composable
 private fun StaleBanner(staleFor: Elapsed, onRetry: () -> Unit) {
     Row(
+        // Waiting, not neutral: these rows are real but the app cannot say whether they still
+        // describe the account, and that uncertainty is the same category as an unconfirmed command.
         modifier = Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+            .background(LocalAppColors.current.waitingContainer, MaterialTheme.shapes.small)
             .padding(start = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -182,7 +185,7 @@ private fun StaleBanner(staleFor: Elapsed, onRetry: () -> Unit) {
         Text(
             text = stringResource(staleFor.unit.staleTemplate, staleFor.amount.toString()),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = LocalAppColors.current.onWaitingContainer,
             modifier = Modifier.weight(1f, fill = false),
         )
         TextButton(onClick = onRetry) { Text(stringResource(Res.string.device_retry)) }
@@ -290,8 +293,11 @@ private fun DeviceRowItem(
                     if (row.isOnline) Res.string.device_status_online else Res.string.device_status_offline,
                 ),
                 style = MaterialTheme.typography.labelMedium,
+                // `tertiary`, not `primary`: since the theme landed, `primary` is the interactive
+                // colour, and a status badge drawn in it invites a tap that does nothing. The brand
+                // green in its "on / working" job is what this is.
                 color = if (row.isOnline) {
-                    MaterialTheme.colorScheme.primary
+                    MaterialTheme.colorScheme.tertiary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },

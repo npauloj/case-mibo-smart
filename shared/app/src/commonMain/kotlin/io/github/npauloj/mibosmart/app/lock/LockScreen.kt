@@ -68,6 +68,9 @@ import io.github.npauloj.mibosmart.app.resources.lock_volume_low
 import io.github.npauloj.mibosmart.app.resources.lock_volume_medium
 import io.github.npauloj.mibosmart.app.resources.lock_volume_mute
 import io.github.npauloj.mibosmart.app.resources.lock_writes_disabled
+import io.github.npauloj.mibosmart.app.ui.StateNotice
+import io.github.npauloj.mibosmart.app.ui.StateRail
+import io.github.npauloj.mibosmart.app.ui.StateTone
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.LockCommand
@@ -188,17 +191,22 @@ fun LockScreenContent(
             OfflineNotice(state.lastSeen)
         }
 
-        when (state) {
-            is LockUiState.Loading -> LoadingRow(Res.string.lock_loading)
-            is LockUiState.Ready ->
-                LockReadings(state, null, onCommand, onVerify, onChangeVolume, onEnableRemoteOpen)
+        // The rail is the command's tone, not the door's: "Fechada" and "Aberta" are equally
+        // legitimate and neither is coloured. What earns a colour is the app not knowing — a command
+        // sent and unconfirmed — or a failure (ADR-021).
+        StateRail(tone = state.tone()) {
+            when (state) {
+                is LockUiState.Loading -> LoadingRow(Res.string.lock_loading)
+                is LockUiState.Ready ->
+                    LockReadings(state, null, onCommand, onVerify, onChangeVolume, onEnableRemoteOpen)
 
-            // A command in flight, unconfirmed or refused is drawn *over* the readings it is
-            // happening to (SPEC L3–L5): the same screen, plus one line saying where the door is.
-            is LockUiState.Commanding ->
-                LockReadings(state.before, state, onCommand, onVerify, onChangeVolume, onEnableRemoteOpen)
+                // A command in flight, unconfirmed or refused is drawn *over* the readings it is
+                // happening to (SPEC L3–L5): the same screen, plus one line saying where the door is.
+                is LockUiState.Commanding ->
+                    LockReadings(state.before, state, onCommand, onVerify, onChangeVolume, onEnableRemoteOpen)
 
-            is LockUiState.Failed -> ErrorSection(state, onRetry)
+                is LockUiState.Failed -> ErrorSection(state, onRetry)
+            }
         }
     }
 }
@@ -257,12 +265,7 @@ private fun LockReadings(
     // — one write at a time to one lock.
     val isCommandInFlight = commanding is LockUiState.CommandSent
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LabelledValue(
-            label = stringResource(Res.string.lock_state_label),
-            value = stringResource(
-                if (state.lock.isOpen) Res.string.lock_state_unlocked else Res.string.lock_state_locked,
-            ),
-        )
+        DoorState(state)
         CommandControl(state, commanding, isCommandInFlight, onCommand, onVerify)
         VolumeSelector(state, !isCommandInFlight, onChangeVolume)
         if (state.isRemoteOpenDisabled) {
@@ -308,13 +311,13 @@ private fun CommandControl(
         }
         when (commanding) {
             null -> Unit
-            is LockUiState.CommandSent -> CommandNotice(Res.string.lock_command_sent)
+            is LockUiState.CommandSent -> CommandNotice(Res.string.lock_command_sent, StateTone.Waiting)
             is LockUiState.CommandExpired -> UnconfirmedCommand(commanding, onVerify)
             is LockUiState.CommandFailed -> CommandNotice(
                 template = Res.string.lock_command_failed,
+                tone = StateTone.Failed,
                 // The partner's own sentence wins when it sent one (SPEC S3.1).
                 cause = commanding.serverMessage ?: stringResource(commanding.error.writeMessage),
-                isError = true,
             )
         }
     }
@@ -329,7 +332,11 @@ private fun CommandControl(
  */
 @Composable
 private fun UnconfirmedCommand(state: LockUiState.CommandExpired, onVerify: () -> Unit) {
-    CommandNotice(Res.string.lock_command_expired, isError = true)
+    // `Waiting`, not `Failed`, and this is the distinction the whole screen exists to make: the
+    // command left, the door never answered, and the app does not know. Calling that a failure would
+    // claim the door refused — which is exactly what nobody can tell from here (ADR-021). It read as
+    // an error until a golden showed the rail amber beside a red notice, disagreeing about one state.
+    CommandNotice(Res.string.lock_command_expired, StateTone.Waiting)
     TextButton(onClick = onVerify, enabled = !state.isChecking) {
         Text(
             stringResource(
@@ -340,22 +347,71 @@ private fun UnconfirmedCommand(state: LockUiState.CommandExpired, onVerify: () -
     // The check is a read, so it ends in a read's sentence: "a fechadura recusou o comando" would be
     // the wrong story for a request that never asked the door for anything.
     state.checkFailure?.let { error ->
+        // The *check* did fail — that is a request that did not come back, not an unconfirmed door.
         CommandNotice(
             template = Res.string.lock_command_check_failed,
+            tone = StateTone.Failed,
             cause = stringResource(error.message),
-            isError = true,
         )
     }
 }
 
 /** One sentence about where the command is, in the colour its news deserves. */
 @Composable
-private fun CommandNotice(template: StringResource, cause: String? = null, isError: Boolean = false) {
-    Text(
+private fun CommandNotice(
+    template: StringResource,
+    tone: StateTone,
+    cause: String? = null,
+) {
+    StateNotice(
+        tone = tone,
         text = if (cause == null) stringResource(template) else stringResource(template, cause),
-        style = MaterialTheme.typography.bodySmall,
-        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
     )
+}
+
+/**
+ * Where the door is, as the biggest thing on the screen.
+ *
+ * It used to be a label/value row, the same weight as "Volume". But it is the one fact a person opens
+ * this screen to read, and the timestamp beside it is what makes the fact trustworthy: a state with no
+ * age is a guess. The age is set in [TabularSmall] because it is data the partner reported, not
+ * something the app is saying.
+ */
+@Composable
+private fun DoorState(state: LockUiState.Ready) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = stringResource(Res.string.lock_state_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(
+                if (state.lock.isOpen) Res.string.lock_state_unlocked else Res.string.lock_state_locked,
+            ),
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        // Not monospace: this reads "há 5 min" or "nunca vista online" — a sentence about the
+        // reading, not the reading itself. Setting prose in a data face would say the wrong thing
+        // about what it is.
+        Text(
+            text = state.lastSeen.asText(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * The tone the rail carries. Only what the app does not know, or could not do, is coloured.
+ */
+private fun LockUiState.tone(): StateTone = when (this) {
+    is LockUiState.Loading -> StateTone.Settled
+    is LockUiState.Ready -> StateTone.Settled
+    is LockUiState.CommandSent -> StateTone.Waiting
+    is LockUiState.CommandExpired -> StateTone.Waiting
+    is LockUiState.CommandFailed -> StateTone.Failed
+    is LockUiState.Failed -> StateTone.Failed
 }
 
 /**
@@ -393,17 +449,6 @@ private fun VolumeSelector(
         state.writeFailure?.takeIf { it.write is LockWrite.Volume }?.let { failure ->
             WriteFailureText(Res.string.lock_volume_failed, failure)
         }
-    }
-}
-
-@Composable
-private fun LabelledValue(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium)
-        Text(text = value, style = MaterialTheme.typography.titleMedium)
     }
 }
 

@@ -31,6 +31,11 @@ import io.github.npauloj.mibosmart.app.resources.account_title
 import io.github.npauloj.mibosmart.app.resources.account_token_label
 import io.github.npauloj.mibosmart.app.resources.account_token_value
 import io.github.npauloj.mibosmart.app.resources.session_expiring_soon
+import io.github.npauloj.mibosmart.app.ui.StateNotice
+import io.github.npauloj.mibosmart.app.ui.StateRail
+import io.github.npauloj.mibosmart.app.ui.StateTone
+import io.github.npauloj.mibosmart.app.ui.Tabular
+import io.github.npauloj.mibosmart.app.ui.TabularSmall
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -85,7 +90,9 @@ fun AccountScreenContent(
         TextButton(onClick = onBack) { Text(stringResource(Res.string.account_back)) }
         Text(text = stringResource(Res.string.account_title), style = MaterialTheme.typography.headlineSmall)
 
-        SessionCard(state)
+        StateRail(tone = state.tone()) {
+            SessionCard(state)
+        }
 
         // Only inside the last 10 minutes (SPEC S10). Renewing earlier would spend a request to buy
         // time the session already has.
@@ -96,17 +103,13 @@ fun AccountScreenContent(
         state.requestCount?.let { count ->
             Text(
                 text = stringResource(Res.string.account_requests, count.toString()),
-                style = MaterialTheme.typography.bodySmall,
+                style = TabularSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         if (state.signOutFailed) {
-            Text(
-                text = stringResource(Res.string.account_logout_failed),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
+            StateNotice(tone = StateTone.Failed, text = stringResource(Res.string.account_logout_failed))
         }
 
         Button(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
@@ -125,11 +128,10 @@ fun AccountScreenContent(
 @Composable
 private fun RenewAction(state: AccountUiState, onRenew: () -> Unit) {
     if (state.renewFailed) {
-        Text(
-            text = stringResource(Res.string.account_renew_failed),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
-        )
+        // `Failed` is right and `Waiting` would be wrong, even though the sentence is reassuring: the
+        // attempt did fail. What stays calm is the copy — the previous credential is still the session
+        // and still valid, because renewal adds one rather than replacing one (measured 2026-09-21).
+        StateNotice(tone = StateTone.Failed, text = stringResource(Res.string.account_renew_failed))
     }
 
     Button(
@@ -163,13 +165,29 @@ private fun SessionCard(state: AccountUiState) {
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // The masked credential is a value, set in the same data face as the token screen's
+            // field so the same thing looks the same in both places.
             Text(
                 text = stringResource(Res.string.account_token_value, state.tokenSuffix),
-                style = MaterialTheme.typography.titleMedium,
+                style = Tabular,
             )
             ExpiryLine(state.expiry)
         }
     }
+}
+
+/**
+ * How much the session has left, as a tone.
+ *
+ * A session that expired is [StateTone.Failed] rather than merely waiting: nothing about it works any
+ * more. A session about to expire is [StateTone.Waiting] — still valid, and the app is telling the
+ * user what it knows before it becomes a problem, which is the same category as a lock command in
+ * flight.
+ */
+private fun AccountUiState.tone(): StateTone = when {
+    expiry is SessionExpiry.Expired -> StateTone.Failed
+    expiry is SessionExpiry.Remaining && expiry.soon -> StateTone.Waiting
+    else -> StateTone.Settled
 }
 
 /**

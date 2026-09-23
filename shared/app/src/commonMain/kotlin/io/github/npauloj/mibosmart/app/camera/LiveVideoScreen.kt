@@ -45,6 +45,8 @@ import io.github.npauloj.mibosmart.app.resources.live_step_capability
 import io.github.npauloj.mibosmart.app.resources.live_step_connecting
 import io.github.npauloj.mibosmart.app.resources.live_step_reconnecting
 import io.github.npauloj.mibosmart.app.resources.live_step_session
+import io.github.npauloj.mibosmart.app.ui.StateRail
+import io.github.npauloj.mibosmart.app.ui.StateTone
 import io.github.npauloj.mibosmart.domain.camera.StreamError
 import io.github.npauloj.mibosmart.domain.camera.StreamState
 import io.github.npauloj.mibosmart.domain.camera.StreamStep
@@ -119,33 +121,58 @@ fun LiveVideoScreenContent(
         TextButton(onClick = onBack) { Text(stringResource(Res.string.live_back)) }
         Text(text = cameraName, style = MaterialTheme.typography.headlineSmall)
 
-        when (state) {
-            // The frame before the first step, and the frame after teardown: an empty surface, not a
-            // collapsed layout, so the screen never jumps as the states go by.
-            StreamState.Idle -> VideoSurface {}
-            is StreamState.Creating -> VideoSurface { StepLabel(state.step) }
-            is StreamState.Live -> LiveSurface(state, onPlayerEvent)
-            // The attempt is counted in words over the same frame the picture will land on, so the
-            // screen neither jumps nor pretends to know a percentage (SPEC V3, U1).
-            is StreamState.Reconnecting -> VideoSurface {
-                Label(
-                    stringResource(
-                        Res.string.live_step_reconnecting,
-                        state.attempt.toString(),
-                        state.total.toString(),
-                    ),
-                )
+        // The rail is the only thing on this screen that reports state without words, which matters
+        // here more than anywhere: the picture is the content, and a person looking at a frame that is
+        // not moving needs to know which kind of "not moving" it is.
+        StateRail(tone = state.tone()) {
+            when (state) {
+                // The frame before the first step, and the frame after teardown: an empty surface, not a
+                // collapsed layout, so the screen never jumps as the states go by.
+                StreamState.Idle -> VideoSurface {}
+                is StreamState.Creating -> VideoSurface { StepLabel(state.step) }
+                is StreamState.Live -> LiveSurface(state, onPlayerEvent)
+                // The attempt is counted in words over the same frame the picture will land on, so the
+                // screen neither jumps nor pretends to know a percentage (SPEC V3, U1).
+                is StreamState.Reconnecting -> VideoSurface {
+                    Label(
+                        stringResource(
+                            Res.string.live_step_reconnecting,
+                            state.attempt.toString(),
+                            state.total.toString(),
+                        ),
+                    )
+                }
+                StreamState.NoLiveCapability -> Explanation(Res.string.live_no_capability)
+                StreamState.QuotaExceeded -> Explanation(Res.string.live_quota_exceeded)
+                StreamState.CameraOffline -> Explanation(Res.string.live_camera_offline)
+                // The web player is offered only when the session carried a `monitor_url`: with none
+                // there is nothing to open, and a dead button is worse than no button (SPEC V9, ADR-005).
+                is StreamState.Failed ->
+                    Explanation(state.error.message, onRetry, state.monitorUrl?.let { onWebPlayer })
+                is StreamState.WebFallback -> WebFallbackSurface(state.url, onCloseWebPlayer)
             }
-            StreamState.NoLiveCapability -> Explanation(Res.string.live_no_capability)
-            StreamState.QuotaExceeded -> Explanation(Res.string.live_quota_exceeded)
-            StreamState.CameraOffline -> Explanation(Res.string.live_camera_offline)
-            // The web player is offered only when the session carried a `monitor_url`: with none
-            // there is nothing to open, and a dead button is worse than no button (SPEC V9, ADR-005).
-            is StreamState.Failed ->
-                Explanation(state.error.message, onRetry, state.monitorUrl?.let { onWebPlayer })
-            is StreamState.WebFallback -> WebFallbackSurface(state.url, onCloseWebPlayer)
         }
     }
+}
+
+/**
+ * What kind of "no picture" this is.
+ *
+ * `Live` gets the brand's own colour because it is the one state on this screen where everything is
+ * working. Creating and reconnecting are [StateTone.Waiting] — the app is trying and does not know
+ * yet. A camera that is offline or has no live capability is [StateTone.Settled], not a failure:
+ * nothing went wrong, the answer is simply no (SPEC V7).
+ */
+private fun StreamState.tone(): StateTone = when (this) {
+    StreamState.Idle -> StateTone.Settled
+    is StreamState.Creating -> StateTone.Waiting
+    is StreamState.Reconnecting -> StateTone.Waiting
+    is StreamState.Live -> StateTone.Live
+    is StreamState.WebFallback -> StateTone.Live
+    StreamState.NoLiveCapability -> StateTone.Settled
+    StreamState.CameraOffline -> StateTone.Settled
+    StreamState.QuotaExceeded -> StateTone.Failed
+    is StreamState.Failed -> StateTone.Failed
 }
 
 /**

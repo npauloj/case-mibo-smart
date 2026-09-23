@@ -37,6 +37,9 @@ import io.github.npauloj.mibosmart.app.resources.token_subtitle
 import io.github.npauloj.mibosmart.app.resources.token_title
 import io.github.npauloj.mibosmart.app.resources.token_validate
 import io.github.npauloj.mibosmart.app.resources.token_validating
+import io.github.npauloj.mibosmart.app.ui.StateRail
+import io.github.npauloj.mibosmart.app.ui.StateTone
+import io.github.npauloj.mibosmart.app.ui.Tabular
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -82,31 +85,43 @@ fun TokenScreenContent(
 
     Column(
         modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Text(text = stringResource(Res.string.token_title), style = MaterialTheme.typography.headlineSmall)
-        Text(text = stringResource(Res.string.token_subtitle), style = MaterialTheme.typography.bodyMedium)
-
-        OutlinedTextField(
-            value = state.token,
-            onValueChange = onTokenChange,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !state.isValidating,
-            singleLine = true,
-            isError = state.fieldMessage != null,
-            label = { Text(stringResource(Res.string.token_field_label)) },
-            // The token is a credential, so the middle never reaches the screen; the prefix and the
-            // last 4 characters do, so a truncated paste is visible without spending a request
-            // (SPEC S1.1, S9, ADR-008).
-            visualTransformation = TokenMask,
-            supportingText = { TokenFieldSupport(state) },
-            trailingIcon = {
-                TextButton(
-                    onClick = { clipboard.getText()?.text?.let(onTokenChange) },
-                    enabled = !state.isValidating,
-                ) { Text(stringResource(Res.string.token_paste)) }
-            },
+        Text(
+            text = stringResource(Res.string.token_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // The rail reports what the field is about to report, before the sentence is read. `Settled`
+        // rather than no rail when idle: an edge that appears and disappears would draw the eye to a
+        // colour arriving instead of to the state it describes.
+        StateRail(tone = state.tone()) {
+            OutlinedTextField(
+                value = state.token,
+                onValueChange = onTokenChange,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isValidating,
+                singleLine = true,
+                isError = state.fieldMessage != null,
+                label = { Text(stringResource(Res.string.token_field_label)) },
+                // A credential is data, not prose: monospace keeps the mask's dots from drifting as
+                // characters arrive, and says visually that this is a value rather than a sentence.
+                textStyle = Tabular,
+                // The token is a credential, so the middle never reaches the screen; the prefix and the
+                // last 4 characters do, so a truncated paste is visible without spending a request
+                // (SPEC S1.1, S9, ADR-008).
+                visualTransformation = TokenMask,
+                supportingText = { TokenFieldSupport(state) },
+                trailingIcon = {
+                    TextButton(
+                        onClick = { clipboard.getText()?.text?.let(onTokenChange) },
+                        enabled = !state.isValidating,
+                    ) { Text(stringResource(Res.string.token_paste)) }
+                },
+            )
+        }
 
         Button(
             onClick = onValidate,
@@ -125,6 +140,18 @@ fun TokenScreenContent(
             }
         }
     }
+}
+
+/**
+ * Which tone the rail carries, which is the same question as "what does the app know right now".
+ *
+ * Validating is [StateTone.Waiting] and not a failure: the request is in flight and the app genuinely
+ * does not know yet — the same category a sent-but-unconfirmed lock command is in.
+ */
+private fun TokenEntryUiState.tone(): StateTone = when {
+    fieldMessage != null -> StateTone.Failed
+    isValidating -> StateTone.Waiting
+    else -> StateTone.Settled
 }
 
 /**

@@ -16,16 +16,17 @@ desejados). O escopo é implementado em ondas (fatias verticais, uma Issue e um 
 
 | RF | O que pede | Fatias | PRs mesclados |
 |---|---|---|---|
-| RF01 | Tela inicial com campo para o token de acesso | S-01a · S-01b · S-01c · S-02a · S-02b · S-03 | [#26](../../pull/26) · [#37](../../pull/37) · [#29](../../pull/29) · [#46](../../pull/46) · [#50](../../pull/50) · [#56](../../pull/56) |
+| RF01 | Tela inicial com campo para o token de acesso | S-01a · S-01b · S-01c · S-02a · S-02b · S-03 · S-04 · #85 | [#26](../../pull/26) · [#37](../../pull/37) · [#29](../../pull/29) · [#46](../../pull/46) · [#50](../../pull/50) · [#56](../../pull/56) · [#72](../../pull/72) · [#86](../../pull/86) |
 | RF02 | Após submissão, listar os dispositivos retornados pela API | D-01a · D-01b · D-02 · D-03 · D-04 · D-05 | [#38](../../pull/38) · [#47](../../pull/47) · [#51](../../pull/51) · [#62](../../pull/62) · [#66](../../pull/66) · [#70](../../pull/70) |
-| RF03 | Acessar câmeras a partir da lista e ver o vídeo ao vivo | V-01a · V-01b · V-02 | [#43](../../pull/43) · [#52](../../pull/52) · [#58](../../pull/58) |
+| RF03 | Acessar câmeras a partir da lista e ver o vídeo ao vivo | V-01a · V-01b · V-02 · #78 | [#43](../../pull/43) · [#52](../../pull/52) · [#58](../../pull/58) · [#79](../../pull/79) |
 | RF04 | Erros amigáveis: token inválido, expirado, falha de rede, lista vazia | transversal — toda fatia mapeia suas falhas para um resultado selado (ADR-002, SPEC E2) | ver as demais linhas |
-| RF05 | Fechadura: abrir, fechar e verificar status | L-01a · L-02, alcançável por D-03 · D-04 | [#39](../../pull/39) · [#59](../../pull/59) · [#62](../../pull/62) · [#66](../../pull/66) |
-| RF06 | Fechadura: ver e mudar o volume | L-01b | [#53](../../pull/53) |
+| RF05 | Fechadura: abrir, fechar e verificar status | L-01a · L-02, alcançável por D-03 · D-04 · #80 | [#39](../../pull/39) · [#59](../../pull/59) · [#62](../../pull/62) · [#66](../../pull/66) · [#81](../../pull/81) |
+| RF06 | Fechadura: ver e mudar o volume | L-01b · #80 | [#53](../../pull/53) · [#81](../../pull/81) |
 | RF07 | Filtrar por origem (vinculados, compartilhados, todos) | D-02 | [#51](../../pull/51) |
 | RF08 | Paginação com `pagina` e `tamanhoPagina` | D-02 | [#51](../../pull/51) |
 | RF09 | Histórico de abertura da fechadura | L-03 | [#60](../../pull/60) |
 | ★ | Interoperabilidade Java (`:legacy-catalog`) | P-01 · D-05 | [#68](../../pull/68) · [#70](../../pull/70) |
+| ★ | Identidade visual, testes de screenshot e entrega | — (transversal, sem RF próprio) | [#73](../../pull/73) · [#74](../../pull/74) · [#76](../../pull/76) · [#77](../../pull/77) · [#82](../../pull/82) · [#83](../../pull/83) · [#84](../../pull/84) · [#87](../../pull/87) |
 
 Fora de escopo por decisão: lâmpadas, sensores, gravações de câmera, senhas de fechadura, criação de
 conta na plataforma.
@@ -37,6 +38,10 @@ de que toda fatia converte falha de transporte e de API em resultado selado, com
 
 O PR [#64](../../pull/64) não aparece acima por não conter código: ele consolidou em `main` quatro
 fatias que um merge de pilha mal-feito havia deixado numa branch lateral (ver ADR-019).
+
+As três últimas entradas com número de **Issue** em vez de fatia — #78, #80 e #85 — são defeitos e uma
+melhoria encontrados **depois** da onda 3, com o app rodando contra a API real. Não nasceram da SPEC:
+nasceram de medir. O #78 é o mais caro dos três e tem ADR próprio (ADR-025).
 
 ## Pré-requisitos
 

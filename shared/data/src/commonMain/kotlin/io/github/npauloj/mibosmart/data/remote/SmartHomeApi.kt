@@ -24,6 +24,23 @@ import kotlinx.serialization.json.JsonElement
 internal class SmartHomeApi(
     private val httpClient: HttpClient,
     private val baseUrl: String,
+    /**
+     * Where the **streaming** endpoints live, which is not where the rest of the API lives.
+     *
+     * Measured 2026-09-23. `cameras/criar-fluxo-video/v1` answers on both hosts and answers
+     * *differently*: on the api host it returns `{"url": "rtsp://…"}` and nothing else — no
+     * `session_id`, so SPEC V8 can never close the session it just opened — and that rtsp endpoint
+     * completes the whole RTSP handshake (`DESCRIBE`, `SETUP`, `PLAY`, all `200`) without ever
+     * sending a media packet. On the portal host the same call returns the shape the Swagger
+     * documents: a fragmented-MP4 url over HTTPS, `monitor_url`, `session_id` and `quota_gb`.
+     * `streaming/cota-disponivel/v1`, `streaming/minhas-sessoes/v1` and `streaming/encerrar-sessao/v1`
+     * answer `403 {"message":"Forbidden"}` on the api host — the gateway refusing an unknown route,
+     * not the platform refusing the token.
+     *
+     * So this is not a preference between two working hosts: the api host is the wrong address for
+     * these calls, and using it is what left 27 sessions open on a shared account.
+     */
+    private val streamingBaseUrl: String,
     private val envelopeReader: EnvelopeReader,
     private val requestCounter: RequestCounter,
     private val refusedRequests: RefusedRequests,
@@ -61,11 +78,11 @@ internal class SmartHomeApi(
 
     /** `POST /cameras/criar-fluxo-video/v1` — opens a session and spends streaming quota (SPEC V2). */
     suspend fun createVideoStream(token: Token, request: CreateStreamRequestDto): JsonElement =
-        post(CREATE_STREAM_PATH, token) { setBody(request) }
+        post(CREATE_STREAM_PATH, token, streamingBaseUrl) { setBody(request) }
 
     /** `POST /streaming/encerrar-sessao/v1` — gives the quota back (SPEC V8). */
     suspend fun endStreamSession(token: Token, request: EndSessionRequestDto): JsonElement =
-        post(END_SESSION_PATH, token) { setBody(request) }
+        post(END_SESSION_PATH, token, streamingBaseUrl) { setBody(request) }
 
     /** `POST /fechaduras/status-abertura/v1` — whether the door is open (SPEC L1). */
     suspend fun readLockOpenState(token: Token, request: LockReadRequestDto): JsonElement =
@@ -123,13 +140,14 @@ internal class SmartHomeApi(
     private suspend fun post(
         path: String,
         token: Token,
+        host: String = baseUrl,
         body: HttpRequestBuilder.() -> Unit,
     ): JsonElement {
         // Counted before the wire, not after: an answer that never comes has still spent a request
         // from the account's budget (ADR-006).
         requestCounter.increment()
         val response = try {
-            httpClient.post("${baseUrl.trimEnd('/')}$path") {
+            httpClient.post("${host.trimEnd('/')}$path") {
                 contentType(ContentType.Application.Json)
                 bearerAuth(token.value)
                 body()

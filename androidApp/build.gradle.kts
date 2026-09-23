@@ -16,6 +16,12 @@ val localProperties: Properties? =
 val smartHomeApiHost: String =
     localProperties?.getProperty("smarthome.apiHost") ?: "https://api.example.invalid"
 
+// The streaming host. It is a *different* address from the api host, not a synonym: the four
+// `streaming/*` calls only exist there, and `criar-fluxo-video` answers on both with different
+// shapes (measured 2026-09-23 — see `SmartHomeApi.streamingBaseUrl`).
+val smartHomePortalHost: String =
+    localProperties?.getProperty("smarthome.portalHost") ?: "https://portal.example.invalid"
+
 // The live-video kill switch (SPEC V1, ADR-006). Default on; set `smarthome.liveVideoEnabled=false`
 // to run the app on the shared account without ever opening a streaming session.
 val liveVideoEnabled: String =
@@ -44,6 +50,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         buildConfigField("String", "SMARTHOME_API_HOST", "\"$smartHomeApiHost\"")
+        buildConfigField("String", "SMARTHOME_PORTAL_HOST", "\"$smartHomePortalHost\"")
         buildConfigField("boolean", "SMARTHOME_LIVE_VIDEO_ENABLED", liveVideoEnabled)
         buildConfigField("boolean", "SMARTHOME_LOCK_WRITES_ENABLED", lockWritesEnabled)
     }

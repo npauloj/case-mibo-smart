@@ -35,6 +35,7 @@ class LogSanitizerTest {
         val api = SmartHomeApi(
             httpClient = HttpClientFactory.create(engine, logger),
             baseUrl = "https://api.example.invalid",
+            streamingBaseUrl = "https://portal.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
             requestCounter = RequestCounter(),
             refusedRequests = SessionRefusals(),

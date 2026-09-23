@@ -28,8 +28,8 @@ shaped by what the use case needs (p. 181–191, Dependency Inversion).
 
 ## Decision Drivers
 
-- The UI must render exactly the states the rubric lists (loading / success / empty / error) without
-  a global catch-all.
+- The UI must render loading, success, empty and error as four distinct states, without a global
+  catch-all.
 - Cancellation must never be swallowed (structured concurrency).
 - The "token rejected" interpretation is a business rule, not a transport fact.
 

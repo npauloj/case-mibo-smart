@@ -20,7 +20,7 @@ does not benefit from borders" and recommends soft (package) boundaries for smal
 
 ## Decision Drivers
 
-- The rubric explicitly names modularization and multi-partner support — a soft-boundary single
+- Modularization and support for more than one partner are requirements here — a soft-boundary single
   module makes that argument harder to demonstrate in a 20-minute walkthrough.
 - Build time and context size for an AI-assisted, time-boxed build.
 - iOS must consume the same shared code (proof that "KMP" is real, not a label).

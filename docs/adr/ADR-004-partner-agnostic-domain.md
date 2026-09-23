@@ -4,7 +4,7 @@ Status: Accepted (2026-09-20)
 
 ## Context
 
-The rubric names "suporte a múltiplos parceiros" as an architecture criterion. The Open Casa Inteligente contract
+Supporting more than one partner is an architecture requirement here. The Open Casa Inteligente contract
 carries a long list of quirks that must not leak upward (`docs/api-contract.md` §7): Portuguese field
 names (`tamanhoPagina`, `pagina`, `origem`, `aberto`, `habilitado`), plural/singular mismatch
 (`vinculados` vs `vinculado`), the `productId`/`idProduto` bug on `/fechaduras/volume/v1`, composite

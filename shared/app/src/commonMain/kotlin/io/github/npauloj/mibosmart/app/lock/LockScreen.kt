@@ -64,6 +64,7 @@ import io.github.npauloj.mibosmart.app.resources.lock_volume_changing
 import io.github.npauloj.mibosmart.app.resources.lock_volume_failed
 import io.github.npauloj.mibosmart.app.resources.lock_volume_high
 import io.github.npauloj.mibosmart.app.resources.lock_volume_label
+import io.github.npauloj.mibosmart.app.resources.lock_volume_unavailable
 import io.github.npauloj.mibosmart.app.resources.lock_volume_low
 import io.github.npauloj.mibosmart.app.resources.lock_volume_medium
 import io.github.npauloj.mibosmart.app.resources.lock_volume_mute
@@ -430,15 +431,25 @@ private fun VolumeSelector(
     val changing = state.writeInFlight as? LockWrite.Volume
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(text = stringResource(Res.string.lock_volume_label), style = MaterialTheme.typography.bodyMedium)
+        // A null volume is the lock not having answered, which is a different thing from every level
+        // being wrong. Writing is refused in that case on purpose: `mudar-volume` with no idea of the
+        // current level would be the app deciding for hardware it has not heard from.
+        val isKnown = state.lock.volume != null
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             VolumeLevel.entries.forEach { level ->
                 FilterChip(
                     selected = level == state.lock.volume,
                     onClick = { onChangeVolume(level) },
-                    enabled = isEnabled && state.areWritesEnabled && state.writeInFlight == null,
+                    enabled = isKnown && isEnabled && state.areWritesEnabled && state.writeInFlight == null,
                     label = { Text(stringResource(level.label)) },
                 )
             }
+        }
+        if (!isKnown) {
+            // `Waiting`, not `Failed`: the door's own state read fine and is on screen above. Painting
+            // this red would tell the user the screen is broken when one secondary reading is missing
+            // (ADR-026).
+            StateNotice(tone = StateTone.Waiting, text = stringResource(Res.string.lock_volume_unavailable))
         }
         if (changing != null) {
             Text(

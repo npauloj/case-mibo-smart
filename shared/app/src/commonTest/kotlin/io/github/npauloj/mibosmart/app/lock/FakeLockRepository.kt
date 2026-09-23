@@ -38,6 +38,15 @@ internal class FakeLockRepository(
     private val answerConfirmation: suspend () -> Unit = {},
     private val obeysCommands: Boolean = true,
     private val history: List<OpeningEvent> = emptyList(),
+    /**
+     * What `fechaduras/volume/v1` refuses with, when it refuses.
+     *
+     * It is its own parameter rather than a null volume in [state] because the two are different
+     * facts: [LockState.volume] being null is what the *screen* knows, and a repository never
+     * returns "unknown" — it answers or it throws (ADR-026). Measured 2026-09-23, the endpoint
+     * answers `500` on five of the six locks in the test account.
+     */
+    private val volumeFailure: Throwable? = null,
 ) : LockRepository {
 
     val reads = mutableListOf<Read>()
@@ -65,7 +74,11 @@ internal class FakeLockRepository(
 
     override suspend fun readVolume(address: LockAddress): VolumeLevel {
         record(Read(Read.VOLUME, address))
-        return state.volume
+        volumeFailure?.let { throw it }
+        return checkNotNull(state.volume) {
+            "a fake whose state has no volume must be given a volumeFailure: the repository either " +
+                "answers or throws, it never returns 'unknown'"
+        }
     }
 
     /** The `quantidade` asked for is recorded too: SPEC L9 fixes it at 50 and the account pays once. */

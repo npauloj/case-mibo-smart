@@ -5,6 +5,7 @@ import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -66,6 +67,42 @@ class LoadLockTest {
         assertEquals(3, repository.reads.size, "no read may be issued twice: the account pays for each")
         val loaded = assertIs<LoadLockResult.Loaded>(result)
         assertEquals(LockSamples.Locked, loaded.lock)
+    }
+
+    /**
+     * The volume may refuse without taking the door's state with it (ADR-026).
+     *
+     * Measured 2026-09-23: `fechaduras/volume/v1` answers `500 "Erro desconhecido"` on five of the six
+     * locks in the test account, while `status-abertura` and `status-abrir-remoto` answer `200` on all
+     * six. Before this, one `500` blanked a screen whose two load-bearing reads had both succeeded —
+     * the user asked whether the door was open and the app, which knew, said "Resposta inesperada".
+     */
+    @Test
+    fun aVolumeThatRefusesDoesNotTakeTheDoorWithIt() = runTest {
+        val repository = FakeLockRepository(
+            volumeFailure = SmartHomeException.UnexpectedResponse("500 Erro desconhecido"),
+        )
+
+        val result = LoadLock(repository)(LockSamples.Address)
+
+        val loaded = assertIs<LoadLockResult.Loaded>(result)
+        assertEquals(LockSamples.Locked.isOpen, loaded.lock.isOpen)
+        assertEquals(LockSamples.Locked.isRemoteOpenEnabled, loaded.lock.isRemoteOpenEnabled)
+        assertNull(loaded.lock.volume, "an unread volume must be absent, never guessed")
+        assertEquals(3, repository.reads.size, "the volume is still asked for once, and only once")
+    }
+
+    /**
+     * The two that the screen cannot exist without still veto it.
+     *
+     * The point of the change above was not "never fail": without the door's state there is nothing
+     * to show, and inventing a screen around the volume alone would be worse than saying so.
+     */
+    @Test
+    fun aDoorStateThatRefusesStillFailsTheScreen() = runTest {
+        val repository = FakeLockRepository(answer = { throw SmartHomeException.Offline(null) })
+
+        assertEquals(LoadLockResult.Offline, LoadLock(repository)(LockSamples.Address))
     }
 
     /** A failed read leaves the screen with a named cause, not with two of three values (ADR-002). */

@@ -4,6 +4,7 @@ import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
 import io.github.npauloj.mibosmart.domain.lock.LockRepository
 import io.github.npauloj.mibosmart.domain.lock.LockState
+import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -16,8 +17,19 @@ import kotlinx.coroutines.coroutineScope
  * request (ADR-006): there is no timer, no poll and no retry here, and the screen is the only thing
  * that may ask again (SPEC E5).
  *
- * A failure in any of the three cancels the other two — `coroutineScope` does that — which is the
- * right call for a screen that has nothing to show without all three values.
+ * A failure in **either of the first two** cancels the rest, which `coroutineScope` does for free and
+ * which is right: without the door's state and the remote-open precondition the screen has nothing to
+ * say at all.
+ *
+ * The volume is different, and this is the reversal ADR-026 records. It used to veto the screen like
+ * the other two. Measured 2026-09-23, `fechaduras/volume/v1` answers `500` on five of the six locks in
+ * the test account while `status-abertura` and `status-abrir-remoto` answer `200` on all six — so the
+ * old reading threw away a correct answer about whether the door is open, which is the whole point of
+ * the screen, because a secondary control could not be filled in.
+ *
+ * The guard is **inside** the `async`, not around the `await`: a child that throws inside a
+ * `coroutineScope` cancels its siblings the moment it fails, not when someone asks for its value.
+ * Catching at the `await` would have looked correct and changed nothing.
  */
 class LoadLock(private val lockRepository: LockRepository) {
 
@@ -26,7 +38,7 @@ class LoadLock(private val lockRepository: LockRepository) {
             coroutineScope {
                 val isOpen = async { lockRepository.readOpenState(address) }
                 val isRemoteOpenEnabled = async { lockRepository.readRemoteOpenEnabled(address) }
-                val volume = async { lockRepository.readVolume(address) }
+                val volume = async { readVolumeOrNull(address) }
                 LoadLockResult.Loaded(
                     LockState(
                         isOpen = isOpen.await(),
@@ -39,6 +51,22 @@ class LoadLock(private val lockRepository: LockRepository) {
             throw cancellation
         } catch (failure: Throwable) {
             failure.toResult()
+        }
+
+    /**
+     * The volume, or nothing — never a failure the caller has to handle.
+     *
+     * `CancellationException` is rethrown rather than swallowed: it is not the lock refusing to
+     * answer, it is the screen going away, and turning it into `null` would leave a dead coroutine
+     * writing state nobody is reading.
+     */
+    private suspend fun readVolumeOrNull(address: LockAddress): VolumeLevel? =
+        try {
+            lockRepository.readVolume(address)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (unavailable: Throwable) {
+            null
         }
 
     private fun Throwable.toResult(): LoadLockResult = when (this) {

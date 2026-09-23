@@ -120,6 +120,19 @@ tasks.withType<Test>().configureEach {
     // Roborazzi asks for this explicitly: without it the capture path is lower fidelity and images
     // differ between machines for reasons that have nothing to do with the UI.
     systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+
+
+    // Robolectric composes one screen at a time per fork, so the captures were serial. They are
+    // parallel now because `ScreenshotTest` was split into one class per screen — Gradle hands
+    // *classes* to forks, and forty-two captures in one class occupy exactly one fork whatever this
+    // number says.
+    //
+    // The cap is the point, and it is **memory**, not cores. Each fork carries its own Robolectric
+    // sandbox and Compose runtime on top of the Gradle daemon. `availableProcessors() / 2` picked 6
+    // on a 12-core developer machine and the recording run was killed for memory pressure — the
+    // second such kill this file has caused (ADR-024 records the first). The CI runner has 4 vCPU,
+    // so it would have landed on 2 and never shown the problem.
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 2)
 }
 // Every user-facing string is a Compose resource (SPEC E6); the generated accessor is pinned to a
 // package of ours so the import does not depend on how the plugin derives one.

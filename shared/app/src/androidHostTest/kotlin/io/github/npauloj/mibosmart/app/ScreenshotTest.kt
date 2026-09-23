@@ -42,13 +42,21 @@ import org.robolectric.annotation.GraphicsMode
  * `GraphicsMode.NATIVE` is mandatory — the legacy mode draws nothing and every image comes out blank.
  * The device and, crucially, the **locale** are pinned in `robolectric.properties`: Robolectric
  * defaults to `en`, which silently records goldens of `values-en/` while the app ships pt-BR.
+ *
+ * ## One class per screen
+ *
+ * Not cosmetic: Gradle hands **classes** to test forks, so forty-two captures in a single class run
+ * in a single fork no matter what `maxParallelForks` says. Six classes are six units of work the
+ * runner can spread. Measured on a developer machine before the split: the module's whole test task
+ * takes 28 s and writes no image, while recording the same set takes **1611 s** — the captures are
+ * effectively the entire cost of the screenshot step, and they were all serial.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-class ScreenshotTest {
+class TokenScreenshotTest {
 
     @Test
-    fun tokenScreen() = captureAll(
+    fun captures() = captureAll(
         screen = "TokenScreen",
         provider = TokenEntryUiStateProvider(),
         states = with(TokenEntryUiStateProvider) {
@@ -57,9 +65,14 @@ class ScreenshotTest {
     ) { state ->
         TokenScreenContent(state = state, onTokenChange = {}, onValidate = {})
     }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class DeviceListScreenshotTest {
 
     @Test
-    fun deviceListScreen() = captureAll(
+    fun captures() = captureAll(
         screen = "DeviceListScreen",
         provider = DeviceListUiStateProvider(),
         states = with(DeviceListUiStateProvider) {
@@ -76,9 +89,14 @@ class ScreenshotTest {
             onLockTap = {},
         )
     }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class LockScreenshotTest {
 
     @Test
-    fun lockScreen() = captureAll(
+    fun captures() = captureAll(
         screen = "LockScreen",
         provider = LockUiStateProvider(),
         states = with(LockUiStateProvider) {
@@ -103,6 +121,11 @@ class ScreenshotTest {
             onBack = {},
         )
     }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class LiveVideoScreenshotTest {
 
     /**
      * The player surface is an `expect` composable backed by Media3 on Android (ADR-005), which cannot
@@ -111,7 +134,7 @@ class ScreenshotTest {
      * is opened and no streaming quota is spent by a test.
      */
     @Test
-    fun liveVideoScreen() = captureAll(
+    fun captures() = captureAll(
         screen = "LiveVideoScreen",
         provider = StreamStateProvider(),
         states = with(StreamStateProvider) {
@@ -135,9 +158,14 @@ class ScreenshotTest {
             )
         }
     }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class OpeningHistoryScreenshotTest {
 
     @Test
-    fun openingHistory() = captureAll(
+    fun captures() = captureAll(
         screen = "OpeningHistory",
         provider = OpeningHistoryUiStateProvider(),
         states = with(OpeningHistoryUiStateProvider) {
@@ -146,9 +174,14 @@ class ScreenshotTest {
     ) { state ->
         OpeningHistoryContent(state = state, onRetry = {}, onBack = {})
     }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class AccountScreenshotTest {
 
     @Test
-    fun accountScreen() = captureAll(
+    fun captures() = captureAll(
         screen = "AccountScreen",
         provider = AccountUiStateProvider(),
         states = with(AccountUiStateProvider) {
@@ -157,29 +190,30 @@ class ScreenshotTest {
     ) { state ->
         AccountScreenContent(state = state, onRenew = {}, onSignOut = {}, onBack = {})
     }
+}
 
-    /**
-     * Captures every named state and then checks the naming against the provider.
-     *
-     * The assertion runs **after** the captures so a drift failure still leaves the images behind to
-     * look at; failing first would hide the very screens someone is trying to review.
-     */
-    private fun <T> captureAll(
-        screen: String,
-        provider: PreviewParameterProvider<T>,
-        states: List<Pair<String, T>>,
-        content: @Composable (T) -> Unit,
-    ) {
-        states.forEach { (name, state) ->
-            captureRoboImage("src/androidHostTest/goldens/${screen}_$name.png") {
-                AppTheme { content(state) }
-            }
+
+/**
+ * Captures every named state and then checks the naming against the provider.
+ *
+ * The assertion runs **after** the captures so a drift failure still leaves the images behind to
+ * look at; failing first would hide the very screens someone is trying to review.
+ */
+private fun <T> captureAll(
+    screen: String,
+    provider: PreviewParameterProvider<T>,
+    states: List<Pair<String, T>>,
+    content: @Composable (T) -> Unit,
+) {
+    states.forEach { (name, state) ->
+        captureRoboImage("src/androidHostTest/goldens/${screen}_$name.png") {
+            AppTheme { content(state) }
         }
-        assertEquals(
-            provider.values.count(),
-            states.size,
-            "$screen has states the goldens do not cover — add them to this list, or the screenshot " +
-                "set silently falls behind the previews it is supposed to mirror",
-        )
     }
+    assertEquals(
+        provider.values.count(),
+        states.size,
+        "$screen has states the goldens do not cover — add them to this list, or the screenshot " +
+            "set silently falls behind the previews it is supposed to mirror",
+    )
 }

@@ -4,8 +4,9 @@ Status: Accepted (2026-09-20)
 
 ## Context
 
-The rubric asks for "feedback das ações e tratamento adequado dos estados de carregamento, sucesso,
-lista vazia e erro" (15%) and for lifecycle/concurrency competence (25%). The app talks to hardware:
+Every action has to give feedback; loading, success, empty list and error have to be four distinct
+states rather than one screen with a spinner on it; and the lifecycle and concurrency underneath have
+to be right. The app talks to hardware:
 a lock command can be sent and not confirmed, a camera can be offline, a token can expire mid-session.
 
 Efthymiou (p. 200) calls MVVM "the go-to pattern of the industry", recommends an MVI-like single

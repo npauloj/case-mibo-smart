@@ -7,6 +7,7 @@ import io.github.npauloj.mibosmart.app.camera.cameraAppModule
 import io.github.npauloj.mibosmart.app.devices.deviceAppModule
 import io.github.npauloj.mibosmart.app.lock.LockWritesSwitch
 import io.github.npauloj.mibosmart.app.lock.lockAppModule
+import io.github.npauloj.mibosmart.app.session.PortalUrl
 import io.github.npauloj.mibosmart.app.session.DebugBuild
 import io.github.npauloj.mibosmart.app.session.sessionAppModule
 import io.github.npauloj.mibosmart.data.di.dataModule
@@ -54,6 +55,10 @@ fun appModule(
     // Work that must outlive the screen that started it — closing a streaming session, today
     // (SPEC V8). It belongs to no single feature either.
     single { AppCoroutineScope() }
+
+    // Where a token is generated. Read by the token screen alone, to open a page — never to send a
+    // request, which is why it is here and not a second base url in the transport (ADR-025).
+    single { PortalUrl(portalHost) }
 
     // Configured at the entry point like the host, and read by the camera feature alone.
     single { LiveVideoSwitch(liveVideoEnabled) }

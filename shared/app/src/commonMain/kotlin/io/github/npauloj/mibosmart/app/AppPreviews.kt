@@ -73,6 +73,7 @@ private fun TokenEntryDestinationPreview(reason: SessionEndReason) {
                 state = TokenEntryUiStateProvider.Idle,
                 onTokenChange = {},
                 onValidate = {},
+                onOpenPortal = {},
             )
         }
     }

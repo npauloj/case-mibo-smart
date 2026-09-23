@@ -260,6 +260,7 @@ class LockRequestsTest {
                 },
             ),
             baseUrl = "https://api.example.invalid",
+            streamingBaseUrl = "https://portal.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
             requestCounter = RequestCounter(),
             refusedRequests = SessionRefusals(),

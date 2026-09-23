@@ -222,23 +222,79 @@ Request: `{ "ns": "<camera serial>", "stream_gb": 0.5, "canalVideo": 0, "streamI
 - `canalVideo` (int, default 0): lens/channel; single-lens devices always 0.
 - `streamId` (int, default 0): 0 = main/high resolution, 1 = secondary/lower bandwidth.
 
-Documented response (shape B):
+### Measured 2026-09-23 — **the host decides the answer**
+
+This call exists on **both** partner hosts and answers differently on each. That is the whole
+finding, and nothing in an app can detect it: both return `200`, both return a playable-looking
+`url`, and neither reports an error.
+
+On `<PORTAL_HOST>` — the documented shape, in full:
 
 ```json
 { "status": "sucesso",
-  "data": { "url": "https://<PORTAL_HOST>/stream/<session>-...",
-            "monitor_url": "https://<PORTAL_HOST>/monitor_stream.html?session_id=...",
-            "session_id": "...", "quota_gb": 1.0, "warning": "..." } }
+  "data": { "url": "https://<PORTAL_HOST>/stream/<session>",
+            "monitor_url": "https://<PORTAL_HOST>/monitor_stream.html?session_id=<session>",
+            "session_id": "<uuid>", "quota_gb": 0.5,
+            "warning": "Esta URL é única. Não compartilhe." } }
 ```
 
-- `url` is a **fragmented MP4 (fMP4) HTTP stream** meant for MediaSource Extensions — not RTSP, not HLS.
-- `monitor_url` is a ready HTML page with a player and consumption stats.
-- The stream **expires if not opened within 15 s** of creation and ends automatically at `stream_gb`.
-- Errors: `402` "Quota de streaming insuficiente", `500` "Erro desconhecido" (as documented status codes;
-  given §1, expect them inside the body rather than as HTTP status). `[ASSUMED]`
+On `<API_HOST>` — one field, and it is a different protocol:
 
-Not probed — each call opens a real session and spends quota.
+```json
+{ "status": "sucesso", "data": { "url": "rtsp://<rtsp-proxy-host>:8554/<session>" } }
+```
 
+That second answer is a dead end, measured end to end with a hand-written RTSP client:
+
+| Step | Result |
+|---|---|
+| `DESCRIBE` | `200`, SDP for H.265 (one camera) or H.264 (the other), audio MPEG4-GENERIC |
+| SDP `a=fmtp` | **absent on every track**, so Media3 refuses the session in `RtspClient.buildTrackList` with `missing attribute fmtp` — it needs `sprop-parameter-sets` / `config` and the server sends the parameter sets in-band instead (`a=packetization-supported:DH`, a Dahua stack) |
+| `SETUP` + `PLAY`, TCP interleaved and UDP, both tracks, `streamId` 0 and 1, `canalVideo` 0/1/2 | all `200` |
+| RTP | **zero packets in 45 s**, and the server's own RTCP sender report declares `0 packets / 0 bytes sent` |
+
+So the api host's url answers the control protocol correctly and never carries media. It also
+carries no `session_id`, which is the part that did real damage: `encerrar-sessao` has no other
+handle, so SPEC V8's teardown could never run and **27 sessions were left open on the shared
+account** before anyone thought to count them (`streaming/minhas-sessoes/v1`, §6 below, is where
+they were found and closed).
+
+The streaming endpoints are on the portal host too: on `<API_HOST>` all four answer
+`403 {"message":"Forbidden"}` — the gateway refusing an unknown route, not the platform refusing
+the token. That 403 is the cheapest way to tell the two hosts apart.
+
+**Consequence for the code:** `criar-fluxo-video` and `encerrar-sessao` go to `<PORTAL_HOST>`;
+everything else stays on `<API_HOST>` (`SmartHomeApi.streamingBaseUrl`). ADR-005 was right all
+along — fragmented MP4 over HTTPS, played by Media3 — it was simply being asked at the wrong
+address.
+
+### How the portal's own page consumes the stream
+
+Read from `monitor_stream.html`, which is the reference implementation:
+
+1. `GET /stats/<session_id>` → `{ is_active, is_hls, bytes_consumed, quota_gb, quota_remaining_gb,
+   duration_seconds, quota_exceeded, … }`. `is_hls` chooses the transport.
+2. `is_hls: true` → `GET /stream/<session_id>/playlist.m3u8` (HLS).
+3. `is_hls: false` → `GET /stream/<session_id>`, `Content-Type: video/mp4`,
+   `Transfer-Encoding: chunked`, fed to a MediaSource `SourceBuffer` with
+   `video/mp4; codecs="avc1.42E01E, mp4a.40.2"` — H.264 baseline plus AAC-LC.
+4. `/stats/` again every 500 ms for the consumption readout.
+
+Measured: this account answers `is_hls: false`, and `playlist.m3u8` is `404`.
+
+### `[OPEN]` The upstream was empty on 2026-09-23
+
+Connecting to `/stream/<session>` **0.1 s** after creating the session, on both cameras, every
+`canalVideo` and every `streamId`, returns `200 video/mp4 chunked` and then **EOF after exactly
+15 s with zero bytes** — the documented "expires if not opened within 15 s" is the transcoder
+giving up on its own upstream, not on the client.
+
+That is not a permanent property of the platform. `streaming/minhas-sessoes/v1` showed ten
+sessions from earlier the same day with real consumption — 0.036 GB / 325 s, 0.051 GB / 470 s,
+0.067 GB / 617 s — a constant ≈0.87 Mbit/s. A 15 s session that received nothing reports
+`mb_consumed: 0.0`, so consumption counts bytes **delivered to a client**: the path did carry
+video that day and then stopped. Whether the 27 concurrent open sessions are what put it in that
+state is unknown, and worth not repeating.
 ### Session management (body `{}` unless noted)
 
 | Endpoint | Body | Purpose |

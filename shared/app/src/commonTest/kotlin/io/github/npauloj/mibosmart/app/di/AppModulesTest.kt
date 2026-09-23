@@ -23,7 +23,8 @@ class AppModulesTest {
 
     @Test
     fun theTokenUseCaseResolvesFromTheRealGraph() {
-        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<AuthenticateToken>())
 
@@ -33,7 +34,8 @@ class AppModulesTest {
     /** The first thing the app resolves: a missing binding here is a crash before any screen. */
     @Test
     fun theStartupUseCaseResolvesFromTheRealGraph() {
-        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<SessionStartup>())
 
@@ -49,7 +51,8 @@ class AppModulesTest {
      */
     @Test
     fun theSessionGuardAndItsRefusalStreamResolveFromTheRealGraph() {
-        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<SessionGuard>())
         assertNotNull(koin.get<Logout>())
@@ -64,7 +67,8 @@ class AppModulesTest {
 
     @Test
     fun theLockUseCaseResolvesFromTheRealGraph() {
-        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<LoadLock>())
         // The command path is wired too: LockViewModel takes it, so a missing binding is a screen
@@ -76,7 +80,8 @@ class AppModulesTest {
 
     @Test
     fun theLiveVideoUseCaseResolvesFromTheRealGraph() {
-        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<WatchLiveVideo>())
 
@@ -93,7 +98,8 @@ class AppModulesTest {
      */
     @Test
     fun theCodeCatalogueResolvesFromTheRealGraph() {
-        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<ModelCatalog>())
 
@@ -102,7 +108,8 @@ class AppModulesTest {
 
     @Test
     fun theDeviceListUseCaseResolvesFromTheRealGraph() {
-        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<ListDevices>())
 
@@ -120,7 +127,8 @@ class AppModulesTest {
      */
     @Test
     fun deviceListResolvesTheModelCatalog() {
-        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid")) }.koin
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
 
         assertSame(
             koin.get<ModelCatalog>(),

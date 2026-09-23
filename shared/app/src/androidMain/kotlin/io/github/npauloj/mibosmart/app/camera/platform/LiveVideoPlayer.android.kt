@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.camera.platform
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
@@ -16,16 +17,17 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
 
 /**
  * Media3 on the partner's fragmented-MP4 stream (ADR-005).
  *
- * `ProgressiveMediaSource` with the default extractors is the decision ADR-005 recorded and the one
- * its wave-2 checkpoint has to confirm against a real camera; nothing here is a custom `MediaSource`.
+ * The default extractors are the decision ADR-005 recorded; nothing here is a custom `MediaSource`.
+ * The wave-2 checkpoint that had to confirm it against a real camera was spent on ADR-025 instead:
+ * the stream was being asked of the wrong host, and the one that answers correctly had an empty
+ * upstream that day. **No frame has been decoded from a real camera yet** — the media source is
+ * confirmed against the contract, not against a picture.
  *
  * The player is created by `remember(url)` and released by `DisposableEffect`, so leaving the screen,
  * a configuration change, or a new url all release the decoder — the half of SPEC V8 the ViewModel
@@ -50,11 +52,15 @@ actual fun LiveVideoPlayer(
     // The listener outlives a recomposition; without this it would keep calling yesterday's lambda.
     val latestOnEvent by rememberUpdatedState(onEvent)
     val player = remember(url) {
+        // `setMediaItem`, not a hand-built `ProgressiveMediaSource`: let the media source be
+        // chosen from the url rather than fixed here, which is what `DefaultMediaSourceFactory`
+        // does. The partner's url is fragmented MP4 over HTTPS (ADR-005, confirmed), so the hand-
+        // built one worked — until a session came back pointing somewhere else, and then it threw
+        // `MalformedURLException` reported as ERROR_CODE_IO_NETWORK_CONNECTION_FAILED. The retry
+        // ladder read that as a flaky network and paid for a new session each time (ADR-025).
+        // A wrong url should fail as a wrong url, not as bad weather.
         ExoPlayer.Builder(context).build().apply {
-            setMediaSource(
-                ProgressiveMediaSource.Factory(DefaultHttpDataSource.Factory())
-                    .createMediaSource(MediaItem.fromUri(url)),
-            )
+            setMediaItem(MediaItem.fromUri(url))
             prepare()
             playWhenReady = true
         }
@@ -70,6 +76,17 @@ actual fun LiveVideoPlayer(
 
             override fun onPlayerError(error: PlaybackException) {
                 val isNetwork = error.errorCode in NETWORK_ERROR_CODES
+                // The whole reason this log exists: on a real camera the picture failed to appear and
+                // the app could say nothing about why — the only instrumentation in the build was the
+                // HTTP logger, and `criar-fluxo-video` was answering 200 every time. The error name and
+                // code are what separate "the stream dropped" from "this build cannot decode it".
+                Log.w(
+                    TAG,
+                    "error " + error.errorCodeName + " (" + error.errorCode + ")" +
+                        " cause=" + (error.cause?.let { it::class.simpleName } ?: "none") +
+                        " -> " + (if (isNetwork) "NetworkError" else "DecodeError"),
+                    error,
+                )
                 latestOnEvent(if (isNetwork) PlayerEvent.NetworkError else PlayerEvent.DecodeError)
             }
         }
@@ -97,3 +114,6 @@ private val NETWORK_ERROR_CODES = setOf(
     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
     PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
 )
+
+/** The player's own tag, so `adb logcat -s MiboSmartPlayer` shows playback failures and nothing else. */
+private const val TAG = "MiboSmartPlayer"

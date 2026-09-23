@@ -13,6 +13,7 @@ struct iOSApp: App {
         // from commanding a real door (L-01b's kill switch).
         AppModulesKt.doInitKoin(
             apiHost: "https://api.example.invalid",
+            portalHost: "https://portal.example.invalid",
             liveVideoEnabled: true,
             lockWritesEnabled: false,
             debugBuild: isDebugBuild,

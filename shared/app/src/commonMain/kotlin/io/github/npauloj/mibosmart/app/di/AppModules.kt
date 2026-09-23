@@ -25,6 +25,9 @@ import org.koin.dsl.module
  *
  * @param apiHost the partner host. It is configured per machine (`local.properties` → `BuildConfig`)
  *   and never versioned (ADR-008), so it can only arrive from the platform entry point.
+ * @param portalHost the partner's streaming host, which is a different address. It has no default on
+ *   purpose: defaulting it to [apiHost] is exactly the mistake that made every live session open on
+ *   a host that answers `200` and never streams.
  * @param liveVideoEnabled the live-video kill switch (`smarthome.liveVideoEnabled`). It arrives the
  *   same way and for the same reason: off, the app can be run on the shared account without opening
  *   a streaming session (SPEC V1, ADR-006).
@@ -37,11 +40,12 @@ import org.koin.dsl.module
  */
 fun appModule(
     apiHost: String,
+    portalHost: String,
     liveVideoEnabled: Boolean = true,
     lockWritesEnabled: Boolean = false,
     debugBuild: Boolean = false,
 ): Module = module {
-    includes(dataModule(apiHost))
+    includes(dataModule(apiHost, portalHost))
 
     // The one clock of the app: "última atualização há X" is read against it (SPEC U3), and a test
     // that has to assert those words needs to choose what "now" is. It belongs to no single feature.
@@ -82,6 +86,7 @@ private val featureModules: List<Module> = listOf(
 
 fun initKoin(
     apiHost: String,
+    portalHost: String,
     liveVideoEnabled: Boolean = true,
     lockWritesEnabled: Boolean = false,
     debugBuild: Boolean = false,
@@ -92,6 +97,7 @@ fun initKoin(
         modules(
             appModule(
                 apiHost = apiHost,
+                portalHost = portalHost,
                 liveVideoEnabled = liveVideoEnabled,
                 lockWritesEnabled = lockWritesEnabled,
                 debugBuild = debugBuild,

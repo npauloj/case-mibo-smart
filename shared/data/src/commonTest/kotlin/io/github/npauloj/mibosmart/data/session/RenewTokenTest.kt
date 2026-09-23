@@ -136,6 +136,7 @@ class RenewTokenTest {
                 },
             ),
             baseUrl = "https://api.example.invalid",
+            streamingBaseUrl = "https://portal.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
             requestCounter = requestCounter,
             refusedRequests = SessionRefusals(),

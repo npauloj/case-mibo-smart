@@ -104,6 +104,7 @@ class SessionRefusalsTest {
         val api = SmartHomeApi(
             httpClient = HttpClientFactory.create(MockEngine { error("no route to host") }),
             baseUrl = BASE_URL,
+            streamingBaseUrl = BASE_URL,
             envelopeReader = EnvelopeReader(smartHomeJson),
             requestCounter = counter,
             refusedRequests = SessionRefusals(),
@@ -130,6 +131,7 @@ class SessionRefusalsTest {
             },
         ),
         baseUrl = BASE_URL,
+        streamingBaseUrl = BASE_URL,
         envelopeReader = EnvelopeReader(smartHomeJson),
         requestCounter = counter,
         refusedRequests = refusals,

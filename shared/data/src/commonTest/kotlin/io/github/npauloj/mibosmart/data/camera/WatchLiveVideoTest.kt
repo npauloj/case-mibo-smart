@@ -127,6 +127,33 @@ class WatchLiveVideoTest {
     }
 
     /** ADR-006: with no session there is nothing to authenticate with, so no request is spent. */
+    /**
+     * The streaming calls go to the portal host, and nothing else does.
+     *
+     * This is the regression guard for the defect that cost a day: both hosts answer
+     * `cameras/criar-fluxo-video/v1` with `200`, so sending it to the wrong one produces no error
+     * anywhere — the api host simply returns a url with no `session_id` that completes an RTSP
+     * handshake and then never sends a frame. Nothing in the app could notice. What noticed was
+     * counting the sessions left open on the account: 27.
+     */
+    @Test
+    fun streamingCallsGoToThePortalHostAndTheRestDoesNot() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val repository = repositoryAnswering(requests) { respondWith(SESSION_PAYLOAD) }
+
+        val session = repository.openSession(CAMERA)
+        repository.closeSession(session.id)
+
+        assertEquals(2, requests.size, "expected create and end, got ${requests.map { it.url.encodedPath }}")
+        requests.forEach { request ->
+            assertEquals(
+                "portal.example.invalid",
+                request.url.host,
+                "${request.url.encodedPath} went to the wrong host",
+            )
+        }
+    }
+
     @Test
     fun withoutASessionNoRequestIsSpent() = runTest {
         val requests = mutableListOf<HttpRequestData>()
@@ -155,6 +182,7 @@ class WatchLiveVideoTest {
                 },
             ),
             baseUrl = "https://api.example.invalid",
+            streamingBaseUrl = "https://portal.example.invalid",
             envelopeReader = EnvelopeReader(smartHomeJson),
             requestCounter = RequestCounter(),
             refusedRequests = SessionRefusals(),

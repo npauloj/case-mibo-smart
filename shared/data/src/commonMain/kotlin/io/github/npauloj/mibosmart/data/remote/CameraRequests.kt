@@ -13,7 +13,14 @@ import kotlinx.serialization.Serializable
  */
 internal object CameraRequests {
 
-    /** The substream: lower bandwidth, which is what a phone over mobile data can actually keep up with. */
+    /**
+     * The **substream** (1), not the main profile (0): lower bandwidth is what a phone on mobile
+     * data keeps up with, and the account is billed for what it really consumes (§6).
+     *
+     * Measured 2026-09-23: the partner ignores this field. Main and substream return the same SDP,
+     * the same codec and the same bitrate, on both hosts. It is sent because the contract asks for
+     * it, not because it selects anything.
+     */
     private const val STREAM_ID = 1
 
     /** Half a gigabyte per session. Only what is really consumed is debited (§6). */
@@ -54,6 +61,12 @@ internal data class CreateStreamRequestDto(
 /** `criar-fluxo-video` → the session, the fMP4 url and the partner's own player page (§6). */
 @Serializable
 internal data class StreamSessionDto(
+    // Required, and it has to stay required: it is the only handle `encerrar-sessao` accepts, and
+    // an optional one would let the app open sessions it cannot close. Measured 2026-09-23, the
+    // api host answers this call with a url and nothing else, so the field was briefly made
+    // nullable to get past a parse failure — which quietly disabled SPEC V8's teardown and left 27
+    // sessions open on a shared account. The parse failure was the right alarm; the wrong host was
+    // the fault (see `SmartHomeApi.streamingBaseUrl`).
     @SerialName("session_id") val sessionId: String,
     @SerialName("url") val url: String,
     @SerialName("monitor_url") val monitorUrl: String? = null,

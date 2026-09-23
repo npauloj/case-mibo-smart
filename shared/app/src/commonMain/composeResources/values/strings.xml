@@ -5,6 +5,8 @@
     <string name="token_title">Entrar com seu token</string>
     <string name="token_subtitle">Cole o token temporário gerado no portal. Ele vale por até 2 horas.</string>
     <string name="token_field_label">Token de acesso</string>
+    <string name="token_portal">Gerar token no portal</string>
+    <string name="token_portal_hint">No portal: Contas → Token Temporário</string>
     <string name="token_paste">Colar</string>
     <string name="token_validate">Validar</string>
     <string name="token_validating">Validando o token</string>

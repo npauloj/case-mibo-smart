@@ -5,6 +5,8 @@
     <string name="token_title">Sign in with your token</string>
     <string name="token_subtitle">Paste the temporary token generated on the portal. It lasts up to 2 hours.</string>
     <string name="token_field_label">Access token</string>
+    <string name="token_portal">Generate a token on the portal</string>
+    <string name="token_portal_hint">On the portal: Accounts → Temporary Token</string>
     <string name="token_paste">Paste</string>
     <string name="token_validate">Validate</string>
     <string name="token_validating">Validating the token</string>

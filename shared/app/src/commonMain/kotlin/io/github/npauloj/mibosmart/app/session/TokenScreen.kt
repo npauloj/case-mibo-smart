@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
@@ -16,8 +17,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -33,6 +36,8 @@ import io.github.npauloj.mibosmart.app.resources.token_error_rejected
 import io.github.npauloj.mibosmart.app.resources.token_error_unexpected
 import io.github.npauloj.mibosmart.app.resources.token_field_label
 import io.github.npauloj.mibosmart.app.resources.token_paste
+import io.github.npauloj.mibosmart.app.resources.token_portal
+import io.github.npauloj.mibosmart.app.resources.token_portal_hint
 import io.github.npauloj.mibosmart.app.resources.token_subtitle
 import io.github.npauloj.mibosmart.app.resources.token_title
 import io.github.npauloj.mibosmart.app.resources.token_validate
@@ -42,6 +47,7 @@ import io.github.npauloj.mibosmart.app.ui.StateTone
 import io.github.npauloj.mibosmart.app.ui.Tabular
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -62,10 +68,16 @@ fun TokenScreen(
         viewModel.openDeviceList.collect { onAuthenticated() }
     }
 
+    // The portal is a web page, so opening it is the platform's job and not this module's: the
+    // `UriHandler` Compose already provides does it on both targets, and no `expect/actual` is needed.
+    val uriHandler = LocalUriHandler.current
+    val portal: PortalUrl = koinInject()
+
     TokenScreenContent(
         state = state,
         onTokenChange = viewModel::onTokenChange,
         onValidate = viewModel::validate,
+        onOpenPortal = { uriHandler.openUri(portal.value) },
         modifier = modifier,
     )
 }
@@ -76,6 +88,7 @@ fun TokenScreenContent(
     state: TokenEntryUiState,
     onTokenChange: (String) -> Unit,
     onValidate: () -> Unit,
+    onOpenPortal: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Its replacement, `LocalClipboard`, has no way to read plain text from `commonMain`: the text
@@ -120,6 +133,30 @@ fun TokenScreenContent(
                         enabled = !state.isValidating,
                     ) { Text(stringResource(Res.string.token_paste)) }
                 },
+            )
+        }
+
+        // The first screen of the app asks for a token and, until now, did not say where one comes
+        // from. The answer was only in `docs/guides/token.md`, which nobody reads from a phone.
+        //
+        // Below the field rather than above it: the common case is a user who already has a token in
+        // the clipboard, and the field plus "Colar" must stay the first thing the eye lands on. The
+        // navigation is spelled out because the portal's home page is not where the token is — a link
+        // that drops someone on a dashboard with no next step is barely better than no link.
+        // The link and its own instruction are one object, so they are laid out as one: the column
+        // around them spaces siblings 20 dp apart, which between a label and the sentence that
+        // explains it reads as two unrelated things.
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            TextButton(
+                onClick = onOpenPortal,
+                modifier = Modifier.align(Alignment.Start).offset(x = (-12).dp),
+            ) {
+                Text(stringResource(Res.string.token_portal))
+            }
+            Text(
+                text = stringResource(Res.string.token_portal_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 

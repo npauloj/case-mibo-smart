@@ -63,7 +63,7 @@ class TokenScreenshotTest {
             listOf("Idle" to Idle, "Typing" to Typing, "InvalidFormat" to InvalidFormat, "Validating" to Validating, "Error" to Error)
         },
     ) { state ->
-        TokenScreenContent(state = state, onTokenChange = {}, onValidate = {})
+        TokenScreenContent(state = state, onTokenChange = {}, onValidate = {}, onOpenPortal = {})
     }
 }
 

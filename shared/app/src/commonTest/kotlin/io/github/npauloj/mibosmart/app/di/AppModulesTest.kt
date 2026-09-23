@@ -1,5 +1,6 @@
 package io.github.npauloj.mibosmart.app.di
 
+import io.github.npauloj.mibosmart.app.session.PortalUrl
 import io.github.npauloj.mibosmart.app.camera.WatchLiveVideo
 import io.github.npauloj.mibosmart.app.devices.ListDevices
 import io.github.npauloj.mibosmart.app.lock.LoadLock
@@ -11,6 +12,7 @@ import io.github.npauloj.mibosmart.domain.device.ModelCatalog
 import io.github.npauloj.mibosmart.domain.session.RefusedRequests
 import io.github.npauloj.mibosmart.domain.session.SessionGuard
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import org.koin.dsl.koinApplication
@@ -27,6 +29,25 @@ class AppModulesTest {
             portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<AuthenticateToken>())
+
+        koin.close()
+    }
+
+    /**
+     * The token screen's portal link points at the **portal**, and this test exists because nothing
+     * else would notice if it did not.
+     *
+     * The two hosts are both plausible strings of the same shape, and wiring the api one here would
+     * produce a link that opens a page with no token generator on it — no crash, no failing request,
+     * nothing to see in a log. That is the same failure mode ADR-025 records costing a day, arriving
+     * through a different door.
+     */
+    @Test
+    fun theTokenScreenLinksToThePortalAndNotToTheApi() {
+        val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
+            portalHost = "https://portal.example.invalid")) }.koin
+
+        assertEquals("https://portal.example.invalid", koin.get<PortalUrl>().value)
 
         koin.close()
     }

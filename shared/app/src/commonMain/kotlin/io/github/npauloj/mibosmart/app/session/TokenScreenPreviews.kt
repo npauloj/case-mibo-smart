@@ -75,6 +75,6 @@ private fun TokenScreenAllStatesPreview(
 @Composable
 private fun TokenScreenPreview(state: TokenEntryUiState) {
     AppTheme {
-        TokenScreenContent(state = state, onTokenChange = {}, onValidate = {})
+        TokenScreenContent(state = state, onTokenChange = {}, onValidate = {}, onOpenPortal = {})
     }
 }

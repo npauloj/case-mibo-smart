@@ -5,6 +5,7 @@ import io.github.npauloj.mibosmart.app.FakeModelCatalog
 import io.github.npauloj.mibosmart.domain.device.CachedDevices
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
+import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.OriginFilter
 import io.github.npauloj.mibosmart.domain.error.SmartHomeException
 import kotlin.test.AfterTest
@@ -392,11 +393,18 @@ class DeviceListViewModelTest {
         assertEquals(listOf(DeviceQuery(OriginFilter.Shared, page = 1)), repository.queries)
     }
 
-    /** SPEC D4: choosing a chip reloads from page 1 with the new `origem` and records the choice. */
+    /**
+     * SPEC D4: the chip still reloads with the new `origem` when the list in hand is **incomplete**.
+     *
+     * A full page means another page may exist, so the rows on screen are a prefix of the answer and
+     * cannot be filtered into one — devices past the end would silently disappear. This is the case
+     * that still costs a request, and it has to keep costing one.
+     */
     @Test
-    fun choosingAChipReloadsFromPageOneAndRemembersIt() = runTest(dispatcher) {
+    fun anIncompleteListStillAsksThePartnerWhenTheChipChanges() = runTest(dispatcher) {
+        val fullPage = List(FakeDeviceRepository.FULL_PAGE) { device("cam-$it") }
         val repository = FakeDeviceRepository { query ->
-            if (query.origin == OriginFilter.All) listOf(device("iM3-C")) else listOf(device("MFR 1001"))
+            if (query.origin == OriginFilter.All) fullPage else listOf(device("MFR 1001"))
         }
         val preferences = FakeDeviceListPreferences()
         val viewModel =
@@ -410,6 +418,49 @@ class DeviceListViewModelTest {
         assertEquals(OriginFilter.Linked, viewModel.state.value.filter)
         assertEquals(listOf(OriginFilter.Linked), preferences.written)
         assertEquals(OriginFilter.Linked, preferences.readOriginFilter(), "the next launch must open on it")
+    }
+
+    /**
+     * ADR-027: with the whole list in hand, a chip costs **nothing**.
+     *
+     * `origem` is a server-side filter and the app used to send one on every tap — paying a request
+     * to be handed back a subset of rows already in memory. Every device carries its own `origem`, so
+     * a complete `todos` set can answer any chip locally. On the test account this is the ordinary
+     * case, not an optimisation for later: 17 devices against a page size of 20.
+     *
+     * The chip is still remembered, because the next launch must open on it (SPEC D4).
+     */
+    @Test
+    fun aCompleteListAnswersTheChipWithoutAskingThePartner() = runTest(dispatcher) {
+        val repository = FakeDeviceRepository {
+            listOf(
+                device("camera-vinculada", origin = DeviceOrigin.Linked),
+                device("camera-compartilhada", origin = DeviceOrigin.Shared),
+            )
+        }
+        val preferences = FakeDeviceListPreferences()
+        val viewModel =
+            DeviceListViewModel(listDevices = listDevices(repository, preferences), now = { NOW })
+        advanceUntilIdle()
+        val afterFirstLoad = repository.calls
+
+        viewModel.selectFilter(OriginFilter.Shared)
+        advanceUntilIdle()
+
+        assertEquals(
+            afterFirstLoad,
+            repository.calls,
+            "a chip answerable from the loaded set must not spend a request",
+        )
+        assertEquals(listOf("camera-compartilhada"), viewModel.state.value.rows.map { it.name })
+        assertEquals(OriginFilter.Shared, viewModel.state.value.filter)
+        assertEquals(OriginFilter.Shared, preferences.readOriginFilter(), "the chip is still remembered")
+
+        viewModel.selectFilter(OriginFilter.All)
+        advanceUntilIdle()
+
+        assertEquals(afterFirstLoad, repository.calls, "going back to Todos is free too")
+        assertEquals(2, viewModel.state.value.rows.size)
     }
 
     /** ADR-006: the chip that is already on is not a change, and must not be paid for again. */

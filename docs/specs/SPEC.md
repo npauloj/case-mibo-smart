@@ -169,9 +169,17 @@ API requires, with each device classified so the user knows what they can open.
   as complete and make no further page requests. _(test: `PaginationTest.fullPageHasMore`, `PaginationTest.shortPageEndsList`, `PaginationTest.emptyPageEndsListWithoutExtraCall`)_
 - **D3** IF page 1 returns an empty array, THE SYSTEM SHALL show the empty state "Nenhum dispositivo
   para este filtro" with the filter chips still available. _(test: `ListDevicesTest.emptyFirstPageIsEmptyState`)_
-- **D4** Given the filter chips "Todos / Vinculados / Compartilhados", when the user selects one, then
-  the list reloads from page 1 with `origem` = `todos|vinculados|compartilhados` and the selection is
-  remembered across launches. _(test: `OriginFilterTest.mapsToWireValues`, `PreferencesTest.filterPersists`)_
+- **D4** Given the filter chips "Todos / Vinculados / Compartilhados", WHEN the user selects one, THE
+  SYSTEM SHALL show the devices of that origin and SHALL remember the selection across launches; IF the
+  loaded list is the **complete** `todos` set (no further pages), THE SYSTEM SHALL answer from it and
+  make **no** request; OTHERWISE THE SYSTEM SHALL reload from page 1 with
+  `origem` = `todos|vinculados|compartilhados`. _(test:
+  `DeviceListViewModelTest.aCompleteListAnswersTheChipWithoutAskingThePartner`,
+  `DeviceListViewModelTest.anIncompleteListStillAsksThePartnerWhenTheChipChanges`,
+  `OriginFilterTest.mapsToWireValues`, `PreferencesTest.filterPersists`)_
+  Amended 2026-09-24 (ADR-027): the original text reloaded on **every** chip, which paid a request to
+  be handed back a subset of rows already in memory — on the test account, 17 devices against a page
+  size of 20, so the complete set is the ordinary case.
 - **D5** THE SYSTEM SHALL classify each device as Camera / Lock / Hub / Other using `modelo`
   (`iM*` → Camera, `*MFR*` + sub-device → Lock, `IOT-ZG2-IB` → Hub) without extra API calls at list time.
   _(test: `DeviceClassifierTest.classifiesTestAccountInventory` using the captured response)_

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Central: um nó e as ondas que ele emite — o que uma central faz, não como ela parece. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FF000000"
+        android:pathData="M12,12 m-2.4,0 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0 Z" />
+    <path android:fillColor="#FF000000" android:fillType="evenOdd"
+        android:pathData="M7.4,7.4 a6.5,6.5 0 0,0 0,9.2 l1.6,-1.6 a4.2,4.2 0 0,1 0,-6 Z M16.6,7.4 l-1.6,1.6 a4.2,4.2 0 0,1 0,6 l1.6,1.6 a6.5,6.5 0 0,0 0,-9.2 Z M4.2,4.2 a10.4,10.4 0 0,0 0,15.6 l1.6,-1.6 a8.1,8.1 0 0,1 0,-12.4 Z M19.8,4.2 l-1.6,1.6 a8.1,8.1 0 0,1 0,12.4 l1.6,1.6 a10.4,10.4 0 0,0 0,-15.6 Z" />
+</vector>

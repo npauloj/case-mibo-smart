@@ -150,6 +150,14 @@ class DeviceListViewModel(
      */
     private var cachedFilter: OriginFilter? = null
 
+    /**
+     * The `origem` [loaded] was fetched under, which is not the same as the chip that is on.
+     *
+     * The two diverge exactly when a chip is answered locally: the rows still came from `todos`, and
+     * the next page — if there ever is one — has to be asked for under `todos` too.
+     */
+    private var loadedOrigin: OriginFilter? = null
+
     init {
         listJob = viewModelScope.launch {
             // SPEC D4: the list opens on the chip the user left it on, read before anything is asked
@@ -189,11 +197,48 @@ class DeviceListViewModel(
      * Tapping the chip that is already on does nothing — repeating the request would spend one of
      * the account's for a list it is already showing.
      */
+    /**
+     * A chip changes what is **shown**; it asks the partner only when the app cannot answer it (D4).
+     *
+     * `origem` is a server-side filter, and the app used to send one on every tap — which meant
+     * paying a request to be handed back a subset of rows already in memory. Every device carries its
+     * own `origem`, so when the complete `todos` set is in hand the answer is a `filter` call and
+     * costs nothing. Measured on the test account: 17 devices against a page size of 20, so "the
+     * complete set" is the ordinary case and the two extra chips were two requests out of a budget
+     * that has since run out (ADR-006, ADR-027).
+     *
+     * "Complete" is [DeviceListUiState.hasMore] being false — the same flag that stops the endless
+     * scroll. Anything else (a partial list, or rows fetched under a narrower `origem` that cannot
+     * describe a wider one) still goes to the partner, because answering from a subset would quietly
+     * hide devices.
+     */
     fun selectFilter(filter: OriginFilter) {
-        if (filter == mutableState.value.filter) return
+        val before = mutableState.value
+        if (filter == before.filter) return
         mutableState.update { it.copy(filter = filter) }
-        start(Start.Filtering, origin = filter)
+        if (!canAnswerLocally(before)) {
+            start(Start.Filtering, origin = filter)
+            return
+        }
+        // The chip is remembered here because no load will run to remember it (SPEC D4).
+        viewModelScope.launch { listDevices.rememberFilter(filter) }
+        mutableState.update { it.copy(rows = rowsFor(filter), error = null) }
     }
+
+    /**
+     * Whether the rows in hand can describe any chip.
+     *
+     * Only a complete `todos` set can: it is the one superset of every filter. A load in flight
+     * disqualifies it too — its result would land after this and overwrite the answer.
+     */
+    private fun canAnswerLocally(state: DeviceListUiState): Boolean =
+        loadedOrigin == OriginFilter.All &&
+            !state.hasMore &&
+            loaded.isNotEmpty() &&
+            listJob?.isActive != true
+
+    private fun rowsFor(filter: OriginFilter): List<DeviceRow> =
+        loaded.filter { filter.accepts(it.origin) }.toRows(now(), catalog)
 
     /**
      * The next page, asked for by the scroll (SPEC D2) or by the footer's retry (SPEC D8).
@@ -292,6 +337,11 @@ class DeviceListViewModel(
         // Page 1 came back at all, so the repository has just rewritten the cache with this filter's
         // rows — except when the answer *was* the cache (Stale), which changes nothing.
         if (isFirstPage && result !is DeviceListResult.Stale) cachedFilter = query.origin
+        // What the rows in hand can answer for. Recorded from the query rather than from the chip:
+        // the chip may already have moved on, and it is the fetch that decides what was fetched.
+        if (result is DeviceListResult.Loaded || result is DeviceListResult.Stale) {
+            loadedOrigin = query.origin
+        }
         loaded = when (result) {
             // Page 1 replaces the list; a later page is appended in the order it arrived. The pages
             // are not re-sorted together: rows the user has already read must not move under them.

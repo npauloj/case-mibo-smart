@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The launcher glyph: a house with its lens cut out.
+
+  Two ideas in one mark, which is what the app is: a home, and a single point being watched. The
+  circle is punched in the background colour rather than drawn in white, so it reads as an opening in
+  the roof-line rather than as a dot sitting on it.
+
+  Geometry lives inside the 66x66 safe zone of the 108x108 adaptive canvas (roughly x,y 21..87): the
+  launcher masks this layer to a circle, a squircle or a rounded square depending on the device, and
+  anything outside that zone can be cropped away.
+
+  No brand logo is reproduced here. The colour is the app's own palette (AppTheme.BrandDeep); the
+  shape is geometry.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26 L87,54 L78,54 L78,85 L30,85 L30,54 L21,54 Z" />
+
+    <path
+        android:fillColor="#00702A"
+        android:pathData="M54,56 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 Z" />
+
+    <path
+        android:fillColor="#00702A"
+        android:pathData="M48,73 h12 v12 h-12 Z" />
+</vector>

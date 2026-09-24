@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <title>Case Mibo Smart — apresentação</title>
 <!--
-  Fonte dos slides de entrega. Gerado por `bash tools/product-pdf.sh --slides`, que imprime este
-  arquivo em 16:9 com o Chrome headless. A paleta é a do próprio app (AppTheme): verde da marca nos
-  títulos, âmbar do papel `waiting` no que exige cautela, mono para dado. São as mesmas cores das telas,
-  pelos mesmos motivos.
+  Slides da apresentação. Gerado por `bash tools/product-pdf.sh --slides`.
 
-  Uma ideia por slide. Se um slide precisar de duas, ele vira dois.
+  Regra de densidade: no máximo ~45 palavras por slide. Slide é apoio de fala, não documento; frase
+  completa faz a plateia ler em vez de ouvir. O detalhe vive no PRODUCT.pdf e no repositório.
+
+  Paleta do próprio app (AppTheme): verde da marca nos títulos, âmbar do papel `waiting` no que
+  exige cautela, mono para dado.
 -->
 <style>
   @page { size: 297mm 167mm; margin: 0; }
@@ -22,70 +23,63 @@
   }
 
   .s {
-    width: 297mm; height: 167mm; padding: 14mm 18mm 17mm;
+    width: 297mm; height: 167mm; padding: 18mm 20mm;
     page-break-after: always; break-after: page;
     display: flex; flex-direction: column; position: relative; overflow: hidden;
   }
   .s:last-child { page-break-after: auto; }
 
-  .eyebrow {
-    font-size: 9.5pt; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #00A335; font-weight: 600; margin: 0 0 5mm;
-  }
-  h2 { font-size: 26pt; line-height: 1.12; color: #00702A; margin: 0 0 3mm;
+  .eyebrow { font-size: 11pt; letter-spacing: 0.16em; text-transform: uppercase;
+             color: #00A335; font-weight: 600; margin: 0 0 6mm; }
+  h2 { font-size: 32pt; line-height: 1.1; color: #00702A; margin: 0 0 9mm;
        letter-spacing: -0.02em; font-weight: 700; }
-  .thesis { font-size: 12.5pt; color: #4A5A52; margin: 0 0 7mm; max-width: 200mm; line-height: 1.45; }
 
-  ul { margin: 0; padding-left: 6mm; font-size: 11.5pt; line-height: 1.5; }
-  li { margin-bottom: 3.2mm; }
+  ul { margin: 0; padding-left: 7mm; font-size: 16pt; line-height: 1.65; }
+  li { margin-bottom: 4mm; }
   li::marker { color: #00A335; }
+  .sub { color: #5C6B63; font-size: 12pt; }
   b, strong { color: #0B1A13; }
-  code { font-family: Consolas, monospace; font-size: 0.87em; background: #EAF3EC;
-         color: #0B4A21; padding: 0.4mm 1.2mm; border-radius: 1mm; }
+  code { font-family: Consolas, monospace; font-size: 0.88em; background: #EAF3EC;
+         color: #0B4A21; padding: 0.5mm 1.5mm; border-radius: 1mm; }
 
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10mm; }
-  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
-
-  .card { border: 0.4mm solid #CFDDD4; border-radius: 2mm; padding: 5mm 5.5mm; background: #FAFCFA; }
-  .card h3 { margin: 0 0 2mm; font-size: 12pt; color: #00702A; }
-  .card p { margin: 0; font-size: 10.5pt; color: #3A4A42; line-height: 1.45; }
-
-  table { border-collapse: collapse; width: 100%; font-size: 10.5pt; }
+  table { border-collapse: collapse; width: 100%; font-size: 14pt; }
   th { text-align: left; background: #EAF3EC; color: #0B4A21; font-weight: 600;
-       padding: 2.5mm 3mm; border-bottom: 0.5mm solid #00702A; }
-  td { padding: 2.5mm 3mm; border-bottom: 0.3mm solid #DCE5DF; vertical-align: top; }
-  tr:nth-child(even) td { background: #FAFCFA; }
+       padding: 3mm 4mm; border-bottom: 0.5mm solid #00702A; font-size: 11pt;
+       letter-spacing: 0.06em; text-transform: uppercase; }
+  td { padding: 3.2mm 4mm; border-bottom: 0.3mm solid #DCE5DF; vertical-align: top; }
 
-  .rail { border-left: 1.2mm solid #00702A; padding: 4mm 6mm; background: #F4F8F5;
-          border-radius: 0 2mm 2mm 0; font-size: 11.5pt; line-height: 1.45; }
-  .rail.w { border-left-color: #8A5B00; background: #FFF6E4; }
-  .rail > b:first-child { display: block; font-size: 9.5pt; letter-spacing: 0.1em;
-            text-transform: uppercase; color: #5C6B63; margin-bottom: 2mm; font-weight: 600; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7mm; }
+  .card { border: 0.4mm solid #CFDDD4; border-radius: 2mm; padding: 6mm; background: #FAFCFA; }
+  .card h3 { margin: 0 0 3mm; font-size: 14pt; color: #00702A; }
+  .card p { margin: 0; font-size: 13pt; color: #3A4A42; line-height: 1.5; }
 
-  .nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
-  .nums div { border: 0.4mm solid #CFDDD4; border-radius: 2mm; padding: 4mm; background: #FAFCFA; }
-  .nums dt { font-size: 9pt; letter-spacing: 0.08em; text-transform: uppercase; color: #5C6B63; margin: 0 0 1mm; }
-  .nums dd { margin: 0; font-size: 23pt; font-weight: 700; color: #00702A; letter-spacing: -0.02em;
-             font-variant-numeric: tabular-nums; }
-  .nums span { display: block; font-size: 9.5pt; font-weight: 400; color: #5C6B63; letter-spacing: 0; }
+  .note { margin-top: auto; border-left: 1.5mm solid #8A5B00; background: #FFF6E4;
+          padding: 5mm 7mm; border-radius: 0 2mm 2mm 0; font-size: 14pt; line-height: 1.5; }
+  .note.g { border-left-color: #00702A; background: #F4F8F5; }
 
-  .pg { position: absolute; right: 18mm; bottom: 6mm; font-size: 9pt; color: #9AAAA1;
+  .nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6mm; margin: 0 0 10mm; }
+  .nums div { text-align: center; }
+  .nums dt { font-size: 11pt; letter-spacing: 0.08em; text-transform: uppercase;
+             color: #5C6B63; margin: 0 0 2mm; }
+  .nums dd { margin: 0; font-size: 34pt; font-weight: 700; color: #00702A;
+             letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+
+  .pg { position: absolute; right: 20mm; bottom: 9mm; font-size: 10pt; color: #9AAAA1;
         font-variant-numeric: tabular-nums; }
-  .foot { position: absolute; left: 18mm; bottom: 6mm; font-size: 9pt; color: #9AAAA1; }
 
-  /* capa */
   .cover { justify-content: center; background: #00702A; color: #fff; }
-  .cover h1 { font-size: 44pt; margin: 0 0 4mm; letter-spacing: -0.03em; line-height: 1.05; font-weight: 700; }
-  .cover p { font-size: 14pt; margin: 0; color: #BFE6CC; }
-  .cover .meta { position: absolute; left: 18mm; bottom: 13mm; font-size: 10.5pt; color: #8FD3A8; }
-  .cover .glyph { position: absolute; right: 18mm; bottom: 13mm; width: 26mm; height: 26mm; opacity: .9; }
+  .cover h1 { font-size: 50pt; margin: 0 0 5mm; letter-spacing: -0.03em; line-height: 1.05;
+              font-weight: 700; }
+  .cover p { font-size: 16pt; margin: 0; color: #BFE6CC; line-height: 1.5; }
+  .cover .meta { position: absolute; left: 20mm; bottom: 15mm; font-size: 12pt; color: #8FD3A8; }
+  .cover .glyph { position: absolute; right: 20mm; bottom: 15mm; width: 30mm; height: 30mm; }
 </style>
 </head>
 <body>
 
 <section class="s cover">
   <h1>Case Mibo Smart</h1>
-  <p>Aplicativo Kotlin Multiplatform para casa inteligente<br>Android · iOS · API do parceiro</p>
+  <p>Kotlin Multiplatform · Android · iOS</p>
   <div class="meta">Paulo · 24 de setembro de 2026</div>
   <svg class="glyph" viewBox="0 0 108 108" aria-hidden="true">
     <path fill="#FFFFFF" d="M54,26 L87,54 L78,54 L78,85 L30,85 L30,54 L21,54 Z"/>
@@ -94,276 +88,197 @@
   </svg>
 </section>
 
-<!-- ============================ 1. PLANEJAMENTO ============================ -->
 <section class="s">
   <p class="eyebrow">1 · Planejamento</p>
-  <h2>Dois dias pensando antes da primeira linha</h2>
-  <p class="thesis">A decisão mais cara de um case é a que se toma no dia 1 sem informação. Então os dois primeiros dias não produziram código, e é por isso que o resto produziu tanto.</p>
+  <h2>Os dias</h2>
   <table>
-    <tr><th style="width:17%">Dia</th><th style="width:47%">O que fiz</th><th>O que saiu</th></tr>
-    <tr><td><b>Sáb 19/09</b></td><td>Pesquisa e definição: bibliotecas, stack multiplataforma, padrão de arquitetura</td><td>nenhuma linha de código, de propósito</td></tr>
-    <tr><td><b>Dom 20/09</b></td><td>Li e sondei a API de verdade; li avaliações das lojas; assisti a vídeos do app oficial em uso, para entender o problema pela ótica de quem usa</td><td>SPEC, ADR-001 a 008, contrato observado e a pesquisa de produto. Primeiro commit às <b>17h11</b></td></tr>
-    <tr><td><b>Seg 21/09</b></td><td>Implementação. O dia mais denso do projeto</td><td>96 commits</td></tr>
-    <tr><td><b>Ter 22/09</b></td><td>Implementação, identidade visual, testes de tela</td><td>26 commits</td></tr>
-    <tr><td><b>Qua 23/09</b></td><td>Implementação, correções encontradas contra a API real, entrega</td><td>21 commits</td></tr>
-    <tr><td><b>Qui 24/09</b></td><td>Documentos de entrega e ajustes finais</td><td>8 commits</td></tr>
+    <tr><th style="width:20%">Dia</th><th>Foco</th></tr>
+    <tr><td><b>Sáb 19</b></td><td>Stack, bibliotecas, padrão de arquitetura</td></tr>
+    <tr><td><b>Dom 20</b></td><td>Sondar a API · avaliações das lojas · vídeos do app oficial</td></tr>
+    <tr><td><b>Seg 21</b></td><td>Implementação <span class="sub">96 commits</span></td></tr>
+    <tr><td><b>Ter 22</b></td><td>Implementação · identidade visual <span class="sub">26</span></td></tr>
+    <tr><td><b>Qua 23</b></td><td>Implementação · correções contra a API real <span class="sub">21</span></td></tr>
   </table>
-  <div class="rail" style="margin-top:5mm"><b>O que os dois primeiros dias compraram</b>
-    A SPEC e os ADRs existiam antes da primeira fatia. As surpresas do contrato apareceram na sondagem de domingo, não na quarta.</div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">2</div>
+  <div class="note g">Dois dias antes da primeira linha. Primeiro commit: <b>domingo, 17h11</b>.</div>
+  <div class="pg">2</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">1 · Planejamento</p>
-  <h2>Quatro ondas, e uma ordem de corte decidida antes</h2>
-  <p class="thesis">O risco de um case não é escrever código: é descobrir tarde que o caminho crítico não cabia no prazo. Então o corte foi combinado no começo, não negociado no fim.</p>
+  <h2>Quatro ondas</h2>
   <table>
-    <tr><th style="width:14%">Onda</th><th style="width:48%">Escopo</th><th>Por que nesta ordem</th></tr>
-    <tr><td><b>0</b></td><td><i>Walking skeleton</i>: repositório, CI, esqueleto de módulos, SPEC, ADRs, testes de arquitetura</td><td>a trilha começa antes do código; CI vermelho no dia 1 custa horas, no dia 4 custa a entrega</td></tr>
-    <tr><td><b>1</b></td><td>Sessão e token: tela, validação, expiração</td><td>primeira fatia vertical de verdade; ela constrói o cliente HTTP e o cofre <i>por necessidade própria</i>, não como "fatia de fundação"</td></tr>
-    <tr><td><b>2</b></td><td>Em paralelo: lista + filtro + paginação · vídeo ao vivo · fechadura</td><td>as três não dependem entre si; vídeo e fechadura são o "hardware real", onde estão as surpresas</td></tr>
-    <tr><td><b>3</b></td><td>Histórico, renovação de token, iOS, módulo Java, R8, este documento</td><td>só depois de o núcleo funcionar no Android</td></tr>
+    <tr><th style="width:14%">Onda</th><th>Escopo</th></tr>
+    <tr><td><b>0</b></td><td><i>Walking skeleton</i> · CI · SPEC · ADRs · testes de arquitetura</td></tr>
+    <tr><td><b>1</b></td><td>Sessão e token</td></tr>
+    <tr><td><b>2</b></td><td>Lista · vídeo ao vivo · fechadura <span class="sub">em paralelo</span></td></tr>
+    <tr><td><b>3</b></td><td>Histórico · renovação · iOS · módulo Java · R8</td></tr>
   </table>
-  <div class="rail w" style="margin-top:6mm"><b>Circuit breaker, escrito antes de precisar</b>
-    Se o prazo apertasse, a onda 3 encolheria <b>nesta ordem</b>: módulo Java → histórico → fallback do vídeo → R8. Vídeo e fechadura nunca foram cortáveis, porque são o coração do enunciado.</div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">3</div>
+  <div class="note">Ordem de corte decidida antes: Java → histórico → fallback do vídeo → R8.
+    Vídeo e fechadura nunca cortáveis.</div>
+  <div class="pg">3</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">1 · Planejamento</p>
-  <h2>Uma fatia é vertical, e cabe numa revisão</h2>
-  <p class="thesis">Fatia horizontal ("agora a camada de dados") entrega risco acumulado. Fatia vertical atravessa <code>domain → data → app → tela</code> e entrega algo observável.</p>
-  <div class="cols">
-    <div>
-      <ul>
-        <li><b>Teto de ~400 linhas executáveis de produção</b> por PR, medido por script (<code>tools/executable-lines.py</code>), não pela mão.</li>
-        <li><b>Testes são contados e não entram no teto.</b> Quem os limita são os critérios de aceite, não um número.</li>
-        <li><b>Uma issue por fatia</b>, com critérios EARS e os arquivos que ela toca.</li>
-        <li><b>Um PR por issue</b>, com o <i>porquê</i> no corpo, em português, para quem revisa.</li>
-      </ul>
-    </div>
-    <div class="rail"><b>O ciclo, do enunciado ao commit</b>
-      SPEC (50 critérios EARS)<br>→ ADR quando a decisão é estrutural<br>→ Issue por fatia vertical<br>→ PR com evidência real de teste<br>→ merge por humano, sempre<br><br>
-      <span style="color:#5C6B63;font-size:10.5pt">Nenhuma etapa é cerimônia: cada uma existe porque a anterior produziria retrabalho sem ela.</span></div>
-  </div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">4</div>
+  <h2>A fatia é vertical</h2>
+  <ul>
+    <li><code>domain → data → app → tela</code>, e algo observável no fim</li>
+    <li>Teto de <b>400 linhas executáveis</b> por PR, medido por script</li>
+    <li>Teste não entra no teto. Quem o limita são os critérios</li>
+    <li>Uma issue por fatia · um PR por issue · merge por humano</li>
+  </ul>
+  <div class="note g">SPEC com 50 critérios EARS → ADR → issue → PR.</div>
+  <div class="pg">4</div>
 </section>
 
-<!-- ============================ 2. TECNOLOGIA ============================ -->
 <section class="s">
-  <p class="eyebrow">2 · Escolha de tecnologia</p>
-  <h2>O que não é padrão, e por quê</h2>
-  <p class="thesis">O básico de um projeto KMP é previsível: Ktor porque é multiplataforma, Koin porque Dagger não atravessa para Native, SQLDelight porque Room é só Android. O que vale explicar é o resto.</p>
+  <p class="eyebrow">2 · Tecnologia</p>
+  <h2>O que não é padrão</h2>
   <table>
-    <tr><th style="width:24%">Escolha</th><th style="width:40%">Por que entrou</th><th>O que foi recusado</th></tr>
-    <tr><td><b>Konture</b><br><span style="font-size:9.5pt;color:#5C6B63">testes de arquitetura</span></td><td>fronteira de módulo como teste JVM que <b>falha o build</b>, não como convenção escrita num README</td><td>revisão manual de fronteira, que erode em uma sprint</td></tr>
-    <tr><td><b>Roborazzi</b> + Robolectric<br><span style="font-size:9.5pt;color:#5C6B63">capturas de tela</span></td><td>42 goldens gerados a partir das <b>previews que já existem</b>, com guarda contra deriva</td><td>o gerador de previews do próprio Roborazzi: medido, não funciona neste layout KMP</td></tr>
-    <tr><td><b>Media3</b> no Android<br><code>WKWebView</code> no iOS</td><td><code>expect/actual</code> só na superfície do player; o parceiro entrega fMP4 sobre HTTPS</td><td>VLCKit no iOS: dezenas de MB para um caso que a página do parceiro já resolve</td></tr>
-    <tr><td><b>Módulo Java puro</b><br><code>:legacy-catalog</code></td><td>interoperabilidade provada por um <b>teste escrito em Java</b> chamando a ponte Kotlin, não afirmada</td><td>escrever o teste em Kotlin e dizer que a interop está provada</td></tr>
-    <tr><td><b>Kover</b><br><span style="font-size:9.5pt;color:#5C6B63">cobertura</span></td><td>vocês disseram na entrevista que a meta é <b>80%</b>. Sem medir, esse número é opinião: o Kover agrega os três módulos e publica o relatório a cada PR</td><td>cobertura como porta de merge, que premia teste fácil e pune o difícil</td></tr>
+    <tr><th style="width:30%">Escolha</th><th>Por quê</th></tr>
+    <tr><td><b>Konture</b></td><td>Arquitetura como teste que <b>quebra o build</b></td></tr>
+    <tr><td><b>Roborazzi</b></td><td>42 capturas geradas das previews que já existem</td></tr>
+    <tr><td><b>Kover</b></td><td>A meta de 80% precisa ser medida para existir</td></tr>
+    <tr><td><b>Módulo Java puro</b></td><td>Interop provada por teste <i>escrito em Java</i></td></tr>
+    <tr><td><b>Media3 / WKWebView</b></td><td><code>expect/actual</code> só na superfície do player</td></tr>
   </table>
-  <div class="rail" style="margin-top:5mm"><b>De onde vieram as duas primeiras</b>
-    Vocês citaram duas preocupações na entrevista: <b>manter a arquitetura ao longo do tempo</b> e <b>cobertura de testes alta</b>. Viraram o Konture e o Kover.</div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">5</div>
+  <div class="note g">Ktor, Koin e SQLDelight são o óbvio de KMP.
+    <b>Konture e Kover vieram do que vocês disseram querer.</b></div>
+  <div class="pg">5</div>
 </section>
 
-<!-- ============================ 3. ARQUITETURA ============================ -->
 <section class="s">
   <p class="eyebrow">3 · Arquitetura</p>
-  <h2>Dependências apontam só para dentro</h2>
-  <p class="thesis">Quatro módulos e uma regra. O que o compilador não garante, o teste de arquitetura garante. E ele falha o build, não emite aviso.</p>
+  <h2>Dependências só para dentro</h2>
   <div class="cols3">
-    <div class="card"><h3>:shared:domain</h3><p>Kotlin puro. Modelos, contratos de repositório, erros tipados, resultados selados. <b>Nada de Ktor, Koin, SQLDelight, Android ou Compose.</b></p></div>
-    <div class="card"><h3>:shared:data</h3><p>O parceiro mora aqui, e só aqui: cliente HTTP, DTOs com <code>@SerialName</code>, mapeadores, cache, cofre do token. As esquisitices do contrato morrem nesta fronteira.</p></div>
-    <div class="card"><h3>:shared:app</h3><p>Casos de uso, ViewModels e telas Compose, por feature. Gera o framework <code>Shared</code> do iOS.</p></div>
+    <div class="card"><h3>domain</h3><p>Kotlin puro. Modelos, contratos, erros tipados.<br><br>
+      Sem Ktor, Koin, SQLDelight, Android ou Compose.</p></div>
+    <div class="card"><h3>data</h3><p>O parceiro mora aqui, e só aqui.<br><br>
+      DTOs, mapeadores, cache, cofre do token.</p></div>
+    <div class="card"><h3>app</h3><p>Casos de uso, ViewModels, telas.<br><br>
+      Gera o framework do iOS.</p></div>
   </div>
-  <div class="cols" style="margin-top:6mm">
-    <div class="rail"><b>Três decisões que sustentam o resto</b>
-      <b style="text-transform:none;letter-spacing:0;font-size:11.5pt;color:#14211B;margin:0">Erro é valor.</b> A camada de dados lança exceções tipadas; cada caso de uso devolve o resultado da <i>sua</i> intenção. O <code>when</code> da tela é exaustivo e o compilador cobra.<br><br>
-      <b style="text-transform:none;letter-spacing:0;font-size:11.5pt;color:#14211B;margin:0">Um estado imutável por tela.</b> Estados de hardware são tipos selados, não booleanos combinados.<br><br>
-      <b style="text-transform:none;letter-spacing:0;font-size:11.5pt;color:#14211B;margin:0">Domínio agnóstico de parceiro.</b> "Suporte a múltiplos parceiros" resolvido por fronteira, não por interface especulativa.</div>
-    <div class="rail w"><b>Como poderia ser aprimorada</b>
-      <ul style="padding-left:5mm;font-size:11pt">
-        <li><b>Modularizar por feature</b>, não por camada, quando o time crescer: hoje <code>:shared:app</code> concentra quatro features e é o arquivo mais disputado num merge.</li>
-        <li><b>Um segundo parceiro de verdade</b> validaria o ADR-004. Hoje a fronteira é boa por construção, não por prova.</li>
-        <li><b>Goldens como porta de regressão</b>, não como figura anexada ao PR.</li>
-        <li><b>Camada de sincronismo offline</b> se o app crescer para escrita sem rede. Hoje o cache é só leitura.</li>
-      </ul></div>
-  </div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">6</div>
+  <div class="note g">Erro é valor · um estado imutável por tela · domínio agnóstico de parceiro.</div>
+  <div class="pg">6</div>
 </section>
 
-<!-- ============================ 4. GITHUB ============================ -->
-<section class="s">
-  <p class="eyebrow">4 · Estrutura do GitHub</p>
-  <h2>O repositório conta a história, não só o resultado</h2>
-  <p class="thesis">Quem abre só o <code>main</code> vê um terço do trabalho. A rastreabilidade requisito → fatia → PR → commit é o produto tanto quanto o app.</p>
-  <div class="cols">
-    <div>
-      <ul>
-        <li><b>5 épicos</b>: Sessão, Dispositivos, Vídeo, Fechadura, Fundação/entrega.</li>
-        <li><b>Milestones Wave 0–3</b> e um Project com campo <code>Wave</code>: progresso por onda, sem abrir issue por issue.</li>
-        <li><b>Labels</b> <code>type:*</code>, <code>rf:RF0x</code>, <code>area:*</code>. O mapeamento requisito → fatia sai dos rótulos, não da memória de quem escreveu o README.</li>
-        <li><b>Um PR por issue</b>, com <code>Closes #n</code>, corpo em português, critérios marcados só quando provados, e saída real de teste colada.</li>
-        <li><b>Squash-merge por humano</b>, sempre. Nenhum merge automático.</li>
-      </ul>
-    </div>
-    <div>
-      <div class="rail"><b>Onde está cada coisa</b>
-        <code>docs/specs/SPEC.md</code> · critérios EARS<br>
-        <code>docs/adr/</code> · 27 decisões, com as opções recusadas<br>
-        <code>docs/api-contract.md</code> · o contrato como observado<br>
-        <code>AI-LOG.md</code> · uso de IA, incluindo os erros<br>
-        <code>docs/PROCESS.md</code> · como fatia, PR e merge funcionam<br>
-        <code>docs/guides/</code> · token, Swagger, build, demonstração</div>
-      <div class="rail" style="margin-top:5mm"><b>CI em três estágios</b>
-        <b style="text-transform:none;letter-spacing:0;font-size:11pt;color:#14211B;margin:0">verify</b> · arquitetura, testes JVM e capturas de tela, em todo PR<br>
-        <b style="text-transform:none;letter-spacing:0;font-size:11pt;color:#14211B;margin:0">android</b> · APK e lint<br>
-        <b style="text-transform:none;letter-spacing:0;font-size:11pt;color:#14211B;margin:0">ios</b> · macOS: testes no simulador, framework, <code>xcodebuild</code></div>
-    </div>
-  </div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">7</div>
-</section>
-
-<!-- ============================ 5. IMPLEMENTAÇÃO ============================ -->
 <section class="s">
   <p class="eyebrow">3 · Arquitetura</p>
-  <h2>A fronteira é um teste, não uma convenção</h2>
-  <p class="thesis">Convenção de arquitetura erode em uma sprint. Estas regras rodam como teste JVM em todo PR e <b>quebram o build</b>, antes de qualquer teste de negócio.</p>
-  <table>
-    <tr><th style="width:9%">Regra</th><th style="width:46%">O que ela proíbe</th><th>Por que existe</th></tr>
-    <tr><td><b>1</b></td><td>O <code>domain</code> depender de framework, persistência ou dos módulos de fora</td><td>é o que torna "múltiplos parceiros" verdadeiro em vez de aspiracional</td></tr>
-    <tr><td><b>2</b></td><td>Dependência apontando para fora, e ciclo no grafo de módulos</td><td>ciclo não aparece em revisão de código; aparece quando já é caro</td></tr>
-    <tr><td><b>4</b></td><td><code>android.*</code>, <code>java.*</code> ou <code>javax.*</code> em <code>commonMain</code></td><td>um import assim compila no Android e quebra só no link do iOS</td></tr>
-    <tr><td><b>5</b></td><td>Repositório declarado no <code>domain</code> que não seja interface</td><td>o domínio define o contrato; quem implementa é a borda</td></tr>
-    <tr><td><b>8</b></td><td><code>expect</code>/<code>actual</code> fora de um pacote <code>platform</code></td><td>as pontes de plataforma ficam num lugar só, e dá para contá-las</td></tr>
-  </table>
-  <div class="rail" style="margin-top:6mm"><b>E um teste negativo permanente</b>
-    Uma regra que o grafo real viola de propósito <b>tem que falhar</b>. Se passar verde, quem quebrou foi a ferramenta e as outras cinco estão passando por vacuidade. Sem isso, uma suíte de arquitetura vira decoração sem ninguém perceber.</div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">8</div>
+  <h2>A fronteira é um teste</h2>
+  <ul>
+    <li><b>1</b> · domínio sem framework nem persistência</li>
+    <li><b>2</b> · dependência só para dentro, sem ciclo</li>
+    <li><b>4</b> · nada de <code>android.*</code> ou <code>java.*</code> em <code>commonMain</code></li>
+    <li><b>5</b> · repositório do domínio é interface</li>
+    <li><b>8</b> · <code>expect/actual</code> só em pacote <code>platform</code></li>
+  </ul>
+  <div class="note">E um <b>teste negativo permanente</b>: uma regra violada de propósito tem que
+    falhar. Se passar verde, a suíte é decoração.</div>
+  <div class="pg">7</div>
 </section>
 
 <section class="s">
-  <p class="eyebrow">5 · Decisões de implementação</p>
-  <h2>O orçamento de requisições é o eixo do desenho</h2>
-  <p class="thesis">A conta de teste tem franquia finita e cada chamada conta, inclusive validar o token. Isso deixou de ser restrição e virou princípio de projeto.</p>
-  <div class="cols">
-    <div>
-      <ul>
-        <li><b>Cache da lista</b>: a tela abre com o que já sabe, antes de a rede responder.</li>
-        <li><b>Zero polling</b>, em lugar nenhum do app.</li>
-        <li><b>Classificação por <code>modelo</code></b> antes de chamar <code>funcoes</code>. O resultado fica em cache permanente por câmera.</li>
-        <li><b>Validação local do formato do token</b>: colagem truncada falha no campo, sem gastar requisição.</li>
-        <li><b>Trocar o chip de filtro não custa nada</b> quando a lista completa já está em memória.</li>
-        <li><b>Uma leitura de confirmação</b> na fechadura, com ação do usuário, em vez de polling.</li>
-      </ul>
-    </div>
-    <div class="rail w"><b>E a restrição mordeu</b>
-      Na véspera da entrega a franquia da conta chegou a zero, e a API passou a responder <code>401 "verifique os seus limites disponíveis"</code> em todos os endpoints.<br><br>
-      O desenho já estava pronto para isso, o que mostra que o orçamento não era preocupação teórica.</div>
-  </div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">9</div>
+  <p class="eyebrow">3 · Arquitetura</p>
+  <h2>Como poderia melhorar</h2>
+  <ul>
+    <li>Modularizar <b>por feature</b>, não por camada</li>
+    <li>Um segundo parceiro de verdade, para provar o ADR-004</li>
+    <li>Goldens como <b>porta de regressão</b>, não como anexo</li>
+    <li>Sincronismo offline, se houver escrita sem rede</li>
+  </ul>
+  <div class="pg">8</div>
 </section>
 
 <section class="s">
-  <p class="eyebrow">5 · Decisões de implementação</p>
-  <h2>Um comando é um estado <i>sobre</i> a fechadura</h2>
-  <p class="thesis">A tela mais difícil do app não é a que mostra vídeo. É a que precisa não mentir sobre uma porta.</p>
-  <div class="cols">
-    <div class="rail">
-      <b>O estado que o app se recusa a simplificar</b>
-      <span style="font-size:13pt;color:#8A5B00;font-weight:600">Comando enviado, porta não respondeu</span><br><br>
-      Não é "a porta recusou". Não é "a porta abriu". É <b>não sei</b>, e ninguém consegue distinguir as duas coisas a partir da API.<br><br>
-      Fingir que o app distingue seria o erro mais caro desta tela, porque o usuário está em frente à porta.
-    </div>
-    <div>
-      <ul>
-        <li><b>Nenhuma tela afirma que a porta abriu</b> antes de uma leitura concordar com o comando.</li>
-        <li><b>Offline e "abertura remota desabilitada" não são estados</b> da tela: são leituras <i>sobre</i> a fechadura. A tela mostra porta, volume e pré-condição juntos.</li>
-        <li><b>Escrita é opt-in no build.</b> <code>mudar-volume</code> e <code>habilitar-abrir-remoto</code> terminam em hardware de uma conta compartilhada, então o padrão é <b>desligado</b>.</li>
-        <li><b>Uma leitura secundária não veta a tela</b>: o endpoint de volume responde 500 em cinco das seis fechaduras da conta, e o estado da porta, que leu certo, continua aparecendo.</li>
-      </ul>
-    </div>
-  </div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">10</div>
+  <p class="eyebrow">4 · GitHub</p>
+  <h2>O repositório conta a história</h2>
+  <ul>
+    <li><b>5 épicos</b> · milestones por onda · Project com campo <code>Wave</code></li>
+    <li>Labels <code>rf:*</code> e <code>area:*</code>: o mapeamento sai deles, não da memória</li>
+    <li><b>55 PRs</b>, um por fatia, com o porquê no corpo</li>
+    <li><b>27 ADRs</b> com as opções recusadas</li>
+    <li>CI em três estágios · squash por humano, sempre</li>
+  </ul>
+  <div class="pg">9</div>
 </section>
 
 <section class="s">
-  <p class="eyebrow">5 · Decisões de implementação</p>
-  <h2>Qualidade: o que barra o merge</h2>
-  <p class="thesis">Cobertura é medida e publicada. O que <b>impede</b> um merge é outra coisa.</p>
-  <div class="nums" style="margin-bottom:7mm">
-    <div><dt>Testes</dt><dd>314<span>em 5 módulos</span></dd></div>
-    <div><dt>ADRs</dt><dd>27<span>com opções recusadas</span></dd></div>
-    <div><dt>Pull requests</dt><dd>55<span>um por fatia</span></dd></div>
-    <div><dt>Cobertura</dt><dd>61,5%<span>linhas · 61% ramos</span></dd></div>
-  </div>
-  <div class="cols">
-    <div class="rail"><b>Barra o merge</b>
-      <b style="text-transform:none;letter-spacing:0;font-size:11.5pt;color:#14211B;margin:0">Testes de arquitetura</b> · dez regras de fronteira, como teste JVM que falha o build.<br><br>
-      <b style="text-transform:none;letter-spacing:0;font-size:11.5pt;color:#14211B;margin:0">A suíte</b> · regras de negócio no host, contrato com <code>MockEngine</code>, nenhum teste toca a API real.<br><br>
-      <b style="text-transform:none;letter-spacing:0;font-size:11.5pt;color:#14211B;margin:0">A guarda de deriva</b> · cada tela afirma que nomeou <b>todos</b> os estados do seu <code>PreviewParameterProvider</code>. Acrescentar um estado sem acrescentar a captura quebra o build, então o conjunto de goldens não fica para trás das previews em silêncio.</div>
-    <div class="rail w"><b>Não barra, e é proposital</b>
-      <b style="text-transform:none;letter-spacing:0;font-size:11.5pt;color:#14211B;margin:0">Cobertura.</b> Ela exclui <code>*.platform*</code> e a UI Compose, provadas por preview e golden; contá-las inflaria o denominador com código que nenhum teste unitário deveria tocar.<br><br>
-      <span style="color:#5C6B63;font-size:10.5pt">Está abaixo dos <b>80%</b> que vocês mencionaram, e o caminho até lá é conhecido e já está metade construído: as seis telas têm 42 capturas cobrindo todos os seus estados. Hoje elas são evidência anexada ao PR; quando a baseline for gravada pelo CI, viram porta de regressão e o número sobe pelo lado que hoje está excluído.</span></div>
-  </div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">11</div>
+  <p class="eyebrow">5 · Implementação</p>
+  <h2>O orçamento é o eixo</h2>
+  <ul>
+    <li>Cache da lista · <b>zero polling</b> em todo o app</li>
+    <li>Formato do token validado <b>local</b>, antes de gastar chamada</li>
+    <li>Trocar o chip de filtro: <b>nenhuma requisição</b></li>
+    <li>Fechadura: uma leitura, não polling</li>
+  </ul>
+  <div class="note">A franquia da conta zerou na véspera. O desenho já estava pronto.</div>
+  <div class="pg">10</div>
 </section>
 
 <section class="s">
-  <p class="eyebrow">5 · Decisões de implementação</p>
-  <h2>Uso de IA, com guarda-corpos</h2>
-  <p class="thesis">A IA acelera escrita de código e erode fronteira na mesma velocidade. O projeto foi montado para que a segunda parte não passe.</p>
+  <p class="eyebrow">5 · Implementação</p>
+  <h2>Comando ≠ confirmação</h2>
+  <ul>
+    <li>Nenhuma tela afirma que a porta abriu sem leitura que concorde</li>
+    <li><b>"Enviado, não confirmado"</b> não é "recusou" nem "abriu"</li>
+    <li>Escrita na fechadura é <b>opt-in no build</b></li>
+    <li>Uma leitura secundária falhando não derruba a tela</li>
+  </ul>
+  <div class="note">Fingir que o app distingue seria o erro mais caro desta tela.</div>
+  <div class="pg">11</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">5 · Implementação</p>
+  <h2>O que barra o merge</h2>
+  <dl class="nums">
+    <div><dt>Testes</dt><dd>314</dd></div>
+    <div><dt>ADRs</dt><dd>27</dd></div>
+    <div><dt>PRs</dt><dd>55</dd></div>
+    <div><dt>Cobertura</dt><dd>61,5%</dd></div>
+  </dl>
+  <ul>
+    <li><b>Barra:</b> testes de arquitetura · a suíte · a guarda de deriva</li>
+    <li><b>Não barra:</b> cobertura. É medida e publicada</li>
+  </ul>
+  <div class="note">Meta de 80%: o caminho passa pelas 42 capturas virarem porta de regressão.</div>
+  <div class="pg">12</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">5 · Implementação</p>
+  <h2>IA com guarda-corpos</h2>
   <div class="cols3">
-    <div class="card"><h3>O que a barra</h3><p>Dez regras de arquitetura como teste JVM que <b>falha o build</b>. Guarda de deriva nas telas. Nenhum merge automático: squash por humano, sempre.</p></div>
-    <div class="card"><h3>O que fica registrado</h3><p><code>AI-LOG.md</code>, com 53 entradas. Cada decisão estrutural tem ADR com as opções recusadas, então o <i>porquê</i> sobrevive a quem escreveu.</p></div>
-    <div class="card"><h3>A regra de trabalho</h3><p>Premissa escrita em ticket é <b>hipótese até ser medida</b>. Medir antes de implementar custa minutos; o contrário custa a mudança inteira.</p></div>
+    <div class="card"><h3>O que barra</h3><p>Regras de arquitetura que quebram o build.<br><br>
+      Nenhum merge automático.</p></div>
+    <div class="card"><h3>O que registra</h3><p><code>AI-LOG.md</code>, 53 entradas.<br><br>
+      ADR para toda decisão estrutural.</p></div>
+    <div class="card"><h3>A regra</h3><p>Premissa em ticket é <b>hipótese até ser medida</b>.</p></div>
   </div>
-  <div class="rail" style="margin-top:7mm"><b>O que isso produziu na prática</b>
-    Decisões contra a corrente do "mais fácil": polling recusado na fechadura por causa do orçamento de requisições; o gerador de previews do Roborazzi recusado depois de medir que não funciona neste layout KMP; uma otimização inteira descartada depois de medir que não economizava nada.</div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">12</div>
-</section>
-
-<!-- ============================ 6. PRÓXIMOS PASSOS ============================ -->
-<section class="s">
-  <p class="eyebrow">6 · Próximos passos</p>
-  <h2>O que eu faria em seguida, em ordem</h2>
-  <p class="thesis">Separado por quem depende de quem: o que é meu, o que é do parceiro, e o que é decisão de produto.</p>
-  <div class="cols3">
-    <div class="card"><h3>Técnico, meu</h3><p>
-      <b>Escada de confirmação da fechadura</b>: dar tempo ao hardware antes de declarar não confirmado.<br><br>
-      <b>Goldens como porta de regressão</b>, com baseline gravada no CI.<br><br>
-      <b>Ordenação escolhível</b> da lista, por tipo, nome ou status.<br><br>
-      <b>Afinar os números do vídeo</b> contra a câmera real. Hoje seguem marcados como suposição.</p></div>
-    <div class="card"><h3>Depende do parceiro</h3><p>
-      <b>Vídeo ao vivo.</b> A sessão é criada normalmente e o transcodificador encerra o fluxo em 15 s sem enviar dados. Reportado com as medições.<br><br>
-      <b>O endpoint de volume da fechadura</b> responde 500 em cinco das seis fechaduras.<br><br>
-      <b>Dois hosts com o mesmo endpoint</b> respondendo formas diferentes, ambos com <code>200</code>.</p></div>
-    <div class="card"><h3>Produto</h3><p>
-      Da pesquisa com 270 avaliações reais, fora do escopo deste case:<br><br>
-      <b>Gravações, timeline e cartão SD</b>: maior cluster de reclamação depois de vídeo.<br><br>
-      <b>Notificação de dispositivo com granularidade</b>: o que incomoda é push de marketing; o que pedem é alerta de segurança.<br><br>
-      <b>Um app e uma conta</b> para todas as linhas.</p></div>
-  </div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">13</div>
+  <div class="note g">Na prática: polling recusado · gerador do Roborazzi recusado ·
+    otimização descartada depois de medida.</div>
+  <div class="pg">13</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">6 · Próximos passos</p>
-  <h2>E um achado que não é backlog</h2>
-  <p class="thesis">Lendo as avaliações do app oficial, um relato de 06/03/2026 descreve uma senha excluída na fechadura que continuava abrindo a porta, e um histórico que não identifica qual senha foi usada.</p>
-  <div class="rail w" style="font-size:12.5pt">
-    <b>Por que isto não virou um card de feature</b>
-    Se procede, é revogação de credencial que não chega ao hardware. Isso pede <b>tratamento de incidente</b>: reproduzir, avaliar alcance, corrigir e comunicar. Não uma linha no backlog atrás de outras dez.<br><br>
-    Está classificado assim na pesquisa desde o primeiro dia, e é o motivo de eu ter lido avaliações antes de escrever a primeira issue: <b>o que os usuários escrevem contém coisas que nenhuma especificação contém.</b>
+  <h2>O que vem depois</h2>
+  <div class="cols3">
+    <div class="card"><h3>Técnico</h3><p>Escada de confirmação da fechadura.<br><br>
+      Goldens como porta de regressão.<br><br>Ordenação escolhível.</p></div>
+    <div class="card"><h3>Com o parceiro</h3><p>Vídeo: fluxo encerra em 15 s sem dados.<br><br>
+      Volume da fechadura responde 500.</p></div>
+    <div class="card"><h3>Produto</h3><p>Gravações e timeline.<br><br>
+      Notificação com granularidade.<br><br>Uma conta para todas as linhas.</p></div>
   </div>
-  <div class="foot">Case Mibo Smart</div><div class="pg">14</div>
+  <div class="note">Das avaliações: senha excluída que continuava abrindo a porta.
+    Isso é <b>incidente</b>, não backlog.</div>
+  <div class="pg">14</div>
 </section>
 
 <section class="s cover" style="justify-content:flex-end">
-  <h1 style="font-size:32pt">Obrigado</h1>
-  <p style="max-width:180mm">Repositório, decisões e o log de uso de IA:<br>
-    <span style="font-family:Consolas,monospace;font-size:12pt">github.com/npauloj/case-mibo-smart</span></p>
+  <h1 style="font-size:36pt">Obrigado</h1>
+  <p><span style="font-family:Consolas,monospace;font-size:14pt">github.com/npauloj/case-mibo-smart</span></p>
   <div class="meta">Paulo · 24 de setembro de 2026</div>
   <svg class="glyph" viewBox="0 0 108 108" aria-hidden="true">
     <path fill="#FFFFFF" d="M54,26 L87,54 L78,54 L78,85 L30,85 L30,54 L21,54 Z"/>

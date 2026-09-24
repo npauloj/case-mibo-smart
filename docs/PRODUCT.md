@@ -1,284 +1,208 @@
 # Case Mibo Smart: documento de produto e arquitetura
 
-> Documento de entrega, fechado em 23/09/2026. Os números desta versão foram medidos na data;
-> o que ficou em aberto está nomeado no §11, com o motivo.
-> Referências: `docs/adr/` (decisões), `docs/specs/SPEC.md` (critérios de aceite),
-> `docs/api-contract.md` (contrato observado), `AI-LOG.md` (uso de IA),
-> guias práticos em `docs/guides/` ([token](guides/token.md), [leitura do Swagger](guides/swagger.md),
-> [como rodar](guides/running.md)).
+> Documento de entrega, 24/09/2026. O detalhe vive no repositório: `docs/adr/` (27 decisões, com as
+> opções recusadas), `docs/specs/SPEC.md` (50 critérios de aceite), `docs/api-contract.md` (o contrato
+> como observado), `AI-LOG.md` (uso de IA).
 
-## 1. Contexto e objetivo
+## 1. Objetivo
 
-- Case técnico da plataforma Open Casa Inteligente para a vaga de Analista de Desenvolvimento de Produto II (Android).
-- Entregar um app Kotlin Multiplatform (Android principal, iOS como prova do compartilhamento) que
-  consome a Open Casa Inteligente: token de acesso, lista de dispositivos, vídeo ao vivo de câmeras,
-  controle de fechadura.
-- O enunciado pede "como você pensa, prioriza, comunica e codifica". Este documento é a parte
-  "pensa e comunica"; o repositório (Issues → PRs → ADRs) é a trilha do "prioriza e codifica".
+App Kotlin Multiplatform que consome a plataforma Open Casa Inteligente: token de acesso, lista de
+dispositivos com paginação e filtro, vídeo ao vivo de câmeras e controle de fechadura.
 
-## 2. Leitura do problema
+Android é o alvo principal; iOS existe para provar que o compartilhamento é real, não rótulo.
 
-- App conectado a hardware real: os estados que importam não são só loading/erro, mas "comando enviado
-  e não confirmado", "câmera offline", "abertura remota desabilitada", "token expirou no meio da sessão",
-  "cota de streaming esgotada".
-- O contrato da API tem particularidades que definem a arquitetura (ver §6): HTTP sempre 200, dois
-  formatos de envelope, token rejeitado indistinguível de erro genérico, orçamento finito de requisições.
-- Três entregáveis: repositório versionado, este documento, log do uso de IA.
+## 2. Organização da semana
 
-## 3. Escopo e priorização
+| Dia | Foco | Saída |
+|---|---|---|
+| Sáb 19 | Stack, bibliotecas, padrão de arquitetura | nenhuma linha de código, de propósito |
+| Dom 20 | Sondar a API; ler avaliações das lojas; ver vídeos do app oficial em uso | SPEC, ADR-001 a 008, contrato observado. Primeiro commit às 17h11 |
+| Seg 21 | Implementação | 96 commits |
+| Ter 22 | Implementação, identidade visual, testes de tela | 26 commits |
+| Qua 23 | Implementação, correções contra a API real | 21 commits |
 
-| Onda | Escopo | Requisitos | Racional |
-|---|---|---|---|
-| 0 | *Walking skeleton*: repositório, CI, esqueleto de módulos, specs, ADRs, testes de arquitetura | (sem RF) | a trilha começa antes do código |
-| 1 | Sessão/token (tela, validação, expiração), que constrói client HTTP, envelope, erros tipados e cofre por necessidade própria | RF01, RF04 | primeira fatia vertical; não existe "fatia de fundação" |
-| 2 | Em paralelo: lista + filtro + paginação + estados · vídeo ao vivo · fechadura (status, abrir/fechar, pré-condição remota, volume) | RF02, RF03, RF04, RF05, RF06, RF07, RF08 | as três não dependem entre si; vídeo e fechadura são o "hardware real" |
-| 3 | Histórico da fechadura, renovação de token, iOS com a lista, módulo Java, R8 no release, este PDF | RF09, ★ Java | só após o núcleo funcionar no Android |
+Dois dias antes da primeira linha. A SPEC e os ADRs existiam antes da primeira fatia, então nenhuma
+decisão estrutural precisou ser tomada com o prazo em cima.
 
-- Circuit breaker: must-have para a apresentação são as ondas 0–2. Se o prazo apertar, a onda 3 encolhe
-  nesta ordem: módulo Java (ADR-007) → histórico (RF09) → fallback WebView do vídeo → R8. Vídeo e
-  fechadura não são cortáveis.
-- Fora de escopo por decisão: lâmpadas, sensores, gravações, senhas de fechadura, criação de conta.
+### Ondas e ordem de corte
 
-### 3.1 Visão de produto: o que os usuários reais pedem
-
-Antes de escrever as issues, li o que quem usa o app oficial da plataforma diz nas lojas
-(`docs/research/user-feedback.md`: 250 avaliações recentes da App Store, 20 da Play, Reclame Aqui e o
-fórum oficial; leitura em 20/09/2026). Nota agregada 4,8★ nas duas lojas, mas as avaliações recentes
-*com texto* são majoritariamente 1★, e a leitura é sobre o texto.
-
-| O que mais dói (≈ menções em 270) | O que o case faz a respeito |
+| Onda | Escopo |
 |---|---|
-| Vídeo ao vivo trava em "9x %" sem erro nomeado (≈50) | Etapas visíveis, **timeout de 20 s com mensagem**, retry e fallback web, nunca um spinner infinito (SPEC U1, V3–V5) |
-| Propaganda e push de marketing num app de segurança (≈45) | Zero banner, pesquisa, interstitial ou notificação; abre direto na lista, câmera em dois toques (U2, U7) |
-| Câmera "offline do nada", sem explicação (≈20) | Indicador + "visto pela última vez há X" na lista e na fechadura (U3) |
-| Fechadura: histórico chega atrasado e sem nome; volume que "sumiu" (≈10) | Comando → confirmação explícita; histórico com quem e quando; volume com rótulos (L3–L7, U4) |
-| Sessão que "perde a senha" e obriga a reinstalar (≈6) | Expiração explicada e retorno à tela anterior após o novo token (U5) |
-| Erros genéricos ("Erro desconhecido") | Toda mensagem diz a causa e oferece uma ação; nada de código HTTP (U6) |
+| 0 | *Walking skeleton*: CI, esqueleto de módulos, SPEC, ADRs, testes de arquitetura |
+| 1 | Sessão e token |
+| 2 | Lista, vídeo ao vivo e fechadura, em paralelo |
+| 3 | Histórico, renovação de token, iOS, módulo Java, R8 |
 
-Fora do escopo do case, mas registrado como próximos passos de produto: gravações/timeline/SD
-(segundo maior cluster), notificações de dispositivo com granularidade, um app e uma conta para todas
-as linhas, e um relato de segurança da fechadura (senha excluída continuando ativa) que merece
-tratamento de incidente. O detalhe está no §5–6 do documento de pesquisa.
+A ordem de corte foi decidida antes de precisar dela: módulo Java → histórico → fallback do vídeo →
+R8. Vídeo e fechadura nunca foram cortáveis.
+
+**A fatia é vertical**: atravessa `domain → data → app → tela` e entrega algo observável. Teto de ~400
+linhas executáveis de produção por PR, medido por `tools/executable-lines.py`. Testes são contados e
+não entram no teto, porque quem os limita são os critérios de aceite.
+
+## 3. O problema, lido antes de escrito
+
+Antes de abrir a primeira issue, li o que quem usa o app oficial escreve: 250 avaliações da App Store,
+20 da Play, Reclame Aqui e o fórum oficial (`docs/research/user-feedback.md`, leitura em 20/09). Nota
+agregada 4,8★ nas duas lojas, mas as avaliações recentes *com texto* são majoritariamente 1★.
+
+| O que mais dói | O que o case faz a respeito |
+|---|---|
+| Vídeo trava em "9x %" sem erro nomeado (≈50 menções) | Etapas visíveis, timeout de 20 s com mensagem, retry e fallback web. Nunca um spinner infinito |
+| Propaganda e push de marketing num app de segurança (≈45) | Zero banner, pesquisa ou notificação. Abre direto na lista, câmera em dois toques |
+| Câmera "offline do nada", sem explicação (≈20) | Indicador e "visto pela última vez há X", na lista e na fechadura |
+| Fechadura: histórico atrasado e sem nome (≈10) | Comando → confirmação explícita; histórico com quem e quando |
+| Erros genéricos ("Erro desconhecido") | Toda mensagem diz a causa e oferece uma ação; nenhum código HTTP na tela |
+
+Os critérios U1–U8 da SPEC nascem daí, cada um com o teste que o prova.
+
+Fora do escopo, registrado como próximo passo de produto: gravações e timeline, notificações de
+dispositivo com granularidade, uma conta para todas as linhas. E um relato de senha excluída que
+continuava abrindo a fechadura, que pede tratamento de incidente e não backlog.
 
 ## 4. Arquitetura
 
 ```
-:shared:domain   modelos, contratos (DeviceRepository, LockRepository, StreamingRepository,
-                 SecureTokenStore), erros e resultados por caso de uso, sem dependências
-:shared:data     implementação do parceiro: Ktor, DTOs, EnvelopeReader, mapeadores, SQLDelight;
-                 cofre do token em `platform.vault` (Keystore no androidMain, Keychain no iosMain)
-:shared:app      casos de uso, ViewModels, UI Compose Multiplatform por feature, módulos Koin;
-                 superfície de vídeo `camera.platform.LiveVideoPlayer` (Media3 no androidMain,
-                 WKWebView no iosMain)
-:androidApp      Activity + Application (só plumbing, nenhum `actual`)
-iosApp           host SwiftUI (Swift não hospeda `actual` Kotlin)
-:legacy-catalog  módulo Java pequeno (SDK legado simulado), onda 2, cortável
+:shared:domain   Kotlin puro. Modelos, contratos, erros tipados, resultados por caso de uso
+:shared:data     O parceiro mora aqui: Ktor, DTOs, mapeadores, cache, cofre do token
+:shared:app      Casos de uso, ViewModels, telas Compose. Gera o framework do iOS
+:androidApp      Activity e Application. Nenhuma lógica
+iosApp           SwiftUI hospedando o framework
+:legacy-catalog  Módulo Java, para provar a interoperabilidade
 ```
 
-- `expect/actual` só existe em pacotes chamados `platform` dentro do módulo dono da abstração
-  (regra 8 dos testes de arquitetura). O player é superfície de UI, não contrato de domínio (ADR-005).
+Quatro decisões sustentam o resto:
 
-- Dependências apontam para dentro; `:shared:domain` não conhece Ktor, Koin, Compose nem SQLDelight
-  (ADR-001). "Suporte a múltiplos parceiros" = um segundo módulo `data` implementando os mesmos contratos
-  (ADR-004).
-- Apresentação: MVVM com um estado imutável por tela (`StateFlow`), ações como funções suspensas,
-  estados de hardware modelados como tipos selados (ADR-003).
-- Erro é valor: a camada de dados lança exceções tipadas; cada caso de uso devolve o resultado da sua
-  intenção (`Loaded | Empty | TokenRejected | Offline | Failure`) (ADR-002).
+- **Dependências apontam só para dentro.** O `domain` não conhece Ktor, Koin, Compose nem SQLDelight.
+  "Suporte a múltiplos parceiros" vira um segundo módulo de dados implementando os mesmos contratos,
+  sem tocar em tela nem caso de uso (ADR-001, ADR-004).
+- **Erro é valor.** A camada de dados lança exceções tipadas; cada caso de uso devolve o resultado da
+  sua intenção. O `when` da tela é exaustivo e o compilador cobra (ADR-002).
+- **Um estado imutável por tela.** Estados de hardware são tipos selados, não booleanos combinados
+  (ADR-003).
+- **`expect/actual` só em pacote `platform`**, dentro do módulo dono da abstração (ADR-005, ADR-008).
 
-**Vídeo ao vivo.** A janela de 15 s é do parceiro, não nossa: a url expira se nenhum player a abrir
-nesse prazo, e é por isso que o caso de uso **publica** estados em vez de devolver um (ADR-005).
+### Como poderia ser aprimorada
 
-| Passo | O que acontece | Estado na tela |
-|---|---|---|
-| 1 | Toque na câmera. O app pede `criar-fluxo-video` ao **host do portal** | `Creating` |
-| 2 | Resposta traz `url` (fMP4), `session_id`, `monitor_url` e `quota_gb` | `Creating` |
-| 3 | O player recebe a url e prepara | `Creating`, com etapa nomeada |
-| 4a | Primeiro quadro em até 20 s `[ASSUMED]` | `Live` |
-| 4b | Nada chega: três tentativas (1 s, 3 s, 7 s), teto de duas sessões novas | `Reconnecting` |
-| 4c | A escada termina sem quadro | `Failed`, com "Abrir no player web" |
-| 5 | Saída da tela. `encerrar-sessao` roda sob `NonCancellable` | sessão devolvida |
+- Modularizar **por feature** em vez de por camada, quando o time crescer: hoje o `:shared:app`
+  concentra quatro features e é o arquivo mais disputado num merge.
+- Um segundo parceiro de verdade validaria o ADR-004. Hoje a fronteira é boa por construção, não por
+  prova.
+- Os goldens de tela como porta de regressão, não como figura anexada ao PR.
+- Uma camada de sincronismo se o app ganhar escrita offline. Hoje o cache é só leitura.
 
-**Fechadura.** O comando e a confirmação são coisas separadas, e é essa separação que o app não
-esconde: nenhuma tela afirma que a porta abriu antes de a leitura concordar (ADR-021).
+## 5. O que não é escolha padrão
 
-| Passo | O que acontece | Estado na tela |
-|---|---|---|
-| 1 | Toque em "Abrir". O app envia `controle-fechadura` | `CommandSent`, todo controle inerte |
-| 2 | O parceiro aceita o comando. Aceitar não é confirmar | `CommandSent` |
-| 3 | Uma leitura de `status-abertura`, sem polling (ADR-006) | `CommandSent` |
-| 4a | A leitura concorda com o comando | `Ready`, com a porta no estado novo |
-| 4b | A leitura discorda | `CommandExpired`, em âmbar, com "Verificar" |
-| 4c | A leitura falha | `CommandFailed`, e a porta fica como estava |
+Ktor, Koin e SQLDelight são o previsível de um projeto KMP. O que vale explicar é o resto:
 
-O `CommandExpired` é o estado mais importante das duas telas: ele diz *"o comando saiu e a porta não
-respondeu"*, que não é a mesma coisa que *"a porta recusou"*, e ninguém consegue distinguir as duas
-daqui.
+| Escolha | Por que entrou |
+|---|---|
+| **Konture** | Fronteira de módulo como teste JVM que **falha o build**, não como convenção num README |
+| **Roborazzi** | 42 capturas geradas das previews que já existem, com guarda contra deriva |
+| **Kover** | A meta de 80% de cobertura só existe se for medida |
+| **Módulo Java puro** | Interoperabilidade provada por um teste **escrito em Java**, não afirmada |
+| **Media3 / WKWebView** | `expect/actual` só na superfície do player; VLCKit recusado por tamanho |
 
-## 5. Stack e justificativas
+Konture e Kover vieram das duas preocupações que o time citou na entrevista: manter a arquitetura ao
+longo do tempo, e cobertura de testes alta.
 
-| Camada | Escolha | Por quê (resumo) |
-|---|---|---|
-| Linguagem/UI | Kotlin 2.4 · Compose Multiplatform 1.11 | estado da arte JetBrains; Compose iOS estável |
-| Rede | Ktor 3.5 | cliente multiplataforma oficial |
-| Persistência | SQLDelight 2.3 | maduro em KMP; Room 2.8 seria equivalente; Room 3.0 ainda alpha |
-| DI | Koin 4.2 | modularização por camada; Metro 1.0 (compile-time) citado como fronteira |
-| Concorrência | Coroutines + Flow/StateFlow | structured concurrency; cancelamento propagado |
-| Vídeo | Media3 (Android) · WKWebView em `monitor_url` (iOS) · WebView fallback no Android | stream é fMP4 sobre HTTP; AVPlayer não reproduz sem HLS; VLCKit descartado (tamanho + interop fora do prazo) |
-| Segurança | Keystore / Keychain via interop direto | controle fino de acessibilidade do segredo |
-| Testes | Mokkery · kotlinx-coroutines-test · Turbine | mocks em Kotlin/Native; `state.value` + `advanceUntilIdle()` para o estado da tela, Turbine só para eventos one-shot |
+Regra que governa a lista: nenhuma dependência entra para "fazer compilar". Ela entra com uma linha de
+ADR dizendo o que resolve e o que foi recusado no lugar.
 
-## 6. O contrato da API e como ele moldou o código
+## 6. A fronteira é um teste
 
-- HTTP sempre 200 → o "status" real é lido do corpo; `EnvelopeReader` aceita os dois formatos.
-- Token inválido devolve "Erro desconhecido…" → regra de negócio no caso de uso, não no client.
-- Orçamento de ~300 requisições (valor lido em 20/09/2026) → cache local da lista, classificação por `modelo` antes de `funcoes`,
-  zero polling, retry só para falha de rede (ADR-006).
-- Fechadura é sub-dispositivo: `ns` composto `lock_hub_idProdutoHub`; abertura remota precisa estar
-  habilitada; `volume/v1` exige `productId` mas o campo é `idProduto` (enviado em dobro).
-- Stream expira em 15 s sem player; sessão encerrada ao sair, inclusive sob cancelamento.
-### 6.1 Cada contradição e onde ela é defendida
+Cinco regras rodam como teste JVM em todo PR, antes de qualquer teste de negócio:
 
-As oito estão listadas no §7 do `docs/api-contract.md`. Nenhuma virou um `if` espalhado: cada uma tem
-um lugar só, e um teste que falha se esse lugar mudar.
+| Regra | O que proíbe |
+|---|---|
+| 1 | O `domain` depender de framework, persistência ou dos módulos de fora |
+| 2 | Dependência apontando para fora, e ciclo no grafo de módulos |
+| 4 | `android.*`, `java.*` ou `javax.*` em `commonMain` |
+| 5 | Repositório declarado no `domain` que não seja interface |
+| 8 | `expect`/`actual` fora de um pacote `platform` |
 
-| # | Contradição do contrato | Onde é tratada | Teste que a prova |
-|---|---|---|---|
-| 1 | HTTP é sempre `200`; o Swagger documenta `402/404/500` como código HTTP | `EnvelopeReader` lê o status do **corpo** | `EnvelopeReaderTest.unknownErrorOnOkIsJustAnApiError` |
-| 2 | Dois formatos de envelope (A embrulhado, B plano) para a mesma API | `EnvelopeReader` aceita os dois | `EnvelopeReaderTest.wrappedSuccess` · `.flatSuccess` |
-| 3 | Token recusado é indistinguível de erro genérico, exceto pelo texto | regra de negócio no caso de uso, **não** no client (ADR-002) | `EnvelopeReaderTest.forbiddenIsTokenExpiredWithServerMessage` · `.forbiddenWithUnparseableBodyStillExpires` |
-| 4 | `volume/v1` exige `productId`, mas a propriedade é `idProduto` | `LockRequests.volume` manda os dois, e a quarentena fica nele | `LockRequestsTest.volumeRequestCarriesBothIds` |
-| 5 | A página de docs mostra `GET` com `{ns, idProduto}`; o Swagger, `POST` com `{tamanhoPagina, pagina, origem}` | vale o Swagger, verificado na prática | `ListDevicesTest.firstPageUsesDefaults` |
-| 6 | `renovarToken` tem caminho diferente no Swagger e na descrição | `SmartHomeApi.RENEW_TOKEN_PATH` fixa o que responde | `RenewTokenTest.exactRequest` |
-| 7 | **Dois hosts**: API nas descrições, portal no `host:` do Swagger | `SmartHomeApi.streamingBaseUrl`: streaming no portal, o resto na API (ADR-025) | `WatchLiveVideoTest.streamingCallsGoToThePortalHostAndTheRestDoesNot` |
-| 8 | Filtro usa plural `vinculados`; o campo do dispositivo usa singular `vinculado` | `OriginFilter` traduz numa direção só | `OriginFilterTest.mapsToWireValues` |
+E um **teste negativo permanente**: uma regra que o grafo real viola de propósito tem que falhar. Se
+ela passar verde, quem quebrou foi a ferramenta, e as outras cinco estão passando por vacuidade.
 
-A número 7 é a mais perigosa das oito. `criar-fluxo-video` existe nos dois hosts e responde
-diferente em cada um: no portal devolve a forma documentada, com `session_id` e `monitor_url`; na API
-devolve só uma url. Os dois respondem `200` e nenhum reporta erro, então nenhum código consegue
-distingui-los sozinho. Sem `session_id` não há como encerrar a sessão, e o app passa a abrir sessões
-que não sabe fechar. Por isso o roteamento é explícito e há um teste que afirma o host de **cada**
-requisição do caminho de streaming (ADR-025).
+## 7. O orçamento de requisições é o eixo do desenho
 
-## 7. Estados de hardware tratados
+A conta de teste tem franquia finita e cada chamada conta, inclusive validar o token. Isso deixou de
+ser restrição e virou princípio:
 
-- Fechadura: trancada · destrancada · comando em andamento · abertura remota desabilitada · offline ·
-  estado não confirmado (com ação "Verificar", sem polling).
-- Câmera: criando sessão · ao vivo · reconectando (n/3) · expirada · cota esgotada · offline · falha
-  com fallback web.
-- Sessão: sem token · válida (expira em …) · expirada (rota para a tela de token com mensagem específica).
+- Cache da lista: a tela abre com o que já sabe, antes de a rede responder.
+- Zero polling, em lugar nenhum do app.
+- Formato do token validado localmente, antes de gastar chamada com colagem truncada.
+- Trocar o chip de filtro não custa requisição quando a lista completa já está em memória.
+- Fechadura: uma leitura de confirmação, com ação do usuário, em vez de polling.
 
-**As capturas existem como teste, não como anexo neste documento.** São 42 goldens, um por estado das
-seis telas, gravados por `ScreenshotTest` (Roborazzi + Robolectric, ADR-024) e publicados como
-artefato do job `verify`. Não estão versionadas de propósito: a rasterização de fonte difere entre
-sistemas operacionais, então uma imagem gravada numa máquina Windows diverge da do runner Linux em
-cada pixel de antialiasing, por motivo que nada tem a ver com a UI. O `.gitignore` carrega essa
-exclusão com data de validade escrita: ela sai no dia em que uma baseline gravada pelo CI for
-commitada, e aí o conjunto vira porta de regressão em vez de figuras anexadas ao PR.
+Na véspera da entrega a franquia chegou a zero e a API passou a recusar tudo. O desenho já estava
+pronto para isso.
 
-O inventário dos estados não é mantido à mão: cada tela tem um `PreviewParameterProvider` com todos os
-seus estados, e o `ScreenshotTest` afirma, por tela, que nomeou **todos** eles. Acrescentar um estado
-sem acrescentar a captura quebra o build.
+## 8. Estados que o app se recusa a simplificar
 
-## 8. Segurança
+**Fechadura.** Comando e confirmação são coisas separadas, e nenhuma tela afirma que a porta abriu
+antes de uma leitura concordar. "Enviado e não confirmado" não é "recusou" nem "abriu", e ninguém
+consegue distinguir as duas coisas a partir da API (ADR-021). Escrita é opt-in no build: `mudar-volume`
+e `habilitar-abrir-remoto` terminam em hardware de uma conta compartilhada.
 
-- Token só em Keystore/Keychain (`ThisDeviceOnly`), nunca em preferências simples, logs ou UI (só o sufixo).
-- `Authorization` sanitizado no logger HTTP; CI falha se o padrão de token aparecer no repositório.
-- Nenhuma credencial versionada (regra do enunciado). Detalhes: ADR-008.
+**Câmera.** Criando sessão, ao vivo, reconectando, cota esgotada, offline, falha com fallback web.
 
-## 9. Qualidade, testes e método
+**Sessão.** Sem token, válida com prazo, expirada com o motivo e retorno à tela anterior.
 
-- Metodologia: SDD leve. Spec com critérios EARS/Gherkin (`docs/specs/SPEC.md`) → ADRs → Issues no
-  GitHub (uma por fatia vertical) → um PR por Issue com o "porquê" na descrição.
-- TDD cirúrgico nas regras críticas: paginação/filtro, tradução de erro/token, máquina de estado da
-  fechadura, política de retry do vídeo. UI e player fora do TDD.
-- Uso de IA documentado em `AI-LOG.md`, com as correções de julgamento que ele exigiu.
-### 9.1 Números, medidos em 23/09/2026
+## 9. Segurança
 
-| Módulo | Testes | O que eles cobrem |
-|---|---|---|
-| `:shared:domain` | 19 | modelos, formato do token, ordenação, resultados selados |
-| `:shared:data` | 84 | contrato na fiação (`MockEngine`), envelopes, mappers, cache SQLDelight, cofre |
-| `:shared:app` | 195 | casos de uso, máquinas de estado das telas, 42 goldens de screenshot |
-| `:konture-test` | 11 | as regras de arquitetura, como teste que falha o build |
-| `:legacy-catalog` | 5 | a interoperabilidade Java → Kotlin, escrita em Java (ADR-023) |
-| **Total** | **314** | |
+Token só em Keystore/Keychain, nunca em preferências simples, logs ou UI (só o sufixo aparece).
+`Authorization` sanitizado no logger HTTP, e o CI falha se um padrão de token aparecer no repositório.
+Nenhum host ou credencial versionado. Detalhe no ADR-008.
 
-Cobertura agregada: **61,5 % de linhas, 61 % de ramos** (Kover). Três leituras que o número sozinho
-esconde:
+## 10. Qualidade
 
-- Ele exclui, **por decisão explícita**, `*.platform*` e `*.ui.*`, ou seja, as pontes `expect/actual` e a UI
-  Compose. Essas são provadas por preview e golden, não por teste unitário, e contá-las inflaria o
-  denominador com código que nenhum teste unitário deveria tocar.
-- A cobertura **não é porta de merge** (ADR-006). É medida e publicada; o que barra é o teste de
-  arquitetura e a suíte.
+| Módulo | Testes |
+|---|---|
+| `:shared:domain` | 19 |
+| `:shared:data` | 84 |
+| `:shared:app` | 195 |
+| `:konture-test` | 11 |
+| `:legacy-catalog` | 5 |
+| **Total** | **314** |
 
-**CI:** três estágios. `verify` (arquitetura + testes JVM + goldens, em todo PR), `android` (APK e
-lint) e `ios` (macOS: testes no simulador, link do framework, `xcodebuild`), este só em push para
-`main` ou por disparo manual, porque minuto de macOS custa 10× em repositório privado. Os três
-estiveram verdes em `main` pela primeira vez em 22/09. **Em 23/09 o CI está bloqueado por cobrança da
-conta do GitHub Actions**, não por código: `"The job was not started because recent account payments
-have failed or your spending limit needs to be increased"`. A verificação desta entrega foi rodada
-localmente, com a mesma lista de tarefas do workflow.
+Cobertura agregada: **61,5 % de linhas, 61 % de ramos**, excluindo por decisão explícita as pontes de
+plataforma e a UI Compose, que são provadas por preview e golden.
 
-## 10. Como rodar
+**O que barra um merge** é o teste de arquitetura, a suíte e a guarda de deriva das telas. Cobertura é
+medida e publicada, não é porta (ADR-006). O caminho até os 80 % passa pelas 42 capturas de tela
+virarem porta de regressão, o que depende de uma baseline gravada no CI.
 
-- Android: `./gradlew :androidApp:assembleDebug` e instalar; colar o token temporário na tela inicial.
-- **iOS (macOS):** abra `iosApp/iosApp.xcodeproj`, escolha o scheme `iosApp` e um simulador, Run. O
-  build phase chama `./gradlew :shared:app:embedAndSignAppleFrameworkForXcode`; no simulador não há
-  assinatura, e o `Config.xcconfig` deve continuar **sem** `TEAM_ID`.
-- **iOS sem Mac:** GitHub → *Actions* → workflow *CI* → *Run workflow*. O job `ios` roda em
-  `macos-latest` (testes no simulador, framework e `xcodebuild`) e também a cada push em `main`.
-- **Testes:**
+**Método:** SPEC com critérios EARS → ADR quando a decisão é estrutural → uma issue por fatia vertical
+→ um PR por issue, com o porquê no corpo. 55 PRs mesclados, squash por humano. TDD cirúrgico nas regras
+críticas; UI por preview e golden.
 
-  ```bash
-  # regras de negócio e contrato (JVM, segundos)
-  ./gradlew :shared:domain:testAndroidHostTest :shared:data:testAndroidHostTest :shared:app:testAndroidHostTest
+## 11. Como rodar
 
-  # arquitetura (falha o build, não é aviso)
-  ./gradlew :konture-test:test
+`docs/guides/running.md` tem o passo a passo, incluindo iOS com e sem Mac. O essencial:
 
-  # interoperabilidade Java → Kotlin
-  ./gradlew :legacy-catalog:test
+```bash
+./gradlew :androidApp:assembleDebug
+./gradlew :konture-test:test :shared:domain:testAndroidHostTest \
+          :shared:data:testAndroidHostTest :shared:app:testAndroidHostTest
+```
 
-  # capturas de tela: grava os goldens (pesado; o CI é o lugar dele)
-  ./gradlew :shared:app:recordRoborazziAndroidHostTest
+Antes: copie `local.properties.example` para `local.properties` e preencha os dois hosts. Sem eles o
+build falha com mensagem clara, em vez de embutir um padrão. Nenhum teste fala com a API real.
 
-  # iOS (só macOS)
-  ./gradlew :shared:domain:iosSimulatorArm64Test :shared:data:iosSimulatorArm64Test :shared:app:iosSimulatorArm64Test
-  ```
+## 12. O que ficou de fora
 
-  Antes de rodar qualquer um: copie `local.properties.example` para `local.properties` e preencha
-  `smarthome.apiHost` e `smarthome.portalHost`. Sem eles o build falha com mensagem clara, em vez de
-  embutir um host padrão. E **nenhum teste fala com a API real**; os de contrato usam `MockEngine`.
-- Token: gerado na plataforma Open Casa Inteligente → Contas → Token Temporário (validade 2 h). Ver `docs/guides/token.md`.
+**O vídeo não chegou a exibir imagem.** A sessão é criada normalmente e o fluxo do portal responde
+`200 video/mp4 chunked`, mas encerra em 15 s sem enviar dados, nas duas câmeras e em todos os canais.
+O comportamento é do transcodificador do parceiro e foi reportado com as medições. Que o caminho já
+funcionou é medido: sessões do mesmo dia registraram consumo constante de 0,87 Mbit/s.
 
-## 11. O que ficou de fora e por quê
+**Os números de retry do vídeo** (1/3/7 s, e 20 s para o primeiro quadro) estão implementados e
+provados em relógio virtual. O mecanismo é testado; os números não foram observados contra hardware, e
+seguem marcados como suposição.
 
-**O vídeo não chegou a exibir imagem.** A sessão é criada normalmente e o `/stream/<id>` do portal
-responde `200 video/mp4 chunked`, mas encerra em 15 s sem enviar dados. Reproduzível nas duas câmeras,
-em todos os canais e perfis, conectando 0,1 s depois de criar a sessão. O comportamento é do
-transcodificador do parceiro, e foi reportado com as medições. Que o caminho já funcionou é medido:
-sessões do mesmo dia registraram consumo constante de 0,87 Mbit/s, e uma sessão que não recebe nada
-registra `mb_consumed: 0.0`. Detalhe no ADR-025.
+**A baseline de goldens** não está commitada: ela só pode nascer no runner Linux, porque a
+rasterização de fonte difere entre sistemas operacionais.
 
-**Números `[ASSUMED]` do vídeo.** Os atrasos de 1/3/7 s e o orçamento de 20 s para o primeiro quadro
-estão implementados e provados em relógio virtual. O **mecanismo** é testado, os **números** não foram
-observados contra hardware. Seguem marcados como tal no ADR-005 e na SPEC.
-
-**Renovação de token (S10):** entregou. O endpoint foi sondado em 21/09 e o comportamento surpreendeu
-de um jeito útil: renovar **acrescenta** uma credencial em vez de substituir, e o token anterior
-continua valendo. Está no ADR-020.
-
-**Baseline de goldens não commitada.** Ela só pode nascer no runner Linux (ADR-024) e o CI está
-bloqueado por cobrança. Enquanto isso as capturas são artefato do PR, não porta de regressão.
-
-**Fora do escopo do case, e registrado como próximo passo de produto** (detalhe no §5–6 de
-`docs/research/user-feedback.md`): gravações, timeline e cartão SD, o maior cluster de reclamação
-depois de vídeo e propaganda; notificações de dispositivo com granularidade, que **não** contradizem a
-U7 (o que os usuários odeiam é push de marketing, o que pedem é alerta de segurança, e são coisas
-opostas); um app e uma conta para todas as linhas; pareamento resiliente a Wi-Fi + dados móveis.
-
-**E um achado que não é backlog de produto:** um relato de 2026-03-06 descreve senha excluída na
-fechadura continuando a abrir a porta, com o histórico sem identificar qual senha foi usada. Isso pede
-tratamento de incidente, não card de feature, e está assim classificado na pesquisa.
+**Ordenação escolhível da lista** não entrou. A ordem fixa de hoje é deliberada e testada: câmeras e
+fechaduras online primeiro, depois os demais, cada grupo por nome.

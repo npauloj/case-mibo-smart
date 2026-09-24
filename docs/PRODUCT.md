@@ -128,7 +128,9 @@ anotado, junto com o que eu fiz para corrigir.
 
 Escrever rápido é fácil. O trabalho é revisar o que foi escrito.
 
-## 7. Próximos passos: o que eu melhoraria no fluxo
+## 7. Próximos passos
+
+### No fluxo do app
 
 - **Início do vídeo mais robusto**: reconexão melhor, indicação de progresso real, e cair para uma
   alternativa antes de falhar.
@@ -137,3 +139,13 @@ Escrever rápido é fácil. O trabalho é revisar o que foi escrito.
 - **Favoritar dispositivos**, para o que se usa todo dia ficar no topo da lista.
 - **Grupos e ambientes** (sala, garagem, entrada), para navegar por lugar em vez de por lista.
 - **Atalhos** para abrir a câmera ou a fechadura direto da tela inicial do celular.
+
+### No projeto
+
+- **Mais regras de arquitetura.** Das onze que desenhei, cinco estão implementadas. A que mais
+  falta impede uma feature de importar a outra, e é justamente ela que protege o caminho para
+  módulos por feature descrito na seção 4.
+- **Capturas de tela no próprio pull request.** Hoje elas são geradas e ficam num arquivo para
+  baixar; deveriam aparecer na página do PR, para revisar mudança de tela olhando em vez de
+  imaginando.
+- **Comparação automática dessas capturas**, para uma tela quebrada reprovar o PR sozinha.

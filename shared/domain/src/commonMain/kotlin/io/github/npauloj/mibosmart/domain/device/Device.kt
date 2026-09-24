@@ -24,7 +24,25 @@ enum class DeviceOrigin { Linked, Shared }
  * absent filter would have to be re-invented as one at every layer it crossed. The Portuguese wire
  * words it maps to (`todos|vinculados|compartilhados`) live only in `:shared:data` (ADR-004).
  */
-enum class OriginFilter { All, Linked, Shared }
+enum class OriginFilter {
+    All,
+    Linked,
+    Shared,
+    ;
+
+    /**
+     * Whether a device with this [origin] belongs under this chip.
+     *
+     * The same question `origem` answers on the wire, asked locally. It lives in the domain
+     * because it *is* the meaning of the filter, and because the screen needs it to answer a chip
+     * without spending a request when the complete set is already in hand (ADR-027).
+     */
+    fun accepts(origin: DeviceOrigin): Boolean = when (this) {
+        All -> true
+        Linked -> origin == DeviceOrigin.Linked
+        Shared -> origin == DeviceOrigin.Shared
+    }
+}
 
 enum class DeviceStatus { Online, Offline }
 

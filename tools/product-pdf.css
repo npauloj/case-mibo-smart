@@ -1,0 +1,49 @@
+/* Folha de estilo do PDF de entrega. Paleta do próprio app (AppTheme): verde da marca nos títulos,
+   âmbar do papel `waiting` nas citações. Mono para dado, como o app faz com o `Tabular`. */
+@page { size: A4; margin: 18mm 15mm 20mm; }
+
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.2pt; line-height: 1.5; color: #14211B; max-width: none; margin: 0;
+  hyphens: auto;
+}
+
+h1.title { font-size: 23pt; line-height: 1.15; color: #00702A; margin: 0 0 4pt;
+           letter-spacing: -0.01em; border: 0; }
+.subtitle, header#title-block-header > p { color: #5C6B63; font-size: 10.5pt; margin: 0 0 18pt; }
+
+h1 { font-size: 15pt; color: #00702A; margin: 20pt 0 7pt; padding-bottom: 4pt;
+     border-bottom: 1.2pt solid #00702A; break-after: avoid; letter-spacing: -0.01em; }
+h2 { font-size: 13pt; color: #00702A; margin: 17pt 0 6pt; padding-bottom: 3pt;
+     border-bottom: 0.6pt solid #CFDDD4; break-after: avoid; }
+h3 { font-size: 11pt; color: #14211B; margin: 13pt 0 4pt; break-after: avoid; }
+h4 { font-size: 10.2pt; color: #3A4A42; margin: 11pt 0 3pt; break-after: avoid; }
+
+p { margin: 0 0 7pt; orphans: 3; widows: 3; }
+ul, ol { margin: 0 0 8pt; padding-left: 16pt; }
+li { margin-bottom: 3pt; }
+li::marker { color: #00702A; }
+strong { color: #0B1A13; }
+
+code { font-family: Consolas, "SF Mono", monospace; font-size: 8.8pt;
+       background: #EAF3EC; padding: 0.5pt 3pt; border-radius: 2pt; color: #0B4A21; }
+pre { background: #F4F8F5; border: 0.6pt solid #CFDDD4; border-left: 2.5pt solid #00702A;
+      border-radius: 3pt; padding: 8pt 10pt; margin: 0 0 9pt; break-inside: avoid;
+      white-space: pre-wrap; word-wrap: break-word; }
+pre code { background: none; padding: 0; font-size: 8.4pt; color: #14211B; }
+
+table { border-collapse: collapse; width: 100%; font-size: 8.9pt; margin: 0 0 10pt;
+        break-inside: avoid; }
+th { background: #EAF3EC; color: #0B4A21; text-align: left; font-weight: 600;
+     padding: 4pt 6pt; border-bottom: 1pt solid #00702A; }
+td { padding: 4pt 6pt; border-bottom: 0.5pt solid #DCE5DF; vertical-align: top; }
+tr:nth-child(even) td { background: #FAFCFA; }
+
+blockquote { margin: 0 0 10pt; padding: 7pt 11pt; background: #FFF6E4;
+             border-left: 2.5pt solid #8A5B00; border-radius: 0 3pt 3pt 0; color: #3A2C10; }
+blockquote p:last-child { margin-bottom: 0; }
+
+hr { border: 0; border-top: 0.6pt solid #CFDDD4; margin: 14pt 0; }
+a { color: #00702A; text-decoration: none; border-bottom: 0.4pt solid #A8CDB5; }
+del { color: #8A9992; }

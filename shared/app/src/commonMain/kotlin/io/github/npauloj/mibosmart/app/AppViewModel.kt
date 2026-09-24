@@ -33,15 +33,10 @@ enum class AppDestination {
 
 /**
  * Where the app is and what it has to say about the session, in one immutable value (ADR-003).
- *
- * @property destination `null` until the stored session has been read. Routing before the answer is
- *   back would mean showing the token screen to a signed-in user for a frame and then yanking it
- *   away, which is the flicker SPEC S5 exists to avoid; the read is a vault access, not a request, so
- *   the wait is a frame, not a spinner.
+ * @property destination `null` until the stored session has been read.
  * @property expiringSoon whether the device list shows the non-blocking banner of SPEC S7.
  * @property sessionEnded why the user is back on the token screen, when they did not ask to be
- *   (SPEC S6, U5). `null` on a cold start and after a deliberate "Sair" — neither is something to
- *   explain.
+ * (SPEC S6, U5).
  */
 data class AppUiState(
     val destination: AppDestination? = null,
@@ -50,11 +45,8 @@ data class AppUiState(
 )
 
 /**
- * Startup routing, the session's clock, and the guard that ends a session the partner has refused
- * (ADR-003).
- *
- * The state is not `rememberSaveable`: it is derived from the vault on every start, so the app can
- * never come back "signed in" to a session the store cannot back (ADR-010).
+ * Startup routing, the session's clock, and the guard that ends a session the partner has
+ * refused (ADR-003).
  */
 class AppViewModel(
     private val sessionStartup: SessionStartup,
@@ -68,18 +60,11 @@ class AppViewModel(
 
     private var expiryWarning: Job? = null
 
-    /**
-     * Where a newly validated token puts the user (SPEC U5).
-     *
-     * It is the screen the guard interrupted, so an expiry that arrives on the account screen ends
-     * back on the account screen rather than dumping the user at the list they had left.
-     */
+    /** Where a newly validated token puts the user (SPEC U5). */
     private var returnTo: AppDestination = AppDestination.DeviceList
 
     init {
         viewModelScope.launch { onStart() }
-        // Collected for the ViewModel's whole life, not per screen: a refusal can arrive from any
-        // request, and the screen that sent it may already be gone (SPEC S6).
         viewModelScope.launch { refusedRequests.refusals.collect { onRefusal(it) } }
     }
 
@@ -88,26 +73,12 @@ class AppViewModel(
         viewModelScope.launch { onStart() }
     }
 
-    /**
-     * The account screen renewed the session, so the deadline moved (SPEC S7, S10).
-     *
-     * Deliberately **not** [onStart]: that one rebuilds [AppUiState] wholesale and resets `returnTo`,
-     * which would throw the user off the account screen at the exact moment they renewed — the
-     * opposite of what S-03 promises. This touches one field and reschedules one timer.
-     */
+    /** The account screen renewed the session, so the deadline moved (SPEC S7, S10). */
     fun onRenewed() {
         viewModelScope.launch { refreshExpiry() }
     }
 
-    /**
-     * Recomputes the warning of SPEC S7 from the stored session, and nothing else.
-     *
-     * The cancel comes first on purpose: without it a second renewal leaves two timers racing, and
-     * the loser sets `expiringSoon = true` over a session that has hours left.
-     *
-     * A vault emptied while the tap was in flight routes nowhere from here — `RenewalResult.NoSession`
-     * already emits `signedOut`, and that path owns the routing (SPEC S6).
-     */
+    /** Recomputes the warning of SPEC S7 from the stored session, and nothing else. */
     suspend fun refreshExpiry() {
         val session = sessionStartup() ?: return
         val sessionState = session.stateAt(clock.now())
@@ -126,8 +97,8 @@ class AppViewModel(
     }
 
     /**
-     * "Sair" has already emptied the vault (SPEC S8): all that is left is the way out of the screens
-     * it backed, with nothing to explain — the user asked for this.
+     * "Sair" has already emptied the vault (SPEC S8): all that is left is the way out of the
+     * screens it backed, with nothing to explain — the user asked for this.
      */
     fun onSignedOut() {
         expiryWarning?.cancel()
@@ -136,22 +107,19 @@ class AppViewModel(
     }
 
     /**
-     * Reads the stored session and routes from it; the intent is a suspend function so a test can
-     * await it rather than guess at a dispatcher (ADR-003).
+     * Reads the stored session and routes from it; the intent is a suspend function so a test
+     * can await it rather than guess at a dispatcher (ADR-003).
      */
     suspend fun onStart() {
         val session = sessionStartup()
 
         expiryWarning?.cancel()
         if (session == null) {
-            // The reason survives: this is the path a re-validation that failed comes back through,
-            // and the user still has to be told why they are here (SPEC U5).
             mutableState.update { AppUiState(destination = AppDestination.TokenEntry, sessionEnded = it.sessionEnded) }
             return
         }
 
         val sessionState = session.stateAt(clock.now())
-        // Back to where the guard found them, and the reason is spent (SPEC U5).
         mutableState.value = AppUiState(
             destination = returnTo,
             expiringSoon = sessionState == SessionState.ExpiringSoon,
@@ -161,14 +129,10 @@ class AppViewModel(
     }
 
     /**
-     * A request came back refused: end the session if it was this one's, and say so (SPEC S6, U5).
-     *
-     * The decision is the guard's, not this class's — including the one case that must change
-     * nothing, a refusal carrying a token the vault no longer holds.
+     * A request came back refused: end the session if it was this one's, and say so (SPEC S6,
+     * U5).
      */
     suspend fun onRefusal(refusal: TokenRefusal) {
-        // The token screen is never a place to come back *to*: a refusal that arrives while the app
-        // is already there (a request that outlived the screen) still returns the user to the list.
         val signedInAt = mutableState.value.destination
             ?.takeUnless { it == AppDestination.TokenEntry }
             ?: AppDestination.DeviceList
@@ -182,13 +146,7 @@ class AppViewModel(
         )
     }
 
-    /**
-     * Waits the session's remaining life out **once** and then shows the banner.
-     *
-     * One `delay` rather than a tick: the app has to warn while it is open, and the cheapest honest
-     * way is to sleep until the only instant that matters. Nothing here asks the partner anything, so
-     * SPEC E5 and ADR-006 are untouched — it is the local clock, not the API, that is being watched.
-     */
+    /** Waits the session's remaining life out **once** and then shows the banner. */
     private fun warnWhenItExpires(session: Session) {
         expiryWarning = viewModelScope.launch {
             delay(session.remainingUntilWarning(clock.now()))

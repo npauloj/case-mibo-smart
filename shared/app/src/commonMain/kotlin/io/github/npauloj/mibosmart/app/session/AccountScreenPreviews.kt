@@ -6,13 +6,12 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import io.github.npauloj.mibosmart.app.ui.AppTheme
 
-// android.content.res.Configuration.UI_MODE_NIGHT_YES, which commonMain cannot import (rule 4).
 private const val UI_MODE_NIGHT_YES = 0x20
 
 /**
- * Every state `AccountScreenContent` can render, declared once: the named previews below take one
- * value each so their names stay readable metadata, and tooling that walks providers gets the same
- * sequence.
+ * Every state `AccountScreenContent` can render, declared once: the named previews below take
+ * one value each so their names stay readable metadata, and tooling that walks providers gets
+ * the same sequence.
  */
 internal class AccountUiStateProvider : PreviewParameterProvider<AccountUiState> {
 
@@ -29,8 +28,8 @@ internal class AccountUiStateProvider : PreviewParameterProvider<AccountUiState>
         )
 
         /**
-         * Inside the last 10 minutes — the visual proof that SPEC S7 is visible here too, and the
-         * one state that offers "Renovar" (SPEC S10).
+         * Inside the last 10 minutes — the visual proof that SPEC S7 is visible here too, and
+         * the one state that offers "Renovar" (SPEC S10).
          */
         val ExpiringSoon = AccountUiState(
             tokenSuffix = SUFFIX,
@@ -41,13 +40,7 @@ internal class AccountUiStateProvider : PreviewParameterProvider<AccountUiState>
         /** The one request this screen ever sends, in flight: the action is disabled, not just busy. */
         val Renewing = ExpiringSoon.copy(renewing = true)
 
-        /**
-         * The same screen after a renewal that did not happen (SPEC S10).
-         *
-         * Worth its own preview because the message has to read as "nothing was lost": the previous
-         * credential is still the session, so this is a note beside a working countdown and not an
-         * error state the user has to escape.
-         */
+        /** The same screen after a renewal that did not happen (SPEC S10). */
         val RenewalFailed = ExpiringSoon.copy(requestCount = 149, renewFailed = true)
 
         /** Past the 2 h: the next request will be refused and the guard will act (SPEC S6). */
@@ -59,12 +52,7 @@ internal class AccountUiStateProvider : PreviewParameterProvider<AccountUiState>
     }
 }
 
-/**
- * The last 4 characters of a token that never existed.
- *
- * A suffix is not a credential, but it is written here as its own constant so the file cannot grow a
- * full token by accident — the shape the CI secret scan looks for (ADR-008).
- */
+/** The last 4 characters of a token that never existed. */
 private const val SUFFIX = "4f7c"
 
 @Preview(name = "AccountScreen_Valid")

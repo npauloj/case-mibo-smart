@@ -20,24 +20,11 @@ import org.koin.dsl.module
 
 /**
  * Use cases and ViewModels; the partner implementation comes from `:shared:data`.
- *
- * **This file holds what belongs to no single feature and nothing else** — a feature's use cases and
- * ViewModels live in its own `<feature>AppModule.kt`, listed in [featureModules] (ADR-014).
- *
- * @param apiHost the partner host. It is configured per machine (`local.properties` → `BuildConfig`)
- *   and never versioned (ADR-008), so it can only arrive from the platform entry point.
- * @param portalHost the partner's streaming host, which is a different address. It has no default on
- *   purpose: defaulting it to [apiHost] is exactly the mistake that made every live session open on
- *   a host that answers `200` and never streams.
- * @param liveVideoEnabled the live-video kill switch (`smarthome.liveVideoEnabled`). It arrives the
- *   same way and for the same reason: off, the app can be run on the shared account without opening
- *   a streaming session (SPEC V1, ADR-006).
- * @param lockWritesEnabled the lock-writes kill switch (`smarthome.lockWritesEnabled`). Same route,
- *   and it defaults to **off**: a lock write ends in a real building, so it is opted into rather than
- *   out of (SPEC L2, L7).
- * @param debugBuild whether this is a developer's build (`BuildConfig.DEBUG`). It gates the request
- *   counter on the account screen and nothing else (ADR-006). It defaults to off, which is the safe
- *   direction: a delivered build that forgot to say so shows one line less, never one more.
+ * @param apiHost the partner host.
+ * @param portalHost the partner's streaming host, which is a different address.
+ * @param liveVideoEnabled the live-video kill switch (`smarthome.liveVideoEnabled`).
+ * @param lockWritesEnabled the lock-writes kill switch (`smarthome.lockWritesEnabled`).
+ * @param debugBuild whether this is a developer's build (`BuildConfig.DEBUG`).
  */
 fun appModule(
     apiHost: String,
@@ -48,40 +35,26 @@ fun appModule(
 ): Module = module {
     includes(dataModule(apiHost, portalHost))
 
-    // The one clock of the app: "última atualização há X" is read against it (SPEC U3), and a test
-    // that has to assert those words needs to choose what "now" is. It belongs to no single feature.
     single<Clock> { Clock.System }
 
-    // Work that must outlive the screen that started it — closing a streaming session, today
-    // (SPEC V8). It belongs to no single feature either.
     single { AppCoroutineScope() }
 
-    // Where a token is generated. Read by the token screen alone, to open a page — never to send a
-    // request, which is why it is here and not a second base url in the transport (ADR-025).
+    // Sem valor padrão de propósito: um default igual ao `apiHost` reproduz o defeito do ADR-025 em
+    // silêncio, porque os dois hosts respondem 200 e nada no app os distingue.
     single { PortalUrl(portalHost) }
 
-    // Configured at the entry point like the host, and read by the camera feature alone.
     single { LiveVideoSwitch(liveVideoEnabled) }
 
-    // The same, for the feature whose calls reach hardware: read by the lock feature alone.
     single { LockWritesSwitch(lockWritesEnabled) }
 
-    // Also configured at the entry point, and read by the account screen alone (ADR-006).
     single { DebugBuild(debugBuild) }
 
-    // Routing between features, so it belongs to none of them.
     viewModelOf(::AppViewModel)
 
     includes(featureModules)
 }
 
-/**
- * One entry per feature, alphabetical.
- *
- * A slice that adds a feature appends its module here and creates the file it names. That single line
- * is the only shared edit left: keep the list one-per-line and sorted, so a merge is always "keep
- * both", never a judgement call.
- */
+/** One entry per feature, alphabetical. */
 private val featureModules: List<Module> = listOf(
     cameraAppModule,
     deviceAppModule,

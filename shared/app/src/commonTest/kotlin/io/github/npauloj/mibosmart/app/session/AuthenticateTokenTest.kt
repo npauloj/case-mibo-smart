@@ -13,10 +13,8 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC S2 (first half), S3 and S4: what validating a token does to the session and to the screen.
- *
- * The use case is driven through its ViewModel because the outcomes the SPEC names are observable
- * there: the navigation event and the input that survives a failure.
+ * SPEC S2 (first half), S3 and S4: what validating a token does to the session and to the
+ * screen.
  */
 class AuthenticateTokenTest {
 

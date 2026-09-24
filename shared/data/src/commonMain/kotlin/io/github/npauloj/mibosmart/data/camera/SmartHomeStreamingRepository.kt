@@ -16,12 +16,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
-/**
- * The three streaming calls against the partner API (SPEC V1, V2, V8).
- *
- * The session is read here rather than passed in from above, exactly as the lock repository does it:
- * which credential a request carries is a transport concern (ADR-004).
- */
+/** The three streaming calls against the partner API (SPEC V1, V2, V8). */
 internal class SmartHomeStreamingRepository(
     private val api: SmartHomeApi,
     private val sessionStore: SessionStore,
@@ -29,12 +24,7 @@ internal class SmartHomeStreamingRepository(
     private val capabilities: CapabilityCache,
 ) : StreamingRepository {
 
-    /**
-     * SPEC V1: the cache is consulted first, so the second visit to a camera costs nothing.
-     *
-     * A camera that answers `funcoes` without `RTSV` is cached too — "no" costs the same request as
-     * "yes", and re-asking it on every tap is the waste ADR-006 exists to stop.
-     */
+    /** SPEC V1: the cache is consulted first, so the second visit to a camera costs nothing. */
     override suspend fun announcesLiveVideo(camera: DeviceId): Boolean {
         capabilities.read(camera.value)?.let { return it.announcesLiveVideo() }
         val payload = api.readDeviceFunctions(token(), CameraRequests.functions(camera))
@@ -49,9 +39,6 @@ internal class SmartHomeStreamingRepository(
             api.createVideoStream(token(), CameraRequests.createStream(camera)),
         ).toSession()
     } catch (named: SmartHomeException.ApiError) {
-        // HTTP 402 is already classified by the envelope reader. The contract also allows the partner
-        // to answer 200 with the outcome in the body (`docs/api-contract.md` §1, §8 open question 5),
-        // and quota is the one failure whose meaning a screen cannot guess: no retry, no fallback.
         if (named.serverMessage.announcesExhaustedQuota()) throw SmartHomeException.QuotaExceeded()
         throw named
     }
@@ -61,8 +48,8 @@ internal class SmartHomeStreamingRepository(
     }
 
     /**
-     * The session's credential — a video screen reached without one is, to everything above, the same
-     * thing as a refused token: there is nothing to retry but a new one (SPEC S6).
+     * The session's credential — a video screen reached without one is, to everything above,
+     * the same thing as a refused token: there is nothing to retry but a new one (SPEC S6).
      */
     private suspend fun token(): Token =
         sessionStore.read()?.token ?: throw SmartHomeException.TokenRejected()
@@ -79,17 +66,15 @@ internal class SmartHomeStreamingRepository(
 }
 
 /**
- * `RTSV` is the real-time-streaming family (`RTSV1`, `RTSV2`, …) inside the comma-separated capability
- * string (`docs/api-contract.md` §3). The prefix is matched rather than one exact code because the
- * account's own cameras already announce two of them.
+ * `RTSV` is the real-time-streaming family (`RTSV1`, `RTSV2`, …) inside the comma-separated
+ * capability string (`docs/api-contract.md` §3).
  */
 private fun String.announcesLiveVideo(): Boolean =
     splitToSequence(',').any { it.trim().startsWith(LIVE_STREAM_PREFIX, ignoreCase = true) }
 
 /**
- * `[ASSUMED]` — the documented sentence is "Quota de streaming insuficiente" (§6), and the platform
- * writes the same word both ways elsewhere. Narrow on purpose: everything it does not match stays a
- * plain [SmartHomeException.ApiError], which is the safe side of the guess.
+ * `[ASSUMED]` — the documented sentence is "Quota de streaming insuficiente" (§6), and the
+ * platform writes the same word both ways elsewhere.
  */
 private fun String.announcesExhaustedQuota(): Boolean =
     QUOTA_WORDS.any { contains(it, ignoreCase = true) }

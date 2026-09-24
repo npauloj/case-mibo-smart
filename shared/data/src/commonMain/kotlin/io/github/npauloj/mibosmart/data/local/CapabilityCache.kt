@@ -4,12 +4,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * What a device answered to `funcoes`, kept so the account pays for that answer once (ADR-006, SPEC V1).
- *
- * It is an interface because the store behind it changes and the rule does not: today the answer lives
- * in memory, and the durable `capabilities` table ADR-006 describes arrives with the SQLDelight schema
- * of **D-01b**, which this slice does not depend on. Swapping the implementation then changes nothing
- * above this line.
+ * What a device answered to `funcoes`, kept so the account pays for that answer once (ADR-006,
+ * SPEC V1).
  */
 internal interface CapabilityCache {
 
@@ -20,11 +16,8 @@ internal interface CapabilityCache {
 }
 
 /**
- * The in-process cache: one `funcoes` call per camera per process, which is what makes repeated visits
- * to the same camera free (SPEC V1).
- *
- * The mutex is not decoration — two taps on two cameras read and write this map from different
- * coroutines, and a torn map would cost a request, not a crash.
+ * The in-process cache: one `funcoes` call per camera per process, which is what makes repeated
+ * visits to the same camera free (SPEC V1).
  */
 internal class InMemoryCapabilityCache : CapabilityCache {
 

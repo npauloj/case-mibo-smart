@@ -46,12 +46,7 @@ class SmartHomeSessionRepositoryTest {
         assertTrue(body.contains("\"pagina\":1"), "unexpected request body: $body")
     }
 
-    /**
-     * A 401 with a bare JSON string — what the API really answers for an unknown token (ADR-012).
-     *
-     * This test asserted a 200 with "Erro desconhecido" before, a body the partner never sends; it
-     * passed while the app was incapable of recognising a rejected token.
-     */
+    /** A 401 with a bare JSON string — what the API really answers for an unknown token (ADR-012). */
     @Test
     fun aRefusedTokenSurfacesAsTokenRejected() = runTest {
         val repository = repositoryAnswering(mutableListOf()) {

@@ -6,13 +6,7 @@ import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.http.HttpHeaders
 
-/**
- * Logging that cannot leak the credential (ADR-008, SPEC S9).
- *
- * `LogLevel.HEADERS`, never `ALL`: body logging would print the token on the renewal call. And the
- * `Authorization` header itself is replaced by Ktor's placeholder before anything is written, so the
- * redaction does not depend on anyone remembering it at the call site.
- */
+/** Logging that cannot leak the credential (ADR-008, SPEC S9). */
 internal fun HttpClientConfig<*>.installSanitizedLogging(logger: Logger) {
     install(Logging) {
         this.logger = logger

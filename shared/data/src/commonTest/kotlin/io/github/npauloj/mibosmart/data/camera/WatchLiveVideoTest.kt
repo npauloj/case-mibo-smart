@@ -30,18 +30,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-/**
- * SPEC V1, V2, V6 and V8 asserted against the real transport with `MockEngine`.
- *
- * It lives in `:shared:data` because every claim here is a claim about bytes on the wire and about
- * the cache that decides whether they are sent at all — the same split as `ListDevicesTest`. The
- * states a user sees from these outcomes are the app module's `WatchLiveVideoTest`.
- *
- * **No test here opens a real session.** The account's streaming quota is shared and finite; every
- * `criar-fluxo-video`, `funcoes` and `encerrar-sessao` below is answered by `MockEngine`.
- *
- * The serial is a **placeholder** — no identifier of the test account enters a versioned file (ADR-008).
- */
+/** SPEC V1, V2, V6 and V8 asserted against the real transport with `MockEngine`. */
 class WatchLiveVideoTest {
 
     /** SPEC V2: the documented body, exactly — `stream_gb`, `streamId` and `canalVideo` included. */
@@ -91,11 +80,8 @@ class WatchLiveVideoTest {
     }
 
     /**
-     * SPEC V6: quota exhaustion has to be recognisable, because it is the one outcome with no retry.
-     *
-     * The contract documents it as HTTP 402 while §1 says the platform answers 200 with the outcome in
-     * the body (§8, open question 5). Both readings are covered, so whichever one the real account
-     * produces on the day, the screen says "Cota de streaming esgotada" and not "resposta inesperada".
+     * SPEC V6: quota exhaustion has to be recognisable, because it is the one outcome with no
+     * retry.
      */
     @Test
     fun quotaIsClassifiedFromStatusAndFromBody() = runTest {
@@ -127,15 +113,7 @@ class WatchLiveVideoTest {
     }
 
     /** ADR-006: with no session there is nothing to authenticate with, so no request is spent. */
-    /**
-     * The streaming calls go to the portal host, and nothing else does.
-     *
-     * This is the regression guard for the defect that cost a day: both hosts answer
-     * `cameras/criar-fluxo-video/v1` with `200`, so sending it to the wrong one produces no error
-     * anywhere — the api host simply returns a url with no `session_id` that completes an RTSP
-     * handshake and then never sends a frame. Nothing in the app could notice. What noticed was
-     * counting the sessions left open on the account: 27.
-     */
+    /** The streaming calls go to the portal host, and nothing else does. */
     @Test
     fun streamingCallsGoToThePortalHostAndTheRestDoesNot() = runTest {
         val requests = mutableListOf<HttpRequestData>()

@@ -9,15 +9,9 @@ import io.github.npauloj.mibosmart.app.session.TokenScreenContent
 import io.github.npauloj.mibosmart.app.ui.AppTheme
 import io.github.npauloj.mibosmart.domain.session.SessionEndReason
 
-// android.content.res.Configuration.UI_MODE_NIGHT_YES, which commonMain cannot import (rule 4).
 private const val UI_MODE_NIGHT_YES = 0x20
 
-/**
- * The device-list destination with and without the session banner (SPEC S7).
- *
- * Both previews render the real composition — the banner above the list's success state — so the
- * thing being reviewed is the layout shift the banner causes, not a strip on its own.
- */
+/** The device-list destination with and without the session banner (SPEC S7). */
 @Preview(name = "DeviceListDestination_ExpiringSoon")
 @Preview(name = "DeviceListDestination_ExpiringSoon_Dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable
@@ -45,12 +39,7 @@ private fun DeviceListDestinationPreview(expiringSoon: Boolean) {
     }
 }
 
-/**
- * The token screen under the reason it was reopened (SPEC U5, S6).
- *
- * Two previews because the two reasons read differently: the partner's own sentence on a 403, and the
- * app's wording — the one that names the 2 h — on everything else (ADR-012).
- */
+/** The token screen under the reason it was reopened (SPEC U5, S6). */
 @Preview(name = "TokenEntryDestination_Expired")
 @Preview(name = "TokenEntryDestination_Expired_Dark", uiMode = UI_MODE_NIGHT_YES)
 @Composable

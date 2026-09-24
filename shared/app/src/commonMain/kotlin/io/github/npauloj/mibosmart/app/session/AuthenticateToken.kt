@@ -8,13 +8,8 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 
 /**
- * What "Validar" means on the token screen: one partner call and, only if it was accepted, a stored
- * session (SPEC S2 first half, S3, S4).
- *
- * The order matters — the token is written after the partner accepted it, so a rejected token leaves
- * nothing behind. It is also what makes [Clock] the right source for `issuedAt`: the session starts
- * counting down from the acceptance, which is the instant right here, and never from a partner field
- * (SPEC S7 `[ASSUMED]`).
+ * What "Validar" means on the token screen: one partner call and, only if it was accepted, a
+ * stored session (SPEC S2 first half, S3, S4).
  */
 class AuthenticateToken(
     private val sessionRepository: SessionRepository,
@@ -43,8 +38,8 @@ class AuthenticateToken(
 }
 
 /**
- * Everything validating a token can end in (ADR-002: each use case answers with its own closed set,
- * so the screen's `when` is exhaustive and the compiler catches a missing branch).
+ * Everything validating a token can end in (ADR-002: each use case answers with its own closed
+ * set, so the screen's `when` is exhaustive and the compiler catches a missing branch).
  */
 sealed interface AuthenticationResult {
 
@@ -54,12 +49,7 @@ sealed interface AuthenticationResult {
     /** The partner does not recognise the credential — HTTP 401 (SPEC S3). */
     data object TokenRejected : AuthenticationResult
 
-    /**
-     * The credential was recognised and has expired — HTTP 403 (SPEC S3.1).
-     *
-     * [serverMessage] is the partner's own sentence and is shown as-is when present: unlike a generic
-     * API error it tells the user precisely what to do (SPEC U6, ADR-012).
-     */
+    /** The credential was recognised and has expired — HTTP 403 (SPEC S3.1). */
     data class TokenExpired(val serverMessage: String?) : AuthenticationResult
 
     /** The call never reached the partner (SPEC S4). */

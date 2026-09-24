@@ -4,23 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-/**
- * The one colour role Material 3 does not have, and this app cannot do without: **waiting**.
- *
- * Material gives `primary`, `error` and little in between. That is enough for an app whose states are
- * "fine" and "broken". This app's hardest state is neither: a lock command that was *sent* and not yet
- * *confirmed* — the API acknowledges the command, never the hardware (ADR-021). Painting that red
- * would call a working door a failure; leaving it neutral would hide the one thing the user needs to
- * know. It is its own category and it gets its own colour.
- *
- * The same amber carries every "the app does not know yet": reconnecting to a camera, a session about
- * to expire, a command whose confirmation window ran out.
- *
- * Deliberately **not** green: with the brand green taken by identity, green is no longer available to
- * mean "settled", and settled states are drawn in plain ink instead. That is a better answer anyway —
- * on this app's lock screen, "Aberta" and "Fechada" are both legitimate, and colouring either one
- * would turn a fact into an alarm.
- */
+/** The one colour role Material 3 does not have, and this app cannot do without: **waiting**. */
 @Immutable
 internal data class AppColors(
     val waiting: Color,

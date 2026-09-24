@@ -9,11 +9,8 @@ import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC **D4** against a real SQLite file, on the JVM host: "remembered across launches" is a claim
- * about what survives the process, so it is worth nothing asserted against a variable.
- *
- * The Android and iOS drivers need a device, the JDBC one does not, and the SQL the three of them
- * run is the same file.
+ * SPEC **D4** against a real SQLite file, on the JVM host: "remembered across launches" is a
+ * claim about what survives the process, so it is worth nothing asserted against a variable.
  */
 class PreferencesTest {
 
@@ -24,7 +21,6 @@ class PreferencesTest {
 
         SqlDeviceListPreferences(driver).writeOriginFilter(OriginFilter.Shared)
 
-        // A second instance over the same file: what the *next* launch would build.
         assertEquals(OriginFilter.Shared, SqlDeviceListPreferences(driver).readOriginFilter())
     }
 
@@ -45,12 +41,7 @@ class PreferencesTest {
         assertEquals(OriginFilter.All, SqlDeviceListPreferences(inMemoryDriver()).readOriginFilter())
     }
 
-    /**
-     * A value this build does not know — written by an older or newer one — reads as the default.
-     *
-     * It is the one failure mode a stored enum has, and the list refusing to open because of a
-     * remembered chip would be far worse than it opening on `todos`.
-     */
+    /** A value this build does not know — written by an older or newer one — reads as the default. */
     @Test
     fun anUnknownStoredValueFallsBackToEverything() = runTest {
         val driver = inMemoryDriver()
@@ -61,8 +52,8 @@ class PreferencesTest {
     }
 
     /**
-     * One JDBC driver, shared by every instance a test builds from it: two instances over one file
-     * is exactly the "this launch, the next launch" situation the preference exists for.
+     * One JDBC driver, shared by every instance a test builds from it: two instances over one
+     * file is exactly the "this launch, the next launch" situation the preference exists for.
      */
     private fun inMemoryDriver(): DatabaseDriverFactory {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)

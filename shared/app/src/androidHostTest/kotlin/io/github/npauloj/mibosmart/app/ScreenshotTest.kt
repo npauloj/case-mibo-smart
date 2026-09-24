@@ -24,33 +24,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * One golden per screen state, drawn on the host (ADR-024): six screens, 42 states.
- *
- * **The state list is not maintained here.** Each screen's `PreviewParameterProvider` is already the
- * inventory of its states — that is what the previews are for — so this file names those same states
- * and then asserts, per screen, that it named *all* of them. Add a state to a provider without adding
- * it here and `everyStateIsCaptured` fails; the golden set cannot silently fall behind the previews.
- *
- * Why not Roborazzi's preview-test generator, which would remove even this: it does not work in this
- * project. Turning it on makes `commonTest` lose `:shared:data` and Koin — it generates into a source
- * set named `androidMain` and, doing so, breaks the association an `androidLibrary` KMP target keeps
- * between its host tests and its main compilation. Measured, not assumed: with the generator off the
- * same tree compiles, with it on 124 errors appear in files the generator never touched. Recorded in
- * ADR-024, and worth revisiting when Roborazzi supports the KMP Android layout.
- *
- * `GraphicsMode.NATIVE` is mandatory — the legacy mode draws nothing and every image comes out blank.
- * The device and, crucially, the **locale** are pinned in `robolectric.properties`: Robolectric
- * defaults to `en`, which silently records goldens of `values-en/` while the app ships pt-BR.
- *
- * ## One class per screen
- *
- * Not cosmetic: Gradle hands **classes** to test forks, so forty-two captures in a single class run
- * in a single fork no matter what `maxParallelForks` says. Six classes are six units of work the
- * runner can spread. Measured on a developer machine before the split: the module's whole test task
- * takes 28 s and writes no image, while recording the same set takes **1611 s** — the captures are
- * effectively the entire cost of the screenshot step, and they were all serial.
- */
+/** One golden per screen state, drawn on the host (ADR-024): six screens, 42 states. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TokenScreenshotTest {
@@ -128,10 +102,8 @@ class LockScreenshotTest {
 class LiveVideoScreenshotTest {
 
     /**
-     * The player surface is an `expect` composable backed by Media3 on Android (ADR-005), which cannot
-     * be instantiated on the host. `LocalInspectionMode` is what the previews already use to make it
-     * render a placeholder instead — so the goldens show the same thing a preview does, and no socket
-     * is opened and no streaming quota is spent by a test.
+     * The player surface is an `expect` composable backed by Media3 on Android (ADR-005), which
+     * cannot be instantiated on the host.
      */
     @Test
     fun captures() = captureAll(
@@ -192,13 +164,7 @@ class AccountScreenshotTest {
     }
 }
 
-
-/**
- * Captures every named state and then checks the naming against the provider.
- *
- * The assertion runs **after** the captures so a drift failure still leaves the images behind to
- * look at; failing first would hide the very screens someone is trying to review.
- */
+/** Captures every named state and then checks the naming against the provider. */
 private fun <T> captureAll(
     screen: String,
     provider: PreviewParameterProvider<T>,

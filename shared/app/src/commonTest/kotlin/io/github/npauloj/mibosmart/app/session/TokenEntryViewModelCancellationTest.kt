@@ -21,13 +21,8 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.Dispatchers
 
 /**
- * ADR-003 (§Confirmation): the ViewModel owns its in-flight work, so cancelling the composition that
- * started it must not leave the screen locked.
- *
- * A rotation destroys the composition. If the validation ran on the composition's scope, its
- * cancellation would propagate out of [TokenEntryViewModel.onValidate] before the line that clears
- * `isValidating`, and the restored screen would come back with the field, the paste action and
- * "Validar" disabled for good — one request of the account's budget already spent (ADR-006).
+ * ADR-003 (§Confirmation): the ViewModel owns its in-flight work, so cancelling the composition
+ * that started it must not leave the screen locked.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TokenEntryViewModelCancellationTest {
@@ -51,8 +46,6 @@ class TokenEntryViewModelCancellationTest {
         val viewModel = TokenEntryViewModel(AuthenticateToken(repository, InMemorySessionStore(), FixedClock(TokenSamples.Now)))
         viewModel.onTokenChange(TokenSamples.Valid)
 
-        // Stands in for the composition: the scope the screen's tap arrives on, and the one a
-        // configuration change cancels.
         val composition = CoroutineScope(coroutineContext + Job())
         composition.launch { viewModel.validate() }
         advanceUntilIdle()

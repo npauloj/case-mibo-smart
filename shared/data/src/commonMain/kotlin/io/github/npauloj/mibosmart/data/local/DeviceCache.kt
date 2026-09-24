@@ -15,11 +15,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * The last device page the partner answered with, kept on disk so a cold start costs nothing and an
- * offline user still sees a list (ADR-006, SPEC D8, D10, U2).
- *
- * An interface because the ViewModel's behaviour must be provable without a SQLite file, and because
- * the timestamp — not the rows — is what the screen actually needs from here.
+ * The last device page the partner answered with, kept on disk so a cold start costs nothing
+ * and an offline user still sees a list (ADR-006, SPEC D8, D10, U2).
  */
 internal interface DeviceCache {
 
@@ -32,10 +29,7 @@ internal interface DeviceCache {
 
 /**
  * The SQLDelight cache (ADR-006).
- *
- * @param schemaVersion the shape the rows are written with. A parameter rather than a direct read of
- *   [DEVICE_CACHE_SCHEMA_VERSION] so a test can bump it, which is the only way to prove the rule that
- *   protects every future change to `Device.sq`.
+ * @param schemaVersion the shape the rows are written with.
  */
 internal class SqlDeviceCache(
     driverFactory: DatabaseDriverFactory,
@@ -50,8 +44,6 @@ internal class SqlDeviceCache(
     override suspend fun read(): CachedDevices? = withCurrentSchema {
         val rows = queries.selectAll().executeAsList().ifEmpty { return@withCurrentSchema null }
         CachedDevices(
-            // Ordering is the domain's, never the file's: SELECT without ORDER BY promises nothing,
-            // and `DeviceOrdering` exists so the cache cannot invent an order of its own.
             devices = rows.map(CachedDevice::toDevice).orderedForList(),
             fetchedAt = Instant.fromEpochMilliseconds(rows.first().fetchedAt),
         )
@@ -69,14 +61,8 @@ internal class SqlDeviceCache(
                     lastSeen = device.lastSeen?.toEpochMilliseconds(),
                     origin = if (device.origin == DeviceOrigin.Linked) LINKED else SHARED,
                     parentId = device.parent?.value,
-                    // The partner's `subdispositivo` is not on the domain model, and it does not need
-                    // to be: a sub-device is exactly a device that hangs from a hub, which is the one
-                    // thing `parent` records (Device.parent, api-contract §5).
                     isSubDevice = (device.parent != null).toLong(),
                     fetchedAt = fetchedAt.toEpochMilliseconds(),
-                    // Stored, unlike `kind`, because neither is derivable from anything else on the
-                    // row: they are the partner's own `idProduto` for this device and for its hub,
-                    // and the lock edge needs both back without a second call (SPEC L1, ADR-006).
                     productId = device.productId,
                     parentProductId = device.parentProductId,
                 )
@@ -87,9 +73,6 @@ internal class SqlDeviceCache(
     /**
      * Runs [block] against rows known to have this build's shape, emptying the table once per
      * instance when the stored version is not [schemaVersion] (SchemaVersion.kt).
-     *
-     * The check is guarded because two screens can read the cache from different coroutines, and
-     * two concurrent "drop and refetch" passes would be one write too many.
      */
     private suspend fun <T> withCurrentSchema(block: () -> T): T {
         mutex.withLock {
@@ -114,12 +97,7 @@ internal class SqlDeviceCache(
     }
 }
 
-/**
- * A stored row as the domain's [Device].
- *
- * `kind` is re-derived rather than stored: SPEC D5 owns that rule, and a cached row must never be
- * able to disagree with a freshly fetched one.
- */
+/** A stored row as the domain's [Device]. */
 private fun CachedDevice.toDevice(): Device = Device(
     id = DeviceId(id),
     name = name,

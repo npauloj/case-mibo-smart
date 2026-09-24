@@ -10,13 +10,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/**
- * SPEC E1, E3, S3 and S3.1, against the bodies really observed in `docs/api-contract.md` §1.
- *
- * The four authentication cases are transcribed from the probes of 2026-09-21 (ADR-012), not from the
- * documentation that preceded them — the previous version of this file was written from the docs, and
- * it passed while the app could not recognise a single rejected token.
- */
+/** SPEC E1, E3, S3 and S3.1, against the bodies really observed in `docs/api-contract.md` §1. */
 class EnvelopeReaderTest {
 
     private val reader = EnvelopeReader(smartHomeJson)
@@ -57,8 +51,8 @@ class EnvelopeReaderTest {
     }
 
     /**
-     * The status decides; the body only supplies the nicer sentence. A 403 whose body cannot be read
-     * is still an expired session, never "resposta inesperada".
+     * The status decides; the body only supplies the nicer sentence. A 403 whose body cannot be
+     * read is still an expired session, never "resposta inesperada".
      */
     @Test
     fun forbiddenWithUnparseableBodyStillExpires() {
@@ -70,9 +64,10 @@ class EnvelopeReaderTest {
     }
 
     /**
-     * The regression this rewrite exists for: a bare JSON string is not an envelope, so a reader that
-     * parsed before classifying turned every rejected token into [SmartHomeException.UnexpectedResponse]
-     * — which is what the app showed on a real device (ADR-012).
+     * The regression this rewrite exists for: a bare JSON string is not an envelope, so a
+     * reader that parsed before classifying turned every rejected token into
+     * [SmartHomeException.UnexpectedResponse] — which is what the app showed on a real device
+     * (ADR-012).
      */
     @Test
     fun bareJsonStringIsNotUnexpectedResponse() {
@@ -92,8 +87,9 @@ class EnvelopeReaderTest {
     }
 
     /**
-     * "Erro desconhecido" is no longer a verdict on the credential (ADR-012 supersedes ADR-002's rule):
-     * inside a 200 it is an ordinary server error, and the API never sends it for an auth failure.
+     * "Erro desconhecido" is no longer a verdict on the credential (ADR-012 supersedes
+     * ADR-002's rule): inside a 200 it is an ordinary server error, and the API never sends it
+     * for an auth failure.
      */
     @Test
     fun unknownErrorOnOkIsJustAnApiError() {
@@ -105,11 +101,8 @@ class EnvelopeReaderTest {
     }
 
     /**
-     * The wrapped shape carries its own outcome while HTTP still says 200 (api-contract §1.1), and
-     * `404` means one thing only: the device is not there. Mapping it to
-     * [SmartHomeException.ApiError] — as this reader did while nothing could receive it — would put
-     * the partner's raw `msg` on a screen and make a missing device indistinguishable from a server
-     * fault the user should retry (SPEC E2, U6).
+     * The wrapped shape carries its own outcome while HTTP still says 200 (api-contract §1.1),
+     * and `404` means one thing only: the device is not there.
      */
     @Test
     fun wrappedError404IsDeviceNotFound() {
@@ -127,9 +120,8 @@ class EnvelopeReaderTest {
     }
 
     /**
-     * The regression this amendment exists for: `cota-disponivel` answers 403 with the **gateway's**
-     * shape for a perfectly valid token. Classifying it as an expiry would clear the session and send
-     * the user back to the token screen for no reason (SPEC S6). Probed 2026-09-21.
+     * The regression this amendment exists for: `cota-disponivel` answers 403 with the
+     * **gateway's** shape for a perfectly valid token.
      */
     @Test
     fun forbiddenWithGatewayShapeIsNotAnExpiry() {

@@ -23,9 +23,9 @@ class TokenFormatTest {
     }
 
     /**
-     * The regression this file exists for: the first version of [TokenFormat] required hexadecimal,
-     * and a real token carries letters beyond `a`-`f`, so the app disabled "Validar" for a token the
-     * platform accepts (ADR-012).
+     * The regression this file exists for: the first version of [TokenFormat] required
+     * hexadecimal, and a real token carries letters beyond `a`-`f`, so the app disabled
+     * "Validar" for a token the platform accepts (ADR-012).
      */
     @Test
     fun acceptsLettersBeyondHexadecimal() {

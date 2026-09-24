@@ -27,20 +27,12 @@ internal object CameraSamples {
         origin = DeviceOrigin.Linked,
         kind = DeviceKind.Camera,
         parent = null,
-        // Blank, as the partner sends it for this camera family — streaming addresses the plain `ns`.
         productId = "",
-        // A camera is not a sub-device, so the partner sends no parent at all.
         parentProductId = null,
     )
 }
 
-/**
- * A partner that answers on command, and counts what it was asked for.
- *
- * The two hooks are what makes the timing assertions of SPEC V2 and V8 possible: a test can hold the
- * capability check or the session creation open and drive the screen through each step, or let a
- * creation land after the screen that asked for it is already gone.
- */
+/** A partner that answers on command, and counts what it was asked for. */
 internal class FakeStreamingRepository(
     private val announcesLiveVideo: Boolean = true,
     private val session: StreamSession = CameraSamples.SESSION,

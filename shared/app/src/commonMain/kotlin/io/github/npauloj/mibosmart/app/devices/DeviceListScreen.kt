@@ -91,14 +91,10 @@ fun DeviceListScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // SPEC U2: a tap on a camera or a lock row *is* the navigation — one event, consumed once, no
-    // confirmation step in between. Keyed on the ViewModel so a recomposition does not re-subscribe.
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
                 is DeviceListEvent.OpenLiveVideo -> onOpenLiveVideo(event.camera)
-                // The address comes with the event: it was assembled from the rows on screen, and the
-                // lock screen has no list of its own to find the hub in (api-contract §5).
                 is DeviceListEvent.OpenLock -> onOpenLock(event.lock, event.address)
             }
         }
@@ -135,22 +131,14 @@ fun DeviceListScreenContent(
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(bottom = 8.dp),
         )
-        // SPEC U8: the chips are part of the frame, not of the content — they stay put while the list
-        // below swaps between loading, empty and error, so the way out of an empty filter is always
-        // on screen (SPEC D3).
         OriginFilterChips(selected = state.filter, onSelect = onSelectFilter)
 
-        // SPEC D7: the pull is the only thing on this screen that refetches by itself. Coming back
-        // to the list reuses the ViewModel and costs nothing.
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
             onRefresh = onRefresh,
             modifier = Modifier.fillMaxSize(),
         ) {
             when {
-                // Rows win over every other state: a cache on screen while page 1 is in flight is SPEC
-                // U2, a cache on screen after it failed is SPEC D8, and a list under a failed *next*
-                // page is SPEC D2 — all three beat a spinner or an error.
                 state.rows.isNotEmpty() -> Column {
                     state.staleFor?.let { StaleBanner(staleFor = it, onRetry = onRetry) }
                     DeviceRows(
@@ -166,7 +154,6 @@ fun DeviceListScreenContent(
                     ErrorState(error = state.error, serverMessage = state.serverMessage, onRetry = onRetry)
                 }
 
-                // Not loading, no error, no rows: page 1 answered with nothing (SPEC D3, `state.isEmpty`).
                 else -> CenteredMessage { Text(stringResource(Res.string.device_empty)) }
             }
         }
@@ -175,15 +162,10 @@ fun DeviceListScreenContent(
 
 /**
  * "Sem conexão — última atualização há N min", above rows the app could not refresh (SPEC D8).
- *
- * It sits inside the list frame rather than replacing it, and carries the retry: the user can read
- * what is there *and* ask again, which is exactly what the error state cannot offer.
  */
 @Composable
 private fun StaleBanner(staleFor: Elapsed, onRetry: () -> Unit) {
     Row(
-        // Waiting, not neutral: these rows are real but the app cannot say whether they still
-        // describe the account, and that uncertainty is the same category as an unconfirmed command.
         modifier = Modifier.fillMaxWidth()
             .background(LocalAppColors.current.waitingContainer, MaterialTheme.shapes.small)
             .padding(start = 12.dp, end = 4.dp),
@@ -200,12 +182,7 @@ private fun StaleBanner(staleFor: Elapsed, onRetry: () -> Unit) {
     }
 }
 
-/**
- * "Todos / Vinculados / Compartilhados", visible in every state (SPEC D4, U8).
- *
- * Exactly one is on at a time, and choosing it reloads the list from page 1 — the chips are the only
- * control on this screen that changes what is being asked for.
- */
+/** "Todos / Vinculados / Compartilhados", visible in every state (SPEC D4, U8). */
 @Composable
 private fun OriginFilterChips(selected: OriginFilter, onSelect: (OriginFilter) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
@@ -220,8 +197,8 @@ private fun OriginFilterChips(selected: OriginFilter, onSelect: (OriginFilter) -
 }
 
 /**
- * The rows, plus whatever the end of the list currently is: a footer spinner, a failed next page, or
- * nothing at all once the partner has run out of devices (SPEC D2).
+ * The rows, plus whatever the end of the list currently is: a footer spinner, a failed next
+ * page, or nothing at all once the partner has run out of devices (SPEC D2).
  */
 @Composable
 private fun DeviceRows(
@@ -231,9 +208,6 @@ private fun DeviceRows(
     onLockTap: (DeviceRow) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    // SPEC D2: the next page is asked for while the user still has a screenful to read, so the list
-    // does not stop under their finger. Derived from the list's own layout and nothing else, so it
-    // cannot go stale against a row count captured somewhere else.
     val reachedEnd by remember {
         derivedStateOf {
             val info = listState.layoutInfo
@@ -241,9 +215,6 @@ private fun DeviceRows(
             last >= info.totalItemsCount - 1 - NEXT_PAGE_THRESHOLD
         }
     }
-    // A failed next page stops the automatic asking (SPEC D8): the user is sitting at the bottom of
-    // the list, which is exactly where the trigger fires, and retrying on its own would spend the
-    // account's requests in a loop. The footer's button is the way back (ADR-006).
     LaunchedEffect(reachedEnd, state.hasMore, state.error) {
         if (reachedEnd && state.hasMore && state.error == null) onLoadMore()
     }
@@ -254,8 +225,6 @@ private fun DeviceRows(
             HorizontalDivider()
         }
         if (state.isLoadingMore) item { LoadingMoreFooter() }
-        // Rows on screen *and* an error means the next page failed: page 1's failures take the list
-        // away and never reach this composable (SPEC D2, D8).
         state.error?.let { failure ->
             item { NextPageError(error = failure, serverMessage = state.serverMessage, onRetry = onLoadMore) }
         }
@@ -268,32 +237,22 @@ private fun DeviceRowItem(
     onCameraTap: (DeviceRow) -> Unit,
     onLockTap: (DeviceRow) -> Unit,
 ) {
-    // SPEC U2: a camera row is the two-tap path to the picture and a lock row the two-tap path to the
-    // door. Which rows take a tap at all is `isActionable`, decided in the mapper: hubs and the rest
-    // never do, and neither does a lock whose row is missing a part of its address — a row that
-    // reacted to a tap by doing nothing would read as a broken app.
     Column(
         modifier = Modifier.fillMaxWidth()
             .clickable(enabled = row.isActionable) {
                 when (row.kind) {
                     DeviceKind.Camera -> onCameraTap(row)
                     DeviceKind.Lock -> onLockTap(row)
-                    // Informational rows (SPEC D6); `isActionable` already keeps the tap off them.
                     DeviceKind.Hub, is DeviceKind.Other -> Unit
                 }
             }
             .padding(vertical = 12.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // The kind, as a shape, before it is read as a word. A list of seventeen rows is scanned
-            // for "the camera" or "the lock" and the eye finds a silhouette faster than a noun — the
-            // text stays, because an icon alone would be a guess, and a screen reader gets the word.
             Icon(
                 painter = painterResource(row.kind.icon),
                 contentDescription = null,
                 modifier = Modifier.padding(top = 2.dp).size(22.dp),
-                // The icon is a label, not a control: `onSurfaceVariant` keeps it in the same voice as
-                // the line under the name. Drawn in `primary` it would invite a tap of its own.
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -321,9 +280,6 @@ private fun DeviceRowItem(
                             },
                         ),
                         style = MaterialTheme.typography.labelMedium,
-                        // `tertiary`, not `primary`: since the theme landed, `primary` is the
-                        // interactive colour, and a status badge drawn in it invites a tap that does
-                        // nothing. The brand green in its "on / working" job is what this is.
                         color = if (row.isOnline) {
                             MaterialTheme.colorScheme.tertiary
                         } else {
@@ -338,12 +294,9 @@ private fun DeviceRowItem(
                         Text(text = it.text(), style = MaterialTheme.typography.labelMedium)
                     }
                 }
-                // SPEC D6: a sub-device is only addressable through its hub, so the row says which.
                 row.parentName?.let {
                     Text(text = it, style = MaterialTheme.typography.labelSmall)
                 }
-                // SPEC U6: when the row cannot open, it names the cause in one sentence and offers
-                // no dead action — the alternative is a lock screen with nothing to address.
                 row.unavailable?.let {
                     Text(
                         text = stringResource(it.message),
@@ -366,7 +319,6 @@ private fun ErrorState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // The server's sentence wins only where it is fit to show — an expired token (SPEC U6, S3.1).
         Text(text = serverMessage ?: stringResource(error.message))
         Button(onClick = onRetry) { Text(stringResource(Res.string.device_retry)) }
     }
@@ -385,12 +337,7 @@ private fun LoadingMoreFooter() {
     }
 }
 
-/**
- * A next page that failed, at the end of the list it could not extend (SPEC D2, D8).
- *
- * The same sentence the error state would have used, in the one place where it does not take the
- * rows away — and the same "Tentar novamente", which here asks for that page and not for page 1.
- */
+/** A next page that failed, at the end of the list it could not extend (SPEC D2, D8). */
 @Composable
 private fun NextPageError(error: DeviceListError, serverMessage: String?, onRetry: () -> Unit) {
     Row(
@@ -455,12 +402,7 @@ private val DeviceKind.label: StringResource
         is DeviceKind.Other -> Res.string.device_kind_other
     }
 
-/**
- * Why a lock row is not tappable, in the user's words rather than the contract's (SPEC U6).
- *
- * Exhaustive with no `else`, like every other mapping on this screen: a reason added later does not
- * compile until someone has written the sentence the user reads for it.
- */
+/** Why a lock row is not tappable, in the user's words rather than the contract's (SPEC U6). */
 private val LockAddressing.Unavailable.message: StringResource
     get() = when (this) {
         LockAddressing.Unavailable.ProductIdMissing -> Res.string.device_lock_product_id_missing
@@ -473,12 +415,7 @@ private val DeviceOrigin.label: StringResource
     }
 
 /** The chips, in the order the user reads them (SPEC D4). */
-/**
- * The silhouette for a kind, beside the word for it.
- *
- * `Other` gets a deliberately neutral box: the list must not suggest a capability the app does not
- * have. A lamp drawn as a lamp reads as something this screen can switch on, and it cannot.
- */
+/** The silhouette for a kind, beside the word for it. */
 private val DeviceKind.icon: DrawableResource
     get() = when (this) {
         DeviceKind.Camera -> Res.drawable.ic_device_camera
@@ -505,10 +442,5 @@ private val DeviceListError.message: StringResource
         DeviceListError.Failed -> Res.string.device_error_failed
     }
 
-/**
- * How many rows from the bottom the next page is asked for.
- *
- * Small on purpose: the account pays per request (ADR-006), so the list fetches ahead by a couple of
- * rows — enough to hide the wait on a fast scroll, not enough to pull pages nobody looks at.
- */
+/** How many rows from the bottom the next page is asked for. */
 private const val NEXT_PAGE_THRESHOLD = 3

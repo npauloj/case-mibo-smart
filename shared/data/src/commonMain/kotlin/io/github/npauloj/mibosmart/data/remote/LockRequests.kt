@@ -8,12 +8,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/**
- * How a [LockAddress] becomes a partner request (`docs/api-contract.md` §5).
- *
- * The composite namespace is the partner's encoding and lives here, alone: the domain keeps the four
- * identities apart and never learns that they are joined by an underscore (ADR-004).
- */
+/** How a [LockAddress] becomes a partner request (`docs/api-contract.md` §5). */
 internal object LockRequests {
 
     /** The two fields every lock read sends: the composite namespace and the lock's own product id. */
@@ -45,34 +40,20 @@ internal object LockRequests {
             isOpen = command.opensTheDoor,
         )
 
-    /**
-     * The one request that changes a door's security posture (SPEC L2).
-     *
-     * `habilitar` is not a parameter here either: [LockEnableRemoteOpenRequestDto] fixes it at `true`,
-     * so the only body this object can build is the one the app is allowed to send.
-     */
+    /** The one request that changes a door's security posture (SPEC L2). */
     fun enableRemoteOpen(address: LockAddress): LockEnableRemoteOpenRequestDto =
         LockEnableRemoteOpenRequestDto(
             namespace = compositeNamespace(address),
             productId = address.lockProductId,
         )
 
-    /**
-     * The opening history: the only lock call that does **not** carry `idProduto` (SPEC L9).
-     *
-     * The missing field is the contract, not an omission (`docs/api-contract.md` §5): the endpoint
-     * takes `{ ns, quantidade }` and nothing else, and [LockHistoryRequestDto] is the only lock
-     * request type with no product id, so no caller can add one back by accident.
-     */
+    /** The opening history: the only lock call that does **not** carry `idProduto` (SPEC L9). */
     fun openingHistory(address: LockAddress, entries: Int): LockHistoryRequestDto =
         LockHistoryRequestDto(namespace = compositeNamespace(address), quantity = entries)
 
     /**
-     * `<lockNs>_<hubNs>_<hubIdProduto>` — the lock addressed as a sub-device of its hub (SPEC L1).
-     *
-     * The order is the contract's and is not a detail: the same three strings in any other order
-     * address nothing, and the API answers "Dispositivo não encontrado" for a lock's plain namespace
-     * (`docs/api-contract.md` §3).
+     * `<lockNs>_<hubNs>_<hubIdProduto>` — the lock addressed as a sub-device of its hub (SPEC
+     * L1).
      */
     private fun compositeNamespace(address: LockAddress): String =
         listOf(address.lock.value, address.hub.value, address.hubProductId).joinToString(SEPARATOR)
@@ -88,11 +69,8 @@ internal data class LockReadRequestDto(
 )
 
 /**
- * `volume`, whose contract bug is quarantined here (`docs/api-contract.md` §5 and §7.4, SPEC L8).
- *
- * The Swagger lists `productId` as required while the property the API reads is `idProduto`; sending
- * both is what worked against the real endpoint. The duplication is deliberate and belongs to this
- * one request — no other lock call carries it.
+ * `volume`, whose contract bug is quarantined here (`docs/api-contract.md` §5 and §7.4, SPEC
+ * L8).
  */
 @Serializable
 internal data class LockVolumeRequestDto(
@@ -109,13 +87,7 @@ internal data class LockChangeVolumeRequestDto(
     @SerialName("volume") val volume: Int,
 )
 
-/**
- * `controle-fechadura`: `{ ns, idProduto, aberto: true|false }` (`docs/api-contract.md` §5).
- *
- * `aberto` is the **requested** state, not a report: `true` opens the door and `false` locks it.
- * Unlike `habilitar`, both values are ones the app legitimately sends, so this one is a parameter —
- * and [SerialName] is where the partner's word for it stops.
- */
+/** `controle-fechadura`: `{ ns, idProduto, aberto: true|false }` (`docs/api-contract.md` §5). */
 @Serializable
 internal data class LockCommandRequestDto(
     @SerialName("ns") val namespace: String,
@@ -123,15 +95,7 @@ internal data class LockCommandRequestDto(
     @SerialName("aberto") val isOpen: Boolean,
 )
 
-/**
- * `habilitar-abrir-remoto`: `{ ns, idProduto, habilitar: true }` (`docs/api-contract.md` §5).
- *
- * [enable] is not a constructor parameter on purpose. The endpoint accepts `false`, the app never
- * sends it (SPEC L2), and a property with no way to set it is the cheapest possible guarantee of
- * that — a caller cannot pass the wrong value because there is nothing to pass. `@EncodeDefault` is
- * what keeps it on the wire: `smartHomeJson` omits defaults, and a request missing `habilitar`
- * would be a different request.
- */
+/** `habilitar-abrir-remoto`: `{ ns, idProduto, habilitar: true }` (`docs/api-contract.md` §5). */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 internal data class LockEnableRemoteOpenRequestDto(
@@ -145,9 +109,6 @@ internal data class LockEnableRemoteOpenRequestDto(
 
 /**
  * `historico-abertura`: `{ ns, quantidade }` — **no `idProduto`** (`docs/api-contract.md` §5).
- *
- * The history belongs to the hub's namespace rather than to one product under it, which is why the
- * field every other lock request carries is absent here. Adding it is not a harmless extra.
  */
 @Serializable
 internal data class LockHistoryRequestDto(
@@ -155,13 +116,7 @@ internal data class LockHistoryRequestDto(
     @SerialName("quantidade") val quantity: Int,
 )
 
-/**
- * One entry of `historico-abertura` → `{ "tempoLocal", "nome", "tipo" }` (SPEC L9).
- *
- * [name] is nullable **and** defaulted: the observed payload sends `""` for an opening nobody
- * performed, and nothing promises the key is always there. Both shapes have to land on the same
- * domain value, and [toOpeningEvent] is where that happens.
- */
+/** One entry of `historico-abertura` → `{ "tempoLocal", "nome", "tipo" }` (SPEC L9). */
 @Serializable
 internal data class LockOpeningEventDto(
     @SerialName("tempoLocal") val localTime: String,

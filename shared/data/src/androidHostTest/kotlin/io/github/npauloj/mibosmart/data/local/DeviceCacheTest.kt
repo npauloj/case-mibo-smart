@@ -17,17 +17,14 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC D10 against a real SQLite file, on the JVM host: the Android and iOS drivers need a device,
- * the JDBC one does not, and the SQL the three of them run is the same file.
- *
- * Every serial here is a **placeholder** — the test account's `ns` never enters a versioned file
- * (ADR-008).
+ * SPEC D10 against a real SQLite file, on the JVM host: the Android and iOS drivers need a
+ * device, the JDBC one does not, and the SQL the three of them run is the same file.
  */
 class DeviceCacheTest {
 
     /**
-     * SPEC D10: what goes in comes out — including the things the row does not store, because the
-     * kind is re-derived from the model and the order is the domain's, not the file's.
+     * SPEC D10: what goes in comes out — including the things the row does not store, because
+     * the kind is re-derived from the model and the order is the domain's, not the file's.
      */
     @Test
     fun roundTripsPage() = runTest {
@@ -38,11 +35,7 @@ class DeviceCacheTest {
         val cached = assertNotNull(cache.read())
 
         assertEquals(FETCHED_AT, cached.fetchedAt)
-        // Every field of every device, not a sample of them: a column silently dropped on the way in
-        // is the failure this test exists to catch.
         assertEquals(PAGE.sortedBy { it.id.value }, cached.devices.sortedBy { it.id.value })
-        // Read back in `orderedForList()` order — online actionable, then the rest online, then
-        // offline — whatever order the rows were written or SELECTed in.
         assertEquals(listOf("iM7-FC", "MFR 1001", "MCA 1002", "iM3-C"), cached.devices.map { it.name })
         val lock = cached.devices.first { it.name == "MFR 1001" }
         assertEquals(DeviceKind.Lock, lock.kind, "the kind is re-derived, so a sub-device must stay one")
@@ -52,8 +45,9 @@ class DeviceCacheTest {
     }
 
     /**
-     * SPEC L1: the product id survives the file, so a cold start can address a lock from the cached
-     * page alone — which is what keeps opening a lock at zero requests (ADR-006, SPEC U2).
+     * SPEC L1: the product id survives the file, so a cold start can address a lock from the
+     * cached page alone — which is what keeps opening a lock at zero requests (ADR-006, SPEC
+     * U2).
      */
     @Test
     fun productIdSurvivesTheRoundTrip() = runTest {
@@ -64,15 +58,13 @@ class DeviceCacheTest {
 
         assertEquals(LOCK_PRODUCT_ID, assertNotNull(cached["MFR 1001"]).productId)
         assertEquals(HUB_PRODUCT_ID, assertNotNull(cached["MCA 1002"]).productId)
-        // Blank is a value the partner really sends, and it must come back blank rather than as the
-        // neighbouring row's id — the failure that would address the wrong device.
         assertEquals("", assertNotNull(cached["iM7-FC"]).productId)
     }
 
     /**
      * SPEC L1 and `docs/api-contract.md` §3: the hub's product id survives the file too, on the
-     * sub-device's own row — which is what lets a cold start open a lock whose hub is not even on the
-     * cached page (ADR-006, SPEC D2).
+     * sub-device's own row — which is what lets a cold start open a lock whose hub is not even
+     * on the cached page (ADR-006, SPEC D2).
      */
     @Test
     fun parentProductIdSurvivesTheRoundTrip() = runTest {
@@ -82,20 +74,15 @@ class DeviceCacheTest {
         val cached = assertNotNull(cache.read()).devices.associateBy { it.name }
 
         assertEquals(HUB_PRODUCT_ID, assertNotNull(cached["MFR 1001"]).parentProductId)
-        // Null, not "": nothing here is a sub-device, and a blank would read as a parent whose id
-        // the partner sent empty — the difference the lock edge refuses on.
         assertNull(assertNotNull(cached["MCA 1002"]).parentProductId)
         assertNull(assertNotNull(cached["iM7-FC"]).parentProductId)
     }
 
     /**
-     * The migration half of the rule: a row written before the newest column existed would read back
-     * with whatever the migration backfills — `''` for `productId` (`2.sqm`), NULL for
+     * The migration half of the rule: a row written before the newest column existed would read
+     * back with whatever the migration backfills — `''` for `productId` (`2.sqm`), NULL for
      * `parentProductId` (`3.sqm`) — and a missing part of a lock address must never reach a
-     * `LockAddress`. So it is dropped and refetched instead.
-     *
-     * It is written at the version *before* the shipped one on purpose: that is what pins
-     * [DEVICE_CACHE_SCHEMA_VERSION] to the current shape.
+     * `LockAddress`.
      */
     @Test
     fun rowsWrittenBeforeTheCurrentShapeAreDiscarded() = runTest {
@@ -114,27 +101,25 @@ class DeviceCacheTest {
     }
 
     /**
-     * The rule SchemaVersion.kt exists for: rows written with one shape are discarded, not served,
-     * when the build that reads them expects another — so the next load refetches instead of
-     * rendering (or crashing on) a row of the wrong shape.
+     * The rule SchemaVersion.kt exists for: rows written with one shape are discarded, not
+     * served, when the build that reads them expects another — so the next load refetches
+     * instead of rendering (or crashing on) a row of the wrong shape.
      */
     @Test
     fun schemaVersionMismatchDropsAndRefetches() = runTest {
-        // One file, two builds: the same driver, read by a cache that expects the next version.
         val driver = inMemoryDriver()
         SqlDeviceCache(driver, schemaVersion = 1).write(PAGE, FETCHED_AT)
 
         val afterBump = SqlDeviceCache(driver, schemaVersion = 2)
 
         assertNull(afterBump.read(), "rows of an obsolete shape were served instead of being dropped")
-        // And the new version is recorded, so the page written next survives the following read.
         afterBump.write(PAGE, FETCHED_AT)
         assertEquals(PAGE.size, assertNotNull(SqlDeviceCache(driver, schemaVersion = 2).read()).devices.size)
     }
 
     /**
-     * One JDBC driver, shared by every `SqlDeviceCache` a test builds from it: two caches over one
-     * file is exactly the "old build, new build" situation the version rule is about.
+     * One JDBC driver, shared by every `SqlDeviceCache` a test builds from it: two caches over
+     * one file is exactly the "old build, new build" situation the version rule is about.
      */
     private fun inMemoryDriver(): DatabaseDriverFactory {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
@@ -152,8 +137,8 @@ class DeviceCacheTest {
         const val LOCK_PRODUCT_ID = "<lock-idProduto>"
 
         /**
-         * A hub, the lock hanging off it, and two cameras — the shapes a row can take, including the
-         * blank `idProduto` the partner sends for some camera families.
+         * A hub, the lock hanging off it, and two cameras — the shapes a row can take,
+         * including the blank `idProduto` the partner sends for some camera families.
          */
         val PAGE = listOf(
             device("PLACEHOLDER-CAM-NS", "iM7-FC", "iM7-FC"),

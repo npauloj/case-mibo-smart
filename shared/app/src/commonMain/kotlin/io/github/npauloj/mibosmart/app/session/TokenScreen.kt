@@ -52,9 +52,8 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * The way into the app (SPEC S1–S4): paste a token, validate it with one call, move on.
- *
- * @param onAuthenticated called once, when the partner accepted the token; the destination is the
- *   device list.
+ * @param onAuthenticated called once, when the partner accepted the token; the destination is
+ * the device list.
  */
 @Composable
 fun TokenScreen(
@@ -68,8 +67,6 @@ fun TokenScreen(
         viewModel.openDeviceList.collect { onAuthenticated() }
     }
 
-    // The portal is a web page, so opening it is the platform's job and not this module's: the
-    // `UriHandler` Compose already provides does it on both targets, and no `expect/actual` is needed.
     val uriHandler = LocalUriHandler.current
     val portal: PortalUrl = koinInject()
 
@@ -91,8 +88,6 @@ fun TokenScreenContent(
     onOpenPortal: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Its replacement, `LocalClipboard`, has no way to read plain text from `commonMain`: the text
-    // accessors are androidMain-only, which would mean an `expect/actual` for a paste button.
     @Suppress("DEPRECATION")
     val clipboard = LocalClipboardManager.current
 
@@ -107,9 +102,6 @@ fun TokenScreenContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        // The rail reports what the field is about to report, before the sentence is read. `Settled`
-        // rather than no rail when idle: an edge that appears and disappears would draw the eye to a
-        // colour arriving instead of to the state it describes.
         StateRail(tone = state.tone()) {
             OutlinedTextField(
                 value = state.token,
@@ -119,12 +111,7 @@ fun TokenScreenContent(
                 singleLine = true,
                 isError = state.fieldMessage != null,
                 label = { Text(stringResource(Res.string.token_field_label)) },
-                // A credential is data, not prose: monospace keeps the mask's dots from drifting as
-                // characters arrive, and says visually that this is a value rather than a sentence.
                 textStyle = Tabular,
-                // The token is a credential, so the middle never reaches the screen; the prefix and the
-                // last 4 characters do, so a truncated paste is visible without spending a request
-                // (SPEC S1.1, S9, ADR-008).
                 visualTransformation = TokenMask,
                 supportingText = { TokenFieldSupport(state) },
                 trailingIcon = {
@@ -136,16 +123,6 @@ fun TokenScreenContent(
             )
         }
 
-        // The first screen of the app asks for a token and, until now, did not say where one comes
-        // from. The answer was only in `docs/guides/token.md`, which nobody reads from a phone.
-        //
-        // Below the field rather than above it: the common case is a user who already has a token in
-        // the clipboard, and the field plus "Colar" must stay the first thing the eye lands on. The
-        // navigation is spelled out because the portal's home page is not where the token is — a link
-        // that drops someone on a dashboard with no next step is barely better than no link.
-        // The link and its own instruction are one object, so they are laid out as one: the column
-        // around them spaces siblings 20 dp apart, which between a label and the sentence that
-        // explains it reads as two unrelated things.
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             TextButton(
                 onClick = onOpenPortal,
@@ -180,10 +157,8 @@ fun TokenScreenContent(
 }
 
 /**
- * Which tone the rail carries, which is the same question as "what does the app know right now".
- *
- * Validating is [StateTone.Waiting] and not a failure: the request is in flight and the app genuinely
- * does not know yet — the same category a sent-but-unconfirmed lock command is in.
+ * Which tone the rail carries, which is the same question as "what does the app know right
+ * now".
  */
 private fun TokenEntryUiState.tone(): StateTone = when {
     fieldMessage != null -> StateTone.Failed
@@ -192,10 +167,8 @@ private fun TokenEntryUiState.tone(): StateTone = when {
 }
 
 /**
- * What sits under the field: the message, when there is one, and always the counter that tells a
- * complete paste from a truncated one (SPEC S1.1).
- *
- * The counter reads as "12/35" on screen; screen readers get the same numbers as a sentence.
+ * What sits under the field: the message, when there is one, and always the counter that tells
+ * a complete paste from a truncated one (SPEC S1.1).
  */
 @Composable
 private fun TokenFieldSupport(state: TokenEntryUiState) {
@@ -208,8 +181,6 @@ private fun TokenFieldSupport(state: TokenEntryUiState) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            // The server's sentence wins when there is one (SPEC S3.1): on a 403 the partner already
-            // says what to do, and rewording it would only make it vaguer.
             text = state.serverMessage ?: state.fieldMessage?.let { stringResource(it) }.orEmpty(),
             modifier = Modifier.weight(1f),
         )
@@ -221,11 +192,8 @@ private fun TokenFieldSupport(state: TokenEntryUiState) {
 }
 
 /**
- * The single message the field can carry: the format hint of SPEC S1.2, or the named failure of the
- * last validation (SPEC U6).
- *
- * The two never compete — typing clears the error, and only a well-formed token can produce one — so
- * the screen has one place a message appears rather than two.
+ * The single message the field can carry: the format hint of SPEC S1.2, or the named failure of
+ * the last validation (SPEC U6).
  */
 private val TokenEntryUiState.fieldMessage: StringResource?
     get() = when {

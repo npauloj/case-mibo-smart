@@ -7,10 +7,6 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * SPEC V4 and V5 — how long the app is allowed to keep trying, and what that costs the account.
- *
- * The ladder is asserted here, on the rule itself, rather than only through the screen: these are the
- * numbers ADR-006 defends (at most two extra `criar-fluxo-video` calls per visit), and a test that
- * had to drive a ViewModel to read them would hide them behind a state machine.
  */
 class PlaybackRetryPolicyTest {
 
@@ -54,12 +50,7 @@ class PlaybackRetryPolicyTest {
         )
     }
 
-    /**
-     * SPEC V5: a decode error never climbs the ladder.
-     *
-     * Retrying it would spend two more session creations to decode the same bytes with the same
-     * decoder — the exact waste ADR-006 forbids. The answer is the web player, not another attempt.
-     */
+    /** SPEC V5: a decode error never climbs the ladder. */
     @Test
     fun decodeErrorNoRetry() {
         (0 until PlaybackRetryPolicy.MAX_ATTEMPTS).forEach { attemptsMade ->

@@ -41,11 +41,8 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * The lock's opening history (SPEC L9, L10, U4): one `historico-abertura`, newest first, each entry
- * saying how it was opened, by whom when anyone is named, and when — twice.
- *
- * It is read-only. Nothing on this tab reaches the door, which is why it has no kill switch and no
- * confirmation state: the worst a bug here can do is describe an opening badly.
+ * The lock's opening history (SPEC L9, L10, U4): one `historico-abertura`, newest first, each
+ * entry saying how it was opened, by whom when anyone is named, and when — twice.
  */
 @Composable
 fun OpeningHistoryScreen(
@@ -56,9 +53,6 @@ fun OpeningHistoryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // On the ViewModel's scope, not the composition's: leaving the tab must not cancel a request the
-    // account has already paid for, and returning to it must not pay again (ADR-003, ADR-006). The
-    // once-per-lock guard is the ViewModel's.
     LaunchedEffect(address) { viewModel.open(address) }
 
     OpeningHistoryContent(
@@ -86,8 +80,6 @@ fun OpeningHistoryContent(
 
         when (state) {
             OpeningHistoryUiState.Loading -> LoadingRow(Res.string.lock_history_loading)
-            // SPEC L10: a door nobody has opened is an answer, so it gets a sentence rather than the
-            // blank space an empty list would leave.
             is OpeningHistoryUiState.Entries ->
                 if (state.isEmpty) EmptyNotice() else OpeningList(state.rows)
 
@@ -98,16 +90,10 @@ fun OpeningHistoryContent(
 
 @Composable
 private fun EmptyNotice() {
-    // `Settled`, not a failure tone: a door nobody has opened is an answer, not a problem (SPEC L10).
     StateNotice(tone = StateTone.Settled, text = stringResource(Res.string.lock_history_empty))
 }
 
-/**
- * The openings, newest first — the order the use case settled, not one this list re-derives.
- *
- * Lazy because 50 entries is the whole answer and the endpoint has no second page (SPEC L9): there
- * is nothing at the bottom of this list that could ask the partner for more, by design (ADR-006).
- */
+/** The openings, newest first — the order the use case settled, not one this list re-derives. */
 @Composable
 private fun OpeningList(rows: List<OpeningRow>) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -115,12 +101,7 @@ private fun OpeningList(rows: List<OpeningRow>) {
     }
 }
 
-/**
- * One opening: what it was, and when — in both of the ways SPEC U4 asks for.
- *
- * "há 5 min" alone is unanchored and an absolute timestamp alone has to be subtracted in the
- * reader's head, so the row says both and neither is a footnote.
- */
+/** One opening: what it was, and when — in both of the ways SPEC U4 asks for. */
 @Composable
 private fun OpeningEntry(row: OpeningRow) {
     Column(
@@ -128,8 +109,6 @@ private fun OpeningEntry(row: OpeningRow) {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(text = row.label(), style = MaterialTheme.typography.titleSmall)
-        // A column of times only reads as a column if the digits line up, which a proportional
-        // face will not do. This is the clearest case in the app for the data face.
         Text(
             text = stringResource(Res.string.lock_history_when, row.age.asRelativeText(), row.absoluteTime),
             style = TabularSmall,
@@ -142,8 +121,6 @@ private fun OpeningEntry(row: OpeningRow) {
 @Composable
 private fun ErrorSection(state: OpeningHistoryUiState.Failed, onRetry: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // The server's sentence wins when there is one (SPEC S3.1) — the same rule, and the same
-        // five categories, as the lock tab beside this one.
         Text(
             text = state.serverMessage ?: stringResource(state.error.message),
             style = MaterialTheme.typography.bodyMedium,
@@ -152,14 +129,7 @@ private fun ErrorSection(state: OpeningHistoryUiState.Failed, onRetry: () -> Uni
     }
 }
 
-/**
- * How the door was opened, in the user's words (SPEC L9, U4).
- *
- * Every branch produces something: a remote opening with no name still reads "Abertura remota", and
- * a `tipo` the app has never seen is shown as the partner's catalogue calls it, or as the partner
- * wrote it. A row is never blank and is never dropped — an opening nobody can explain is exactly
- * the one worth seeing.
- */
+/** How the door was opened, in the user's words (SPEC L9, U4). */
 @Composable
 private fun OpeningRow.label(): String = when (kind) {
     OpeningKind.Remote -> actor
@@ -167,18 +137,12 @@ private fun OpeningRow.label(): String = when (kind) {
         ?: stringResource(Res.string.lock_history_remote)
 
     OpeningKind.Local -> stringResource(Res.string.lock_history_local)
-    // The catalogue's words when the partner's legacy SDK has them (ADR-007) — on iOS, and for a
-    // `tipo` nobody catalogued, this is the raw word. An empty one leaves only the one honest thing
-    // left to say: that the door was opened.
     is OpeningKind.Unknown ->
         (catalogLabel ?: kind.type).ifBlank { stringResource(Res.string.lock_history_unknown) }
 }
 
 /**
  * "há 5 min" — the same buckets the lock tab counts "última atualização há X" in, other words.
- *
- * [LastSeen.Never] cannot reach here: an entry that exists happened at a time. It shares the
- * sub-minute branch because "há instantes" is the only sentence that would still be true if it did.
  */
 @Composable
 private fun LastSeen.asRelativeText(): String = when (this) {

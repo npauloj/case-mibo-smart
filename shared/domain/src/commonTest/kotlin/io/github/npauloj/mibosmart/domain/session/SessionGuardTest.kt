@@ -12,12 +12,8 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC S6 and the routing half of U5: what a refused request does to the stored session, and what it
- * hands the app to route with.
- *
- * The policy is a pure function of the vault plus one refusal, so it is tested here rather than
- * through a ViewModel — the case that matters most (a refusal carrying a token the vault no longer
- * holds) is one the UI cannot easily stage.
+ * SPEC S6 and the routing half of U5: what a refused request does to the stored session, and
+ * what it hands the app to route with.
  */
 class SessionGuardTest {
 
@@ -35,12 +31,7 @@ class SessionGuardTest {
         assertNull(store.read())
     }
 
-    /**
-     * A 403 carries the partner's own sentence, and it is shown as-is.
-     *
-     * It is the one category SPEC U6 allows quoting (ADR-012): "Token expirado, por favor gere um
-     * novo token" already says what to do, and rewording it would only make it vaguer.
-     */
+    /** A 403 carries the partner's own sentence, and it is shown as-is. */
     @Test
     fun expiryClearsAndRoutesWithServerMessage() = runTest {
         val store = RecordingSessionStore(CURRENT)
@@ -52,13 +43,7 @@ class SessionGuardTest {
         assertTrue(store.cleared, "the credential stayed in the vault after a 403")
     }
 
-    /**
-     * The scenario the identity comparison exists for (SPEC S6).
-     *
-     * A request left with the old token, the session was replaced while it was in flight, and the
-     * answer came back refused. Comparing timestamps would clear a session that works; comparing
-     * credentials keeps it.
-     */
+    /** The scenario the identity comparison exists for (SPEC S6). */
     @Test
     fun rejectionOfRotatedTokenDoesNotClearVault() = runTest {
         val store = RecordingSessionStore(RENEWED)
@@ -104,9 +89,8 @@ class SessionGuardTest {
     }
 
     /**
-     * The correction of ADR-012, as a test: `cota-disponivel` answers 403 with the **gateway's**
-     * `{"message": "Forbidden"}` for a perfectly valid token. Classifying that as an expiry threw
-     * away a working session and sent the user to the token screen for nothing.
+     * The correction of ADR-012, as a test: `cota-disponivel` answers 403 with the
+     * **gateway's** `{"message": "Forbidden"}` for a perfectly valid token.
      */
     @Test
     fun aForbiddenEndpointIsNotARefusalOfTheSession() {

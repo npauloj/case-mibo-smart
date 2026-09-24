@@ -6,13 +6,7 @@ import io.github.npauloj.mibosmart.domain.session.Token
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-/**
- * Keeps the validated session for the lifetime of the process (SPEC S2, first half).
- *
- * Volatile on purpose: it writes nothing to disk, so a killed process asks for the token again.
- * [VaultSessionStore] is what the app is wired to (ADR-008); this implementation stays as the one
- * tests use, which is why it keeps the same `(issuedAt, lifetime)` contract rather than inventing one.
- */
+/** Keeps the validated session for the lifetime of the process (SPEC S2, first half). */
 class InMemorySessionStore : SessionStore {
 
     private var session: Session? = null

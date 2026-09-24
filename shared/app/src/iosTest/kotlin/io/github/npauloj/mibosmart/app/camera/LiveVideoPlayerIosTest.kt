@@ -9,15 +9,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/**
- * The iOS player surface (SPEC V10, and the iOS half of V2 and V8).
- *
- * These run **only on the macOS CI job**, which does not run on pull requests (ADR-009, ADR-013):
- * on Windows the same code is cross-compiled, never executed. They therefore stay away from anything
- * asynchronous — no navigation is awaited, no timing is asserted — and cover exactly what a
- * `WKWebView` can be asked about synchronously: what it was pointed at, what it is hooked to, and
- * that a release unhooks all of it.
- */
+/** The iOS player surface (SPEC V10, and the iOS half of V2 and V8). */
 class LiveVideoPlayerIosTest {
 
     private val events = mutableListOf<PlayerEvent>()
@@ -29,8 +21,8 @@ class LiveVideoPlayerIosTest {
     }
 
     /**
-     * SPEC V10 / V2: the surface *is* the WKWebView on `monitor_url`, and it is pointed at it on
-     * composition — the session url expires 15 seconds after the partner minted it.
+     * SPEC V10 / V2: the surface *is* the WKWebView on `monitor_url`, and it is pointed at it
+     * on composition — the session url expires 15 seconds after the partner minted it.
      */
     @Test
     fun rendersWebViewForMonitorUrl() {
@@ -43,14 +35,13 @@ class LiveVideoPlayerIosTest {
             player.webView.configuration.userContentController.userScripts.size,
             "the playback probe is what turns a playing <video> into FirstFrame",
         )
-        // Loading is not playing: nothing is reported until the page says a frame was drawn, which
-        // is what leaves U1's first-frame timeout able to catch a page that shows nothing.
         assertTrue(events.isEmpty(), "unexpected events on load: $events")
     }
 
     /**
-     * SPEC V8, iOS half: leaving the screen must drop the page, its media and every hook back into
-     * the app — a teardown that still reported events would put a dead screen back on a stream.
+     * SPEC V8, iOS half: leaving the screen must drop the page, its media and every hook back
+     * into the app — a teardown that still reported events would put a dead screen back on a
+     * stream.
      */
     @Test
     fun disposeReleasesTheWebView() {
@@ -69,9 +60,7 @@ class LiveVideoPlayerIosTest {
 
     /**
      * A session the partner opened without a player page cannot be shown here — this platform
-     * decodes nothing itself. Saying so at once is what stops an unwatchable stream from spending
-     * the account's quota (SPEC V8): `DecodeError` ends the session instead of leaving a blank
-     * rectangle up for the whole first-frame budget.
+     * decodes nothing itself.
      */
     @Test
     fun aSessionWithoutAMonitorPageIsNotPlayable() {
@@ -97,8 +86,6 @@ class LiveVideoPlayerIosTest {
     }
 
     private companion object {
-        // A host that cannot resolve: the test asserts what the web view was pointed at, never what
-        // came back, and the account's monitor urls are never written into a versioned file.
         const val MONITOR_URL = "https://monitor.invalid/player?session=test"
     }
 }

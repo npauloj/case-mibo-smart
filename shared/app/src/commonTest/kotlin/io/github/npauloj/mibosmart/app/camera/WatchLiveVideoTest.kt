@@ -13,11 +13,8 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC V1, V2, V6, V7 — the decisions the use case makes before, and instead of, spending quota.
- *
- * Nothing here reaches the network: the partner is a fake, and the wire-level half of the same
- * criteria (the exact `criar-fluxo-video` body, the `funcoes` cache) is `:shared:data`'s
- * `WatchLiveVideoTest`.
+ * SPEC V1, V2, V6, V7 — the decisions the use case makes before, and instead of, spending
+ * quota.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WatchLiveVideoTest {
@@ -35,10 +32,8 @@ class WatchLiveVideoTest {
     }
 
     /**
-     * SPEC V7: the device list already said the camera is offline, so nothing is asked of the partner.
-     *
-     * Not even `funcoes`: confirming what the list just reported would spend a request to learn
-     * nothing (ADR-006).
+     * SPEC V7: the device list already said the camera is offline, so nothing is asked of the
+     * partner.
      */
     @Test
     fun offlineCameraNoSession() = runTest {
@@ -52,12 +47,8 @@ class WatchLiveVideoTest {
     }
 
     /**
-     * SPEC V2: the url reaches the player in the same coroutine that created it, before anything else
-     * suspends — the stream expires 15 seconds after the partner mints it.
-     *
-     * The proof is virtual time: the fake stamps the moment the session exists, the caller stamps the
-     * moment it was handed one. Any suspension in between — a second call, a delay, a dispatch — would
-     * push the two apart.
+     * SPEC V2: the url reaches the player in the same coroutine that created it, before
+     * anything else suspends — the stream expires 15 seconds after the partner mints it.
      */
     @Test
     fun playerPreparedImmediately() = runTest {
@@ -87,8 +78,8 @@ class WatchLiveVideoTest {
     }
 
     /**
-     * The kill switch of this slice's rollout plan: off, the app can be run on the shared account
-     * without ever opening a session — which is what makes the demo safe to rehearse.
+     * The kill switch of this slice's rollout plan: off, the app can be run on the shared
+     * account without ever opening a session — which is what makes the demo safe to rehearse.
      */
     @Test
     fun killSwitchOffOpensNoSession() = runTest {

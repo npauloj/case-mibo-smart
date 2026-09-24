@@ -27,13 +27,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
-/**
- * SPEC S8, S9 and the ADR-006 counter: what the account screen may say about the session.
- *
- * The state is read from `state.value` after `runCurrent()` on a `StandardTestDispatcher`, never with
- * Turbine — the repository reserves Turbine for one-shot event flows, which here is `signedOut`
- * alone (`CLAUDE.md`).
- */
+/** SPEC S8, S9 and the ADR-006 counter: what the account screen may say about the session. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AccountViewModelTest {
 
@@ -45,13 +39,7 @@ class AccountViewModelTest {
     @AfterTest
     fun tearDown() = Dispatchers.resetMain()
 
-    /**
-     * SPEC S9 / ADR-008: the last 4 characters, and nothing else, ever reach the state.
-     *
-     * Asserted as "no fragment of the token longer than 4 characters appears anywhere in the state"
-     * rather than as an equality, because the rule is about what must *not* be there — an equality
-     * would still pass if a second field carried the whole credential.
-     */
+    /** SPEC S9 / ADR-008: the last 4 characters, and nothing else, ever reach the state. */
     @Test
     fun exposesSuffixOnly() = runTest(dispatcher) {
         val viewModel = viewModelFor(issuedAt = NOW)
@@ -124,13 +112,7 @@ class AccountViewModelTest {
         assertEquals(SessionExpiry.Expired, viewModel.state.value.expiry)
     }
 
-    /**
-     * SPEC S10: "Renovar" is offered only where it buys something — inside the last 10 minutes.
-     *
-     * A session with hours left would spend a request of the ~300 the account has to move a deadline
-     * nobody is near (ADR-006); an expired one would spend it to be refused, since renewing needs a
-     * credential the partner still accepts (SPEC S6).
-     */
+    /** SPEC S10: "Renovar" is offered only where it buys something — inside the last 10 minutes. */
     @Test
     fun offersRenewalOnlyWhileTheSessionIsAboutToExpire() = runTest(dispatcher) {
         val calm = viewModelFor(issuedAt = NOW)
@@ -144,13 +126,7 @@ class AccountViewModelTest {
         assertFalse(expired.state.value.canRenew, "an expired session offered a renewal it cannot make")
     }
 
-    /**
-     * A renewal the partner answered rewrites the card without moving the user (SPEC S10).
-     *
-     * Both halves are asserted: the suffix, because it proves the *new* credential is what the screen
-     * is describing, and the countdown, because it proves the deadline came from `tempoExpiracao`
-     * (15 min here) and not from a local two-hour count.
-     */
+    /** A renewal the partner answered rewrites the card without moving the user (SPEC S10). */
     @Test
     fun renewingReplacesTheSessionOnTheSameScreen() = runTest(dispatcher) {
         val store = storeWith(NOW - Session.WARN_AFTER)
@@ -168,12 +144,7 @@ class AccountViewModelTest {
         assertFalse(state.renewing, "the action stayed disabled after the answer came back")
     }
 
-    /**
-     * A renewal that failed says so and changes nothing else (SPEC S10).
-     *
-     * The session is still the one the user had, and still valid — renewal adds a credential rather
-     * than replacing one (measured 2026-09-21) — so there is nothing to route away from.
-     */
+    /** A renewal that failed says so and changes nothing else (SPEC S10). */
     @Test
     fun aFailedRenewalKeepsTheSessionAndSaysSo() = runTest(dispatcher) {
         val store = storeWith(NOW - Session.WARN_AFTER)
@@ -211,12 +182,7 @@ class AccountViewModelTest {
         assertFalse(viewModel.state.value.renewing)
     }
 
-    /**
-     * "Sair" empties the vault and announces it once (SPEC S8).
-     *
-     * `signedOut` is a one-shot navigation event, which is the one place this repository allows
-     * Turbine (`CLAUDE.md`).
-     */
+    /** "Sair" empties the vault and announces it once (SPEC S8). */
     @Test
     fun signOutClearsTheSessionAndRoutesAway() = runTest(dispatcher) {
         val store = storeWith(NOW)
@@ -231,12 +197,7 @@ class AccountViewModelTest {
         }
     }
 
-    /**
-     * A vault that refuses to clear must not be reported as a successful logout (ADR-008).
-     *
-     * The user stays where they are and is told, because the alternative — a token screen over a
-     * token still on disk — is the one outcome that cannot be recovered from on the next screen.
-     */
+    /** A vault that refuses to clear must not be reported as a successful logout (ADR-008). */
     @Test
     fun aFailedSignOutKeepsTheUserSignedInAndSaysSo() = runTest(dispatcher) {
         val viewModel = viewModelFor(store = FailingSessionStore(storeWith(NOW)))
@@ -247,14 +208,7 @@ class AccountViewModelTest {
         assertTrue(viewModel.state.value.signOutFailed, "a failed logout was reported as a success")
     }
 
-    /**
-     * A renewal the partner answered is announced exactly once, and never replayed (SPEC S10).
-     *
-     * Turbine is used here and nowhere else in this file: `renewed` is a one-shot `SharedFlow`, which
-     * is the single case `CLAUDE.md` reserves it for. The second collector is the real assertion — it
-     * pins `replay = 0`, so a screen opened later is not handed a renewal that already happened and
-     * does not clear a banner that is telling the truth about the session on screen now.
-     */
+    /** A renewal the partner answered is announced exactly once, and never replayed (SPEC S10). */
     @Test
     fun emitsRenewedOnce() = runTest(dispatcher) {
         val viewModel = viewModelFor(

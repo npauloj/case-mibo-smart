@@ -32,8 +32,8 @@ class DeviceUiMapperTest {
     }
 
     /**
-     * A sub-device whose hub is not on this page names no parent rather than a wrong one: page 2 is
-     * D-02's, and "MCA 1002" invented here would be a claim the app cannot back.
+     * A sub-device whose hub is not on this page names no parent rather than a wrong one: page
+     * 2 is D-02's, and "MCA 1002" invented here would be a claim the app cannot back.
      */
     @Test
     fun subdeviceWhoseParentIsNotOnThePageNamesNoParent() {
@@ -80,7 +80,6 @@ class DeviceUiMapperTest {
     fun onlyCamerasAndLocksAreActionable() {
         val devices = listOf(
             device("camera", kind = DeviceKind.Camera),
-            // The lock carries both product ids: without one it has no address, which is the next test.
             device(
                 "lock",
                 kind = DeviceKind.Lock,
@@ -99,11 +98,9 @@ class DeviceUiMapperTest {
     }
 
     /**
-     * SPEC D6 and D2: a lock whose own row is short of a part of its address is still listed — it
-     * just says why and takes no tap, instead of opening a screen with nothing to talk to (SPEC U6).
-     *
-     * Each way the row can be short of one, since they arrive as different fields: the lock's own
-     * `idProduto` blank, and the hub's `idProdutoDispositivoPai` absent (`docs/api-contract.md` §3).
+     * SPEC D6 and D2: a lock whose own row is short of a part of its address is still listed —
+     * it just says why and takes no tap, instead of opening a screen with nothing to talk to
+     * (SPEC U6).
      */
     @Test
     fun aLockThatCannotBeAddressedSaysSoInsteadOfOpening() {
@@ -127,8 +124,8 @@ class DeviceUiMapperTest {
     }
 
     /**
-     * SPEC D2 and D6: the hub is on a page nobody loaded, and the lock opens anyway — the parts of
-     * the address are on its own row, so the only thing the missing hub costs is its name.
+     * SPEC D2 and D6: the hub is on a page nobody loaded, and the lock opens anyway — the parts
+     * of the address are on its own row, so the only thing the missing hub costs is its name.
      */
     @Test
     fun aLockWhoseHubIsNotOnThePageIsStillAddressable() {
@@ -146,12 +143,7 @@ class DeviceUiMapperTest {
         assertNull(row.parentName, "the hub's name is the one thing the page really does not have")
     }
 
-    /**
-     * SPEC D5 and the ★ Java criterion: the row reads "Central Zigbee", not "IOT-ZG2-IB".
-     *
-     * The catalogue is the partner's, so the *code* is what the app knows and the *name* is what it
-     * is told; `Device.model` keeps the code, because the classifier and the partner still speak it.
-     */
+    /** SPEC D5 and the ★ Java criterion: the row reads "Central Zigbee", not "IOT-ZG2-IB". */
     @Test
     fun namesAKnownModelCode() {
         val hub = device("MCA 1002", kind = DeviceKind.Hub, model = "IOT-ZG2-IB")
@@ -161,12 +153,7 @@ class DeviceUiMapperTest {
         assertEquals("Central Zigbee", row.model)
     }
 
-    /**
-     * SPEC D5: a code with no entry is shown exactly as the partner sent it.
-     *
-     * This is also every row on iOS, where the catalogue's Java library does not exist and `RawCodes`
-     * answers instead (ADR-007) — the same path, not a second one.
-     */
+    /** SPEC D5: a code with no entry is shown exactly as the partner sent it. */
     @Test
     fun anUnknownModelCodeIsShownRaw() {
         val camera = device("iM7 3M Full Color", model = "iM7-FC")
@@ -177,13 +164,7 @@ class DeviceUiMapperTest {
         assertEquals("iM7-FC", listOf(camera).toRows(NOW).single().model, "and with no catalogue at all")
     }
 
-    /**
-     * A catalogue that raises costs a name, never the row (ADR-007).
-     *
-     * `LegacyModelCatalog` already turns the SDK's checked exception into the raw code, so nothing
-     * the app ships throws here today; what this pins is that the list does not *depend* on that —
-     * a partner release whose table starts failing still renders every device.
-     */
+    /** A catalogue that raises costs a name, never the row (ADR-007). */
     @Test
     fun aRaisingCatalogueFallsBackToTheRawCode() {
         val devices = listOf(

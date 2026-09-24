@@ -15,14 +15,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 
-/**
- * SPEC S10: what "Renovar" does to the stored session.
- *
- * The wire half — the exact request and the `tempoExpiracao` it answers with — is
- * `io.github.npauloj.mibosmart.data.session.RenewTokenTest`, where `MockEngine` lives. Nothing in
- * either class calls the real API: the endpoint was probed once on 2026-09-21 and its answer is
- * committed in `docs/api-contract.md` §2 (ADR-006).
- */
+/** SPEC S10: what "Renovar" does to the stored session. */
 class RenewTokenTest {
 
     /** The credential the vault holds afterwards is the one the partner just issued. */
@@ -38,12 +31,7 @@ class RenewTokenTest {
         assertEquals(Token(CURRENT), repository.lastToken, "the renewal was not sent with the current token")
     }
 
-    /**
-     * A renewal that fails leaves the session exactly as it was (SPEC S10).
-     *
-     * Not merely "does no harm": the previous token is still valid — renewal adds a credential rather
-     * than replacing one, measured 2026-09-21 — so keeping it is keeping a session that works.
-     */
+    /** A renewal that fails leaves the session exactly as it was (SPEC S10). */
     @Test
     fun failureKeepsCurrentToken() = runTest {
         val store = storeHolding(CURRENT)
@@ -59,12 +47,7 @@ class RenewTokenTest {
         )
     }
 
-    /**
-     * The deadline is the server's, not a local two-hour count (SPEC S7, S10).
-     *
-     * The staged `tempoExpiracao` is 15 min on purpose. A use case that ignored it would store a
-     * perfectly plausible 2 h session and every other assertion here would still pass.
-     */
+    /** The deadline is the server's, not a local two-hour count (SPEC S7, S10). */
     @Test
     fun usesServerSuppliedDeadline() = runTest {
         val store = storeHolding(CURRENT)
@@ -78,10 +61,8 @@ class RenewTokenTest {
     }
 
     /**
-     * The warning keeps its ten minutes even when the server hands back a short session (SPEC S7).
-     *
-     * A margin measured back from the deadline rather than forward from `issuedAt` is what makes the
-     * 15 min session above warn at 5 min instead of never.
+     * The warning keeps its ten minutes even when the server hands back a short session (SPEC
+     * S7).
      */
     @Test
     fun aShortRenewedSessionStillWarnsBeforeItEnds() = runTest {

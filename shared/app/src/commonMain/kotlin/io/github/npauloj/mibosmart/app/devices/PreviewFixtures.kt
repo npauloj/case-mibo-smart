@@ -14,11 +14,6 @@ import kotlin.time.Instant
 /**
  * Devices for the previews, with **placeholder** serials only — the test account's `ns` and
  * `idProduto` values never reach a versioned file (ADR-008).
- *
- * They are domain [Device]s put through the real classifier, ordering, catalogue and [toRows], not
- * hand-written rows: a preview built from invented rows can show a layout the app can never produce,
- * and the two drift apart silently. This way the previews are also visual evidence of SPEC D5, U3
- * and U8.
  */
 internal object PreviewFixtures {
 
@@ -30,9 +25,7 @@ internal object PreviewFixtures {
         add(lock(1, "MFR 1001"))
         add(device(2, "MCA 1002", HUB_MODEL, id = HUB_ID, productId = HUB_PRODUCT_ID))
         add(device(3, "iM7 3M Full Color", "iM7-FC"))
-        // SPEC U8 and D6 need a name that cannot fit on one line, to prove the row truncates.
         add(device(4, "Câmera da varanda dos fundos com um nome longo demais para caber na linha", "iM7-FC"))
-        // SPEC U3: one device last seen days ago, one the partner has never seen online.
         add(device(5, "iM3-C", "iM3-C", isOnline = false, lastSeen = NOW - 12.days))
         add(lock(6, "MFR 2040", model = "IOT-MFR2040-IB", isOnline = false))
         add(device(7, "MSM 1001", "MSM 1001", isOnline = false, lastSeen = NOW - 3.hours))
@@ -42,11 +35,8 @@ internal object PreviewFixtures {
     }.orderedForList().toRows(NOW, BundledCodes)
 
     /**
-     * The two model codes the partner's bundled catalogue actually names (ADR-007), and nothing else.
-     *
-     * Copying only what `:legacy-catalog` really holds is the point: the preview shows a page with
-     * some rows named and the rest raw, which is what Android renders — and the raw ones are also
-     * exactly what every row looks like on iOS, where that Java library does not exist.
+     * The two model codes the partner's bundled catalogue actually names (ADR-007), and nothing
+     * else.
      */
     private object BundledCodes : ModelCatalog {
 

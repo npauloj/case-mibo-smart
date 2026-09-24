@@ -6,7 +6,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * SPEC S1.1 and the entry-field half of S9: the field shows enough to check a paste, and nothing more.
+ * SPEC S1.1 and the entry-field half of S9: the field shows enough to check a paste, and
+ * nothing more.
  */
 class TokenMaskTest {
 
@@ -54,8 +55,6 @@ class TokenMaskTest {
 
     @Test
     fun surrogatePairIsOneBullet() {
-        // A pasted emoji is two UTF-16 units; masking them separately would split the pair and give
-        // Compose an offset mapping it rejects.
         val pasted = "Ot_😀abcdefgh"
         val transformed = TokenMask.mask(pasted)
 

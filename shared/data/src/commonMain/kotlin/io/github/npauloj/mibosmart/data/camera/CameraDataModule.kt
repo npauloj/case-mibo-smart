@@ -7,12 +7,7 @@ import io.github.npauloj.mibosmart.domain.camera.StreamingRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
-/**
- * The camera feature's partner bindings, beside the code they wire (ADR-014).
- *
- * The cache is a `single` because "once per camera per install" is a claim about the whole app, not
- * about one screen: a per-screen instance would pay for `funcoes` again on every visit (SPEC V1).
- */
+/** The camera feature's partner bindings, beside the code they wire (ADR-014). */
 internal val cameraDataModule: Module = module {
     single<CapabilityCache> { InMemoryCapabilityCache() }
     single<StreamingRepository> {

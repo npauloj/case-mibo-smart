@@ -21,22 +21,15 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC L3, L4, L6 and the command half of L5: **the API acknowledges a command, the device confirms
- * it, and the screen is only ever allowed to show the second.**
- *
- * Every test here counts requests as well as states. A confirmation state machine that was right
- * about the door and wrong about how often it asked would still be unusable on an account with a
- * 300-request budget (ADR-006), so "exactly one write and exactly one read" is an assertion, not a
- * remark.
+ * SPEC L3, L4, L6 and the command half of L5: **the API acknowledges a command, the device
+ * confirms it, and the screen is only ever allowed to show the second.**
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ToggleLockTest {
 
     /**
-     * SPEC L3: the command goes out, `status-abertura` agrees, and only then does the screen move.
-     *
-     * Two requests, in that order, and nothing else touched: the volume the lock reported on entry
-     * is still what the selector shows afterwards, because a command is about the door.
+     * SPEC L3: the command goes out, `status-abertura` agrees, and only then does the screen
+     * move.
      */
     @Test
     fun happyPathConfirmsWithStatusRead() = runTest {
@@ -65,13 +58,7 @@ class ToggleLockTest {
         assertEquals(LockSamples.Locked.volume, settled.lock.volume, "a command disturbed another reading")
     }
 
-    /**
-     * SPEC L4: the lock took the command and did not obey. The screen says so and stops.
-     *
-     * The second half is the one that matters on this account: after the disagreement the app waits
-     * ten minutes of virtual time and asks the partner **nothing**. The only second read in the app
-     * is the user's "Verificar", and it reads exactly once.
-     */
+    /** SPEC L4: the lock took the command and did not obey. The screen says so and stops. */
     @Test
     fun disagreementBecomesCommandExpiredNoPolling() = runTest {
         val repository = FakeLockRepository(obeysCommands = false)
@@ -102,13 +89,7 @@ class ToggleLockTest {
         )
     }
 
-    /**
-     * SPEC L4, the other way to not be confirmed: the read never answers.
-     *
-     * The window is `[ASSUMED]` and is enforced on a virtual clock, so the assertion is about the
-     * app's behaviour at the edge rather than about the number — which wave 3 tunes against the real
-     * lock. Nothing here sleeps: the ten seconds are the scheduler's.
-     */
+    /** SPEC L4, the other way to not be confirmed: the read never answers. */
     @Test
     fun timeoutBecomesCommandExpired() = runTest {
         val neverAnswers = CompletableDeferred<Unit>()
@@ -129,13 +110,7 @@ class ToggleLockTest {
         assertFalse(expired.before.lock.isOpen, "nothing reported the door open, so nothing may show it open")
     }
 
-    /**
-     * SPEC L5: the command never left, so the screen says why and then goes back to the lock.
-     *
-     * The notice is asserted while it is on screen and the restoration after it — a failure that
-     * quietly changed the readings, or one that stayed up forever, would both pass a test that only
-     * looked at the end.
-     */
+    /** SPEC L5: the command never left, so the screen says why and then goes back to the lock. */
     @Test
     fun networkFailureShowsCommandFailedThenRestores() = runTest {
         val repository = FakeLockRepository(answerWrite = { throw SmartHomeException.Offline(null) })
@@ -157,12 +132,7 @@ class ToggleLockTest {
         assertEquals(1, repository.writes.size, "a failed command must not be retried on its own")
     }
 
-    /**
-     * SPEC L5, last clause: an offline lock keeps its last known state and takes no command.
-     *
-     * The guard is in the ViewModel's state, so it holds whatever the screen draws — the request is
-     * never made, rather than made and then explained away.
-     */
+    /** SPEC L5, last clause: an offline lock keeps its last known state and takes no command. */
     @Test
     fun offlineShowsLastKnownState() = runTest {
         val repository = FakeLockRepository()
@@ -203,12 +173,7 @@ class ToggleLockTest {
         assertTrue(assertIs<LockUiState.Ready>(viewModel.state.value).lock.isOpen)
     }
 
-    /**
-     * The kill switch, at the only place that can guarantee anything: **no request at all**.
-     *
-     * This is the switch's whole reason for existing — `controle-fechadura` is the one call in the
-     * app that moves something in a real building.
-     */
+    /** The kill switch, at the only place that can guarantee anything: **no request at all**. */
     @Test
     fun killSwitchOffSendsNoCommand() = runTest {
         val repository = FakeLockRepository()
@@ -223,13 +188,7 @@ class ToggleLockTest {
         assertEquals(0, repository.calls, "a build with lock writes off must reach the partner zero times")
     }
 
-    /**
-     * SPEC U6 on the one action `CommandExpired` offers: a check that cannot answer says so.
-     *
-     * A "Verificar" that silently did nothing would leave the user tapping a button to find out
-     * about a door — so the failure is named beside the action, and the command stays unconfirmed
-     * because it still is.
-     */
+    /** SPEC U6 on the one action `CommandExpired` offers: a check that cannot answer says so. */
     @Test
     fun aCheckThatCannotAnswerNamesTheReason() = runTest {
         val repository = FakeLockRepository(

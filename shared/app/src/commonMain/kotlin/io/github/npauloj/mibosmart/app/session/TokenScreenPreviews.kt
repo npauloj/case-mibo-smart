@@ -6,13 +6,12 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import io.github.npauloj.mibosmart.app.ui.AppTheme
 
-// android.content.res.Configuration.UI_MODE_NIGHT_YES, which commonMain cannot import (rule 4).
 private const val UI_MODE_NIGHT_YES = 0x20
 
 /**
- * Every state `TokenScreenContent` can render (SPEC §1 "Visual acceptance"), declared once: the named
- * previews below take one value each so their names stay readable metadata, and tooling that walks
- * providers gets the same sequence.
+ * Every state `TokenScreenContent` can render (SPEC §1 "Visual acceptance"), declared once: the
+ * named previews below take one value each so their names stay readable metadata, and tooling
+ * that walks providers gets the same sequence.
  */
 internal class TokenEntryUiStateProvider : PreviewParameterProvider<TokenEntryUiState> {
 
@@ -29,11 +28,8 @@ internal class TokenEntryUiStateProvider : PreviewParameterProvider<TokenEntryUi
 }
 
 /**
- * Never a real token, not even in a preview (ADR-008) — and assembled here rather than written out,
- * so the file cannot be mistaken for a leaked credential by the CI secret scan.
- *
- * It is well-formed on purpose: `TokenScreen_Typing` is the visual proof of the mask and of a full
- * counter (SPEC S1.1).
+ * Never a real token, not even in a preview (ADR-008) — and assembled here rather than written
+ * out, so the file cannot be mistaken for a leaked credential by the CI secret scan.
  */
 private val SAMPLE_TOKEN = TokenFormat.PREFIX + "0123456789abcdef".repeat(2)
 

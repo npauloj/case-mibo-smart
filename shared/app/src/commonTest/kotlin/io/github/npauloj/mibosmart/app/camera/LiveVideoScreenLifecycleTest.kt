@@ -30,13 +30,6 @@ import kotlinx.coroutines.test.setMain
 /**
  * SPEC V8, the wiring half: the screen observes the lifecycle, and `ON_STOP` really reaches the
  * ViewModel.
- *
- * A phone going into a pocket with a stream running is the failure that costs the shared account its
- * quota, and it is invisible to every other test here — the ViewModel's own tests call `stop()`
- * directly, so they would pass just as happily if nobody ever called it.
- *
- * The composition is driven by hand with a no-op applier: [LiveVideoLifecycle] emits no UI, so it
- * needs no renderer, and the test needs no instrumentation and no new test dependency.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LiveVideoScreenLifecycleTest {
@@ -100,12 +93,7 @@ class LiveVideoScreenLifecycleTest {
         composition.dispose()
     }
 
-    /**
-     * A composition with no renderer behind it.
-     *
-     * The recomposer runs on `backgroundScope` so the test does not wait on a coroutine that, by
-     * design, never finishes.
-     */
+    /** A composition with no renderer behind it. */
     private fun TestScope.compose(owner: FakeLifecycleOwner, content: @Composable () -> Unit): Composition =
         Composition(NoOpApplier, Recomposer(backgroundScope.coroutineContext)).apply {
             setContent {

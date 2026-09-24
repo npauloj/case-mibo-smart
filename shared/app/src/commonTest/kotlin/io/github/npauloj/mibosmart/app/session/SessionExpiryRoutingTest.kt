@@ -22,14 +22,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * SPEC S6 and U5 as the user meets them: a refused request anywhere in the app ends on the token
- * screen with a reason, and re-validating comes back to the screen they were on.
- *
- * `SessionGuardTest` proves the policy; this proves the wiring — that a refusal reported by the
- * transport actually reaches the guard, and that what the guard answers becomes a route.
- *
- * `runCurrent()` and not `advanceUntilIdle()`: the ViewModel keeps one task pending on purpose (the
- * sleep until the expiry warning, SPEC S7) and advancing until idle would jump the clock 1 h 50 min.
+ * SPEC S6 and U5 as the user meets them: a refused request anywhere in the app ends on the
+ * token screen with a reason, and re-validating comes back to the screen they were on.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionExpiryRoutingTest {
@@ -74,12 +68,7 @@ class SessionExpiryRoutingTest {
         )
     }
 
-    /**
-     * SPEC U5: the screen the user was on is where a new token puts them back.
-     *
-     * Staged on the account screen because it is the one destination this slice adds, and because
-     * dropping the user at the device list is exactly the "lost context" U5 names.
-     */
+    /** SPEC U5: the screen the user was on is where a new token puts them back. */
     @Test
     fun revalidatingReturnsToTheScreenTheUserWasOn() = runTest(dispatcher) {
         val store = signedIn()
@@ -101,8 +90,8 @@ class SessionExpiryRoutingTest {
     }
 
     /**
-     * The rotation case, end to end (SPEC S6): the refusal names a token the vault no longer holds,
-     * so nothing happens — the user stays where they are with the session that works.
+     * The rotation case, end to end (SPEC S6): the refusal names a token the vault no longer
+     * holds, so nothing happens — the user stays where they are with the session that works.
      */
     @Test
     fun aRefusalOfARotatedTokenChangesNothing() = runTest(dispatcher) {

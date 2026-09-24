@@ -8,15 +8,9 @@ import io.github.npauloj.mibosmart.domain.session.SessionStore
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
-/**
- * The session feature's partner bindings, beside the code they wire (ADR-014).
- *
- * `:shared:data`'s aggregate lists this module in `di/DataModule.kt`; nothing else references it.
- */
+/** The session feature's partner bindings, beside the code they wire (ADR-014). */
 internal val sessionDataModule: Module = module {
     single<SessionRepository> { SmartHomeSessionRepository(api = get(), json = smartHomeJson) }
     single<SessionStore> { VaultSessionStore(secureTokenStore()) }
-    // One stream for the whole run: the transport reports into it and the guard above collects from
-    // it, so a second instance would be a guard that hears nothing (SPEC S6).
     single<RefusedRequests> { SessionRefusals() }
 }

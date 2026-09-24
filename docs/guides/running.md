@@ -91,18 +91,23 @@ O PDF de entrega é derivado de `docs/PRODUCT.md` — os dois têm de ser regera
 PDF entrega uma versão anterior do documento sem ninguém perceber.
 
 ```bash
-pandoc docs/PRODUCT.md -s --metadata title="Case Mibo Smart" -o /tmp/product.html
-chrome --headless --disable-gpu --no-pdf-header-footer \
-       --print-to-pdf=docs/PRODUCT.pdf file:///tmp/product.html
+bash tools/product-pdf.sh
 ```
 
-Passa por HTML **de propósito**: `pandoc -o x.pdf` exigiria um motor TeX, que não é dependência
-deste projeto e não está instalado. O HTML fica em temporário; só o PDF entra no repositório.
-Nenhuma dependência do build muda — pandoc e Chrome são ferramenta de máquina, não do projeto.
+O script acha o Chrome sozinho (ou respeita `CHROME=<caminho>`), aplica
+`tools/product-pdf.css` e escreve `docs/PRODUCT.pdf`. Três coisas nele não são óbvias:
+
+- **Passa por HTML de propósito.** `pandoc -o x.pdf` exigiria um motor TeX, que não é dependência
+  deste projeto e não está instalado. pandoc e Chrome são ferramenta de máquina, não do build —
+  nenhuma dependência do Gradle muda por causa disto.
+- **A primeira linha do `PRODUCT.md` é removida** antes da conversão: é o H1 do documento, e o bloco
+  de título do pandoc o substitui. Sem isso o título aparece duas vezes na primeira página. O script
+  falha se essa primeira linha deixar de ser um H1, em vez de cortar a linha errada em silêncio.
+- **A folha de estilo é do repositório**, não improvisada a cada vez: paleta do próprio app
+  (`AppTheme`), verde da marca nos títulos, âmbar do papel `waiting` nas citações, mono para dado.
 
 **Confira o resultado abrindo o arquivo.** Não há verificação automática de aparência aqui, e o
 número de páginas muda a cada edição do documento.
-
 ## 5. Estágios do CI
 
 | Job | Quando | O quê |

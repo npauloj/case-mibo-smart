@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Case Mibo Smart — apresentação</title>
+<!--
+  Slides da apresentação. Gerado por `bash tools/product-pdf.sh --slides`.
+
+  Regra de densidade: no máximo ~45 palavras por slide. Slide é apoio de fala, não documento.
+  Paleta do próprio app (AppTheme).
+-->
+<style>
+  @page { size: 297mm 167mm; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #14211B; background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  .s {
+    width: 297mm; height: 167mm; padding: 18mm 20mm;
+    page-break-after: always; break-after: page;
+    display: flex; flex-direction: column; position: relative; overflow: hidden;
+  }
+  .s:last-child { page-break-after: auto; }
+
+  .eyebrow { font-size: 11pt; letter-spacing: 0.16em; text-transform: uppercase;
+             color: #00A335; font-weight: 600; margin: 0 0 6mm; }
+  h2 { font-size: 32pt; line-height: 1.1; color: #00702A; margin: 0 0 9mm;
+       letter-spacing: -0.02em; font-weight: 700; }
+
+  ul { margin: 0; padding-left: 7mm; font-size: 16pt; line-height: 1.65; }
+  li { margin-bottom: 4.5mm; }
+  li::marker { color: #00A335; }
+  .sub { color: #5C6B63; font-size: 12pt; }
+  b, strong { color: #0B1A13; }
+  code { font-family: Consolas, monospace; font-size: 0.88em; background: #EAF3EC;
+         color: #0B4A21; padding: 0.5mm 1.5mm; border-radius: 1mm; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14pt; }
+  th { text-align: left; background: #EAF3EC; color: #0B4A21; font-weight: 600;
+       padding: 3mm 4mm; border-bottom: 0.5mm solid #00702A; font-size: 11pt;
+       letter-spacing: 0.06em; text-transform: uppercase; }
+  td { padding: 3.2mm 4mm; border-bottom: 0.3mm solid #DCE5DF; vertical-align: top; }
+
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7mm; }
+  .card { border: 0.4mm solid #CFDDD4; border-radius: 2mm; padding: 6mm; background: #FAFCFA; }
+  .card.pick { border-color: #00702A; border-width: 0.8mm; background: #F1F8F3; }
+  .card h3 { margin: 0 0 3mm; font-size: 14pt; color: #00702A; }
+  .card p { margin: 0; font-size: 13pt; color: #3A4A42; line-height: 1.5; }
+
+  .note { margin-top: auto; border-left: 1.5mm solid #8A5B00; background: #FFF6E4;
+          padding: 5mm 7mm; border-radius: 0 2mm 2mm 0; font-size: 14pt; line-height: 1.5; }
+  .note.g { border-left-color: #00702A; background: #F4F8F5; }
+
+  .nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; margin: 0 0 11mm; }
+  .nums div { text-align: center; }
+  .nums dt { font-size: 11pt; letter-spacing: 0.08em; text-transform: uppercase;
+             color: #5C6B63; margin: 0 0 2mm; }
+  .nums dd { margin: 0; font-size: 36pt; font-weight: 700; color: #00702A;
+             letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+
+  .pg { position: absolute; right: 20mm; bottom: 9mm; font-size: 10pt; color: #9AAAA1;
+        font-variant-numeric: tabular-nums; }
+
+  .cover { justify-content: center; background: #00702A; color: #fff; }
+  .cover h1 { font-size: 50pt; margin: 0 0 5mm; letter-spacing: -0.03em; line-height: 1.05;
+              font-weight: 700; }
+  .cover p { font-size: 16pt; margin: 0; color: #BFE6CC; line-height: 1.5; }
+  .cover .meta { position: absolute; left: 20mm; bottom: 15mm; font-size: 12pt; color: #8FD3A8; }
+  .cover .glyph { position: absolute; right: 20mm; bottom: 15mm; width: 30mm; height: 30mm; }
+</style>
+</head>
+<body>
+
+<section class="s cover">
+  <h1>Case Mibo Smart</h1>
+  <p>Kotlin Multiplatform · Android · iOS</p>
+  <div class="meta">Paulo · 24 de setembro de 2026</div>
+  <svg class="glyph" viewBox="0 0 108 108" aria-hidden="true">
+    <path fill="#FFFFFF" d="M54,26 L87,54 L78,54 L78,85 L30,85 L30,54 L21,54 Z"/>
+    <circle cx="54" cy="56" r="11" fill="#00702A"/>
+    <path fill="#00702A" d="M48,73 h12 v12 h-12 Z"/>
+  </svg>
+</section>
+
+<section class="s">
+  <p class="eyebrow">1 · Planejamento</p>
+  <h2>Os dias</h2>
+  <table>
+    <tr><th style="width:20%">Dia</th><th>Foco</th></tr>
+    <tr><td><b>Sáb 19</b></td><td>Stack, bibliotecas, padrão de arquitetura</td></tr>
+    <tr><td><b>Dom 20</b></td><td>Sondar a API · avaliações das lojas · vídeos do app oficial</td></tr>
+    <tr><td><b>Seg 21</b></td><td>Implementação <span class="sub">96 commits</span></td></tr>
+    <tr><td><b>Ter 22</b></td><td>Implementação · identidade visual <span class="sub">26</span></td></tr>
+    <tr><td><b>Qua 23</b></td><td>Implementação · correções contra a API real <span class="sub">21</span></td></tr>
+  </table>
+  <div class="pg">2</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">1 · Planejamento</p>
+  <h2>Quatro ondas</h2>
+  <table>
+    <tr><th style="width:14%">Onda</th><th>Escopo</th></tr>
+    <tr><td><b>0</b></td><td><i>Walking skeleton</i> · CI · SPEC · ADRs · testes de arquitetura</td></tr>
+    <tr><td><b>1</b></td><td>Sessão e token</td></tr>
+    <tr><td><b>2</b></td><td>Lista · vídeo ao vivo · fechadura <span class="sub">em paralelo</span></td></tr>
+    <tr><td><b>3</b></td><td>Histórico · renovação · iOS · módulo Java · R8</td></tr>
+  </table>
+  <div class="pg">3</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">1 · Planejamento</p>
+  <h2>A fatia é vertical</h2>
+  <ul>
+    <li><code>domain → data → app → tela</code>, e algo observável no fim</li>
+    <li>Teto de <b>400 linhas executáveis</b> por PR, medido por script</li>
+    <li>Teste não entra no teto. Quem o limita são os critérios</li>
+    <li>Uma issue por fatia · um PR por issue · merge por humano</li>
+  </ul>
+  <div class="pg">4</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">2 · Tecnologia</p>
+  <h2>O que não é padrão</h2>
+  <table>
+    <tr><th style="width:30%">Escolha</th><th>Por quê</th></tr>
+    <tr><td><b>Konture</b></td><td>Arquitetura como teste que <b>quebra o build</b></td></tr>
+    <tr><td><b>Roborazzi</b></td><td>42 capturas de tela geradas das telas que já existem</td></tr>
+    <tr><td><b>Kover</b></td><td>A meta de 80% precisa ser medida para existir</td></tr>
+    <tr><td><b>Módulo Java puro</b></td><td>Interop provada por teste <i>escrito em Java</i></td></tr>
+    <tr><td><b>Media3 / WKWebView</b></td><td>Código de plataforma só na superfície do player</td></tr>
+  </table>
+  <div class="note g">Ktor, Koin e SQLDelight são o óbvio de KMP.
+    <b>Konture e Kover vieram do que vocês disseram querer.</b></div>
+  <div class="pg">5</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">3 · Arquitetura</p>
+  <h2>Dependências só para dentro</h2>
+  <div class="cols3">
+    <div class="card"><h3>domain</h3><p>Kotlin puro. Modelos, contratos, erros tipados.<br><br>
+      Sem Ktor, Koin, SQLDelight, Android ou Compose.</p></div>
+    <div class="card"><h3>data</h3><p>O parceiro mora aqui, e só aqui.<br><br>
+      DTOs, mapeadores, cache, cofre do token.</p></div>
+    <div class="card"><h3>app</h3><p>Casos de uso, ViewModels, telas.<br><br>
+      Gera o framework do iOS.</p></div>
+  </div>
+  <div class="pg">6</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">3 · Arquitetura</p>
+  <h2>Regras do Konture</h2>
+  <ul>
+    <li><b>1</b> · domínio sem framework nem persistência</li>
+    <li><b>2</b> · dependência só para dentro, sem ciclo</li>
+    <li><b>4</b> · nada de <code>android.*</code> ou <code>java.*</code> em <code>commonMain</code></li>
+    <li><b>5</b> · repositório do domínio é interface</li>
+    <li><b>8</b> · código de plataforma só em pacote <code>platform</code></li>
+  </ul>
+  <div class="pg">7</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">3 · Arquitetura</p>
+  <h2>Por que módulo por camada, e não por feature</h2>
+  <div class="cols2">
+    <div class="card pick"><h3>B · por camada <span class="sub">escolhida</span></h3>
+      <p>Três módulos: domínio, dados, app.<br><br>
+      As quatro features são pastas dentro do app, já isoladas: nenhuma importa a outra.</p></div>
+    <div class="card"><h3>C · por feature</h3>
+      <p>Oito a doze módulos, um por feature mais os de base.<br><br>
+      Cada um vira um alvo compilado para o iOS.</p></div>
+  </div>
+  <ul style="margin-top:8mm">
+    <li>Um dev, quatro telas: o custo de C é real e o ganho dele (times em paralelo) não existe aqui</li>
+    <li>Promover para C depois é <b>mover pastas</b>, porque as fronteiras já estão respeitadas</li>
+  </ul>
+  <div class="pg">8</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">4 · GitHub</p>
+  <h2>Organização do GitHub</h2>
+  <ul>
+    <li><b>Issues</b> criadas por fatia, com critérios de aceite e os arquivos que toca</li>
+    <li><b>PRs</b> mapeados um a um para as issues, com o porquê no corpo</li>
+    <li><b>Épicos e milestones</b> por onda, em um Project</li>
+    <li><b>CI em três estágios:</b> arquitetura e testes · APK e lint · iOS</li>
+    <li>Merge por humano, sempre</li>
+  </ul>
+  <div class="pg">9</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">5 · Implementação</p>
+  <h2>Abrir a porta e confirmar que abriu</h2>
+  <ul>
+    <li>São duas coisas diferentes, e o app não junta as duas</li>
+    <li>Ele só diz que a porta abriu depois de <b>ler o estado</b> e ver que concorda</li>
+    <li>Se a fechadura não responde, o app diz que <b>não sabe</b> — não inventa</li>
+    <li>Nesta versão, comandos que mexem na porta vêm desligados</li>
+  </ul>
+  <div class="note">A porta é de uma conta compartilhada. Errar para o lado cauteloso é a escolha certa.</div>
+  <div class="pg">10</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">5 · Implementação</p>
+  <h2>O que barra o merge</h2>
+  <dl class="nums">
+    <div><dt>Testes</dt><dd>314</dd></div>
+    <div><dt>ADRs</dt><dd>27</dd></div>
+    <div><dt>Cobertura</dt><dd>61,5%</dd></div>
+  </dl>
+  <ul>
+    <li><b>Barra:</b> testes de arquitetura · a suíte de testes · a checagem das telas</li>
+    <li><b>Não barra:</b> cobertura. É medida e publicada</li>
+  </ul>
+  <div class="pg">11</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">5 · Implementação</p>
+  <h2>Como usei IA</h2>
+  <ul>
+    <li>Para <b>escrever código</b>. As decisões continuaram sendo minhas</li>
+    <li>Nada entra sem teste, e nada é mesclado sozinho</li>
+    <li>Toda decisão importante virou um documento curto com o motivo</li>
+    <li>Onde a IA errou, está anotado — <b>e o que eu fiz para corrigir</b></li>
+  </ul>
+  <div class="note g">Escrever rápido é fácil. O trabalho é revisar o que foi escrito.</div>
+  <div class="pg">12</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">6 · Próximos passos</p>
+  <h2>O que eu melhoraria no fluxo</h2>
+  <ul>
+    <li><b>Início do vídeo mais robusto:</b> reconexão melhor, indicação de progresso real, e cair para uma alternativa antes de falhar</li>
+    <li><b>Ferramentas de câmera:</b> captura de imagem, gravação de trecho, tela cheia e controles de qualidade</li>
+    <li><b>Favoritar dispositivos</b>, para o que se usa todo dia ficar no topo</li>
+    <li><b>Grupos e ambientes</b> (sala, garagem, entrada), para navegar por lugar e não por lista</li>
+    <li><b>Atalhos</b> para abrir a câmera ou a fechadura direto da tela inicial do celular</li>
+  </ul>
+  <div class="pg">13</div>
+</section>
+
+<section class="s">
+  <p class="eyebrow">6 · Próximos passos</p>
+  <h2>O que eu melhoraria no projeto</h2>
+  <ul>
+    <li><b>Mais regras de arquitetura:</b> das onze que desenhei, cinco estão no ar. A que mais falta impede uma feature de importar a outra, e é ela que protege o caminho para módulos por feature</li>
+    <li><b>Capturas de tela no próprio PR:</b> hoje elas são geradas e ficam num arquivo para baixar. Deveriam aparecer na página do PR, para revisar mudança de tela olhando</li>
+    <li><b>Comparação automática dessas capturas</b>, para uma tela quebrada reprovar o PR sozinha</li>
+  </ul>
+  <div class="pg">14</div>
+</section>
+
+<section class="s cover" style="justify-content:flex-end">
+  <h1 style="font-size:36pt">Obrigado</h1>
+  <p><span style="font-family:Consolas,monospace;font-size:14pt">github.com/npauloj/case-mibo-smart</span></p>
+  <div class="meta">Paulo · 24 de setembro de 2026</div>
+  <svg class="glyph" viewBox="0 0 108 108" aria-hidden="true">
+    <path fill="#FFFFFF" d="M54,26 L87,54 L78,54 L78,85 L30,85 L30,54 L21,54 Z"/>
+    <circle cx="54" cy="56" r="11" fill="#00702A"/>
+    <path fill="#00702A" d="M48,73 h12 v12 h-12 Z"/>
+  </svg>
+</section>
+
+</body>
+</html>

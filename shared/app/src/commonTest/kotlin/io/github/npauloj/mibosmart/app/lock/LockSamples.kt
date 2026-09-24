@@ -18,12 +18,7 @@ import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-/**
- * The lock the lock tests talk about.
- *
- * Every identifier is a placeholder in the shape `docs/api-contract.md` uses: the test account's
- * namespaces and product ids open a real door and are never committed (ADR-008).
- */
+/** The lock the lock tests talk about. */
 internal object LockSamples {
 
     const val LOCK_NAMESPACE = "<lock-ns>"
@@ -43,13 +38,7 @@ internal object LockSamples {
     /** The moment the tests call "now", so "há 3 h" is a fact and not a function of the test machine. */
     val Now: Instant = Instant.parse("2026-09-21T12:00:00Z")
 
-    /**
-     * The zone the history tests read `tempoLocal` in.
-     *
-     * It is UTC so that a wall-clock time in a test lines up with [Now] by reading, not by
-     * arithmetic: the partner sends no offset (SPEC L9) and the app uses the device's zone, which is
-     * exactly the input a test must pin down.
-     */
+    /** The zone the history tests read `tempoLocal` in. */
     val Zone: TimeZone = TimeZone.UTC
 
     /** An opening at [Now] minus [minutesAgo], in [Zone] — the shape `historico-abertura` returns. */
@@ -78,13 +67,7 @@ internal object LockSamples {
     ): LockDestination = LockDestination(device(status, lastSeen), Address)
 }
 
-/**
- * The lock screen wired to [repository], with the kill switch in one place.
- *
- * Both writes and the ViewModel read the **same** [LockWritesSwitch]: a build where the use cases
- * refuse to write but the screen still offers the controls — or the other way round — is a bug, not
- * a configuration, and a shared factory is what keeps a test from inventing one.
- */
+/** The lock screen wired to [repository], with the kill switch in one place. */
 internal fun lockViewModel(
     repository: FakeLockRepository,
     writesEnabled: Boolean = true,
@@ -100,13 +83,7 @@ internal fun lockViewModel(
     )
 }
 
-/**
- * The history tab wired to [repository], on a clock and a zone that do not move.
- *
- * Both are pinned for the same reason: "há 5 min" and "21/09/2026 11:55" are the acceptance
- * criterion (SPEC U4), and either the machine's clock or its time zone would otherwise decide what
- * the test asserts.
- */
+/** The history tab wired to [repository], on a clock and a zone that do not move. */
 internal fun openingHistoryViewModel(
     repository: FakeLockRepository,
     catalog: ModelCatalog = RawCodes,

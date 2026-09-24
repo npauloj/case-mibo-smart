@@ -32,10 +32,8 @@ import kotlinx.coroutines.test.setMain
 
 /**
  * The four states of SPEC §2 as the screen sees them, read from `state.value` after
- * `advanceUntilIdle()` — never with Turbine, which this repository reserves for one-shot event flows.
- *
- * `Dispatchers.setMain` is required because the load runs in `viewModelScope`, which is pinned to the
- * main dispatcher.
+ * `advanceUntilIdle()` — never with Turbine, which this repository reserves for one-shot event
+ * flows.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DeviceListViewModelTest {
@@ -96,8 +94,8 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * SPEC D8 with a cache: the rows stay, and the state carries how old they are so the banner can
-     * say "última atualização há 14 min" instead of the screen going blank.
+     * SPEC D8 with a cache: the rows stay, and the state carries how old they are so the banner
+     * can say "última atualização há 14 min" instead of the screen going blank.
      */
     @Test
     fun aNetworkFailureWithACacheKeepsTheRowsAndTheirAge() = runTest(dispatcher) {
@@ -159,8 +157,6 @@ class DeviceListViewModelTest {
     /** ADR-006: pressing retry twice while a request is in flight still spends one request. */
     @Test
     fun aSecondLoadWhileOneIsInFlightIsIgnored() = runTest(dispatcher) {
-        // `yield()` is what makes the first load still be running when the other two start; without a
-        // suspension point the fake answers inside one dispatch and the race cannot be reproduced.
         val repository = FakeDeviceRepository {
             yield()
             emptyList()
@@ -188,11 +184,8 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * SPEC U2: the tap on a camera row *is* the navigation — one event, carrying the device the live
-     * screen needs, with no state in between for a dialog to hang off.
-     *
-     * Turbine, because this is the one-shot event flow; the screen state next to it is still read
-     * from `state.value`.
+     * SPEC U2: the tap on a camera row *is* the navigation — one event, carrying the device the
+     * live screen needs, with no state in between for a dialog to hang off.
      */
     @Test
     fun cameraTapEmitsOpenLiveVideo() = runTest(dispatcher) {
@@ -210,8 +203,6 @@ class DeviceListViewModelTest {
             assertEquals("iM3-C", event.camera.name)
             assertEquals(DeviceKind.Camera, event.camera.kind)
 
-            // SPEC D6: a lock has its own destination, and sending it to this one would open the live
-            // screen on a device that has no video.
             viewModel.onCameraTap(viewModel.state.value.rows.first { it.name == "MFR 1001" })
             advanceUntilIdle()
             expectNoEvents()
@@ -220,8 +211,8 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * SPEC U2 and D6: a lock row opens the lock screen the way a camera row opens the picture — one
-     * event, no intermediate screen, and the list left exactly as it was to come back to.
+     * SPEC U2 and D6: a lock row opens the lock screen the way a camera row opens the picture —
+     * one event, no intermediate screen, and the list left exactly as it was to come back to.
      */
     @Test
     fun lockTapEmitsOpenLock() = runTest(dispatcher) {
@@ -239,21 +230,13 @@ class DeviceListViewModelTest {
             assertEquals(LOCK_NAME, event.lock.name)
             assertEquals(DeviceKind.Lock, event.lock.kind)
 
-            // SPEC D7: the tap navigates and nothing else — so `onBack` finds the same chip and the
-            // same rows, because this ViewModel never rebuilt them.
             assertEquals(OriginFilter.Linked, viewModel.state.value.filter)
             assertEquals(listOf(LOCK_NAME, HUB_NAME), viewModel.state.value.rows.map { it.name })
             expectNoEvents()
         }
     }
 
-    /**
-     * SPEC L1 and `docs/api-contract.md` §5: all four parts, each read off the lock's own row.
-     *
-     * The hub's product id is the part nothing else in the app can supply, and the partner sends it
-     * on the sub-device (`idProdutoDispositivoPai`, §3) — which is why it is asserted beside the
-     * other three and not assumed.
-     */
+    /** SPEC L1 and `docs/api-contract.md` §5: all four parts, each read off the lock's own row. */
     @Test
     fun openLockCarriesTheCompositeAddress() = runTest(dispatcher) {
         val viewModel = viewModel(FakeDeviceRepository { lockAndHub() })
@@ -272,13 +255,9 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * SPEC D2, D6 and L1: the list is paged, so a lock is routinely on screen while its hub is not —
-     * and that must not cost the user the lock, because the partner already put the hub's `ns` and
-     * `idProduto` on the lock's own row (`docs/api-contract.md` §3).
-     *
-     * The page here has no hub row at all, which is the strongest form of the case: searching the
-     * loaded rows for one would find nothing, so a tap that still opens the lock proves the address
-     * came from the lock itself.
+     * SPEC D2, D6 and L1: the list is paged, so a lock is routinely on screen while its hub is
+     * not — and that must not cost the user the lock, because the partner already put the hub's
+     * `ns` and `idProduto` on the lock's own row (`docs/api-contract.md` §3).
      */
     @Test
     fun aLockIsAddressableWithoutItsHubOnScreen() = runTest(dispatcher) {
@@ -293,9 +272,6 @@ class DeviceListViewModelTest {
             viewModel.onLockTap(row)
             advanceUntilIdle()
 
-            // The hub's product id is the one part D-03 could only reach through the hub's row, so
-            // it is what says the address really came from the lock's own. The other three are
-            // `openLockCarriesTheCompositeAddress`'s.
             val address = assertIs<DeviceListEvent.OpenLock>(awaitItem()).address
             assertEquals(HUB_PRODUCT_ID, address.hubProductId)
             assertEquals(HUB_NAMESPACE, address.hub.value)
@@ -303,12 +279,8 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * The guard the composite address depends on: a blank `idProduto` is a part of the namespace the
-     * partner never sent, and an `ns` short of one part is another device's.
-     *
-     * Both sides are asserted because they are two different fields of the row — the lock's own
-     * `idProduto`, sent beside the namespace, and its `idProdutoDispositivoPai`, joined *inside* it
-     * (`docs/api-contract.md` §3, §5).
+     * The guard the composite address depends on: a blank `idProduto` is a part of the
+     * namespace the partner never sent, and an `ns` short of one part is another device's.
      */
     @Test
     fun aLockWithABlankProductIdIsNotActionable() = runTest(dispatcher) {
@@ -334,13 +306,7 @@ class DeviceListViewModelTest {
         }
     }
 
-    /**
-     * A lock row that arrived without `idProdutoDispositivoPai` at all — absent, not blank.
-     *
-     * It takes the same path as a blank one on purpose: the user can do nothing about either, and
-     * the only alternative to refusing is joining three parts and a hole into a namespace that
-     * belongs to some other device (`docs/api-contract.md` §5).
-     */
+    /** A lock row that arrived without `idProdutoDispositivoPai` at all — absent, not blank. */
     @Test
     fun aLockWithoutAParentProductIdIsNotActionable() = runTest(dispatcher) {
         val viewModel = viewModel(FakeDeviceRepository { lockAndHub(hubProductId = null) })
@@ -359,8 +325,9 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * ADR-006: the whole point of assembling the address from loaded rows — opening a lock spends
-     * nothing. The fake fails the test outright if it is asked for a page after the list has loaded.
+     * ADR-006: the whole point of assembling the address from loaded rows — opening a lock
+     * spends nothing. The fake fails the test outright if it is asked for a page after the list
+     * has loaded.
      */
     @Test
     fun openingALockCallsThePartnerZeroTimes() = runTest(dispatcher) {
@@ -394,11 +361,8 @@ class DeviceListViewModelTest {
     }
 
     /**
-     * SPEC D4: the chip still reloads with the new `origem` when the list in hand is **incomplete**.
-     *
-     * A full page means another page may exist, so the rows on screen are a prefix of the answer and
-     * cannot be filtered into one — devices past the end would silently disappear. This is the case
-     * that still costs a request, and it has to keep costing one.
+     * SPEC D4: the chip still reloads with the new `origem` when the list in hand is
+     * **incomplete**.
      */
     @Test
     fun anIncompleteListStillAsksThePartnerWhenTheChipChanges() = runTest(dispatcher) {
@@ -420,16 +384,7 @@ class DeviceListViewModelTest {
         assertEquals(OriginFilter.Linked, preferences.readOriginFilter(), "the next launch must open on it")
     }
 
-    /**
-     * ADR-027: with the whole list in hand, a chip costs **nothing**.
-     *
-     * `origem` is a server-side filter and the app used to send one on every tap — paying a request
-     * to be handed back a subset of rows already in memory. Every device carries its own `origem`, so
-     * a complete `todos` set can answer any chip locally. On the test account this is the ordinary
-     * case, not an optimisation for later: 17 devices against a page size of 20.
-     *
-     * The chip is still remembered, because the next launch must open on it (SPEC D4).
-     */
+    /** ADR-027: with the whole list in hand, a chip costs **nothing**. */
     @Test
     fun aCompleteListAnswersTheChipWithoutAskingThePartner() = runTest(dispatcher) {
         val repository = FakeDeviceRepository {
@@ -476,12 +431,7 @@ class DeviceListViewModelTest {
         assertEquals(1, repository.calls)
     }
 
-    /**
-     * SPEC D5 and ADR-006: the whole page is named, and the partner is asked nothing for it.
-     *
-     * The catalogue is a table already in memory, so the only call this test may see is the one page
-     * load of SPEC D1 — a lookup that had gone to the network would show up here as a second one.
-     */
+    /** SPEC D5 and ADR-006: the whole page is named, and the partner is asked nothing for it. */
     @Test
     fun namingModelsCallsThePartnerZeroTimes() = runTest(dispatcher) {
         val repository = FakeDeviceRepository {

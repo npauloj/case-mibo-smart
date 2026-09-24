@@ -26,17 +26,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC S10 on the wire: the exact request `renovar-token` was measured to want, and the deadline it
- * answers with (`docs/api-contract.md` §2, probed 2026-09-21).
- *
- * The other half of the slice — what a renewal does to the stored session — is
- * `io.github.npauloj.mibosmart.app.session.RenewTokenTest`, because the use case lives in `:shared:app`
- * and `MockEngine` is a dependency of this module's tests alone. Each half is asserted where it can
- * actually be seen; neither is asserted twice.
- *
- * **Nothing here calls the real API.** The probe that produced these bytes was run once and committed;
- * repeating it would spend the account's ~300-request budget to learn what the repo already states
- * (ADR-006).
+ * SPEC S10 on the wire: the exact request `renovar-token` was measured to want, and the
+ * deadline it answers with (`docs/api-contract.md` §2, probed 2026-09-21).
  */
 class RenewTokenTest {
 
@@ -84,12 +75,7 @@ class RenewTokenTest {
         assertEquals(1, counter.requests.value)
     }
 
-    /**
-     * A renewal of a token the partner has already refused is a 403 like any other (ADR-012).
-     *
-     * It surfaces as the typed failure so the session guard — the only thing entitled to end a
-     * session — can act on it, instead of the repository deciding on its own (SPEC S6, ADR-018).
-     */
+    /** A renewal of a token the partner has already refused is a 403 like any other (ADR-012). */
     @Test
     fun anExpiredTokenCannotRenewItself() = runTest {
         val repository = repositoryAnswering(mutableListOf()) {

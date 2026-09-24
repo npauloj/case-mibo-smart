@@ -21,12 +21,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * SPEC **U2** — "two taps to the picture": starting the app with a token already stored must put the
- * list on screen straight away, not a spinner that waits on the partner.
- *
- * It lives beside the device list because the list is what U2 measures; the token half of the start
- * is `TokenEntryViewModelTest`'s. `Dispatchers.setMain` is required because the load runs in
- * `viewModelScope`.
+ * SPEC **U2** — "two taps to the picture": starting the app with a token already stored must
+ * put the list on screen straight away, not a spinner that waits on the partner.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionStartTest {
@@ -40,8 +36,9 @@ class SessionStartTest {
     fun tearDown() = Dispatchers.resetMain()
 
     /**
-     * The cached rows are on screen while page 1 is still in flight — asserted *before* the fake
-     * partner answers, which is the only way to tell "rendered from the cache" from "rendered fast".
+     * The cached rows are on screen while page 1 is still in flight — asserted *before* the
+     * fake partner answers, which is the only way to tell "rendered from the cache" from
+     * "rendered fast".
      */
     @Test
     fun cachedListRenderedBeforeNetwork() = runTest(dispatcher) {

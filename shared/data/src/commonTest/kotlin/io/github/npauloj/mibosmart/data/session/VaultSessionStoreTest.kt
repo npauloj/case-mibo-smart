@@ -30,12 +30,7 @@ class VaultSessionStoreTest {
         )
     }
 
-    /**
-     * A renewed session's deadline is the partner's, and it survives a cold start (SPEC S10).
-     *
-     * The value is deliberately not the 2 h default: a store that dropped it would still round trip
-     * a session that *looks* right, and the test would pass while the app invented its own deadline.
-     */
+    /** A renewed session's deadline is the partner's, and it survives a cold start (SPEC S10). */
     @Test
     fun roundTripsTheServerSuppliedLifetime() = runTest {
         val store = VaultSessionStore(FakeSecureTokenStore())
@@ -95,12 +90,7 @@ class VaultSessionStoreTest {
         assertNull(store.read(), "a vault that was never written is an app without a session")
     }
 
-    /**
-     * A bare token is what a build from before the `issuedAt` contract left behind (ADR-010).
-     *
-     * Without an `issuedAt` there is no expiry policy to apply, so the session is not one the app can
-     * reason about: it fails safe towards the token screen rather than warning at the wrong moment.
-     */
+    /** A bare token is what a build from before the `issuedAt` contract left behind (ADR-010). */
     @Test
     fun undecodableValueIsTreatedAsNoSession() = runTest {
         val vault = FakeSecureTokenStore().apply { write(TOKEN) }
@@ -109,11 +99,8 @@ class VaultSessionStoreTest {
     }
 
     /**
-     * The same fail-safe one contract later: an entry with an `issuedAt` but no lifetime (ADR-020).
-     *
-     * It is what a build from before S-03 wrote. Reading it as a 2 h session would be a guess about a
-     * credential that may have been renewed for something else entirely, so it goes the same way as
-     * any other value this store cannot decode.
+     * The same fail-safe one contract later: an entry with an `issuedAt` but no lifetime
+     * (ADR-020).
      */
     @Test
     fun anEntryWithoutALifetimeIsTreatedAsNoSession() = runTest {

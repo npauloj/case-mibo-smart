@@ -19,10 +19,6 @@ class ChangeVolumeTest {
     /**
      * The request carries the level the user picked, and the screen shows it **only after** the
      * partner answers.
-     *
-     * The gate is what makes "not optimistic" provable: while `mudar-volume` is in flight the
-     * selector still reads Low, the level the lock actually reported on entry. A screen that moved
-     * on the tap would claim a quieter door than the one in the hallway.
      */
     @Test
     fun exactRequestAndOptimisticOff() = runTest {
@@ -54,12 +50,7 @@ class ChangeVolumeTest {
         assertNull(settled.writeFailure)
     }
 
-    /**
-     * The kill switch, at the only place that can guarantee anything: **no request at all**.
-     *
-     * A disabled chip is an affordance; this is the rule. The counter covers reads too, so a build
-     * with lock writes off cannot even spend the budget finding out it may not write.
-     */
+    /** The kill switch, at the only place that can guarantee anything: **no request at all**. */
     @Test
     fun killSwitchOffSendsNothing() = runTest {
         val repository = FakeLockRepository()

@@ -5,21 +5,14 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * The three camera and streaming calls as the partner wants them (`docs/api-contract.md` §3 and §6).
- *
- * The defaults below are the contract's, not Kotlin's: they are written into the request object
- * instead of being declared as property defaults because `kotlinx.serialization` omits defaults from
- * the encoded body, and SPEC V2 is an assertion about the exact bytes sent.
+ * The three camera and streaming calls as the partner wants them (`docs/api-contract.md` §3 and
+ * §6).
  */
 internal object CameraRequests {
 
     /**
-     * The **substream** (1), not the main profile (0): lower bandwidth is what a phone on mobile
-     * data keeps up with, and the account is billed for what it really consumes (§6).
-     *
-     * Measured 2026-09-23: the partner ignores this field. Main and substream return the same SDP,
-     * the same codec and the same bitrate, on both hosts. It is sent because the contract asks for
-     * it, not because it selects anything.
+     * The **substream** (1), not the main profile (0): lower bandwidth is what a phone on
+     * mobile data keeps up with, and the account is billed for what it really consumes (§6).
      */
     private const val STREAM_ID = 1
 
@@ -61,12 +54,8 @@ internal data class CreateStreamRequestDto(
 /** `criar-fluxo-video` → the session, the fMP4 url and the partner's own player page (§6). */
 @Serializable
 internal data class StreamSessionDto(
-    // Required, and it has to stay required: it is the only handle `encerrar-sessao` accepts, and
-    // an optional one would let the app open sessions it cannot close. Measured 2026-09-23, the
-    // api host answers this call with a url and nothing else, so the field was briefly made
-    // nullable to get past a parse failure — which quietly disabled SPEC V8's teardown and left 27
-    // sessions open on a shared account. The parse failure was the right alarm; the wrong host was
-    // the fault (see `SmartHomeApi.streamingBaseUrl`).
+    // Obrigatório, e tem de continuar: é o único identificador que o `encerrar-sessao` aceita, e um
+    // campo opcional deixa o app abrir sessões que não sabe fechar (ADR-025).
     @SerialName("session_id") val sessionId: String,
     @SerialName("url") val url: String,
     @SerialName("monitor_url") val monitorUrl: String? = null,

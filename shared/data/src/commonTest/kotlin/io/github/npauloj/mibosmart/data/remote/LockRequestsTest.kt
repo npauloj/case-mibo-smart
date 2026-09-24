@@ -28,18 +28,12 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 
-/**
- * SPEC L1 and L8: the exact bytes the three lock reads put on the wire.
- *
- * The lock is the one device the partner does not address by its own namespace, and its volume read
- * is a documented contract bug (`docs/api-contract.md` §5, §7.4). Both are quarantined here, with a
- * test each, because nothing above `:shared:data` is allowed to know about them (ADR-004).
- */
+/** SPEC L1 and L8: the exact bytes the three lock reads put on the wire. */
 class LockRequestsTest {
 
     /**
-     * SPEC L8: the Swagger requires `productId`, the property the API reads is `idProduto`, and only
-     * sending both worked. Dropping either one silently stops returning the volume.
+     * SPEC L8: the Swagger requires `productId`, the property the API reads is `idProduto`, and
+     * only sending both worked. Dropping either one silently stops returning the volume.
      */
     @Test
     fun volumeRequestCarriesBothIds() = runTest {
@@ -54,13 +48,7 @@ class LockRequestsTest {
         assertTrue(body.contains(""""productId":"$LOCK_PRODUCT_ID""""), "unexpected request body: $body")
     }
 
-    /**
-     * SPEC L1: `<lockNs>_<hubNs>_<hubIdProduto>`, on all three endpoints.
-     *
-     * The order of the three parts is the contract's. Addressed by its own namespace the same lock
-     * answers "Dispositivo não encontrado" (`docs/api-contract.md` §3), so a wrong join does not
-     * degrade — it stops working.
-     */
+    /** SPEC L1: `<lockNs>_<hubNs>_<hubIdProduto>`, on all three endpoints. */
     @Test
     fun everyReadAddressesTheLockThroughItsHub() = runTest {
         val requests = mutableListOf<HttpRequestData>()
@@ -87,12 +75,7 @@ class LockRequestsTest {
         }
     }
 
-    /**
-     * SPEC L7: `mudar-volume` carries the composite address and the integer, and nothing else.
-     *
-     * The level on the wire is the partner's 0..3, not the app's name for it: sending `"High"` would
-     * be accepted by nothing and reported by no one.
-     */
+    /** SPEC L7: `mudar-volume` carries the composite address and the integer, and nothing else. */
     @Test
     fun changeVolumeSendsTheLevelAsTheDocumentedInteger() = runTest {
         val requests = mutableListOf<HttpRequestData>()
@@ -107,13 +90,7 @@ class LockRequestsTest {
         assertTrue(body.contains(""""volume":3"""), "unexpected request body: $body")
     }
 
-    /**
-     * SPEC L3: `aberto` is the state the door is **asked for**, and both values are real.
-     *
-     * The direction is the whole contract (`docs/api-contract.md` §5) and it is the one field in the
-     * app whose inversion would open a door instead of locking it, so both commands are put on the
-     * wire and read back rather than one being assumed from the other.
-     */
+    /** SPEC L3: `aberto` is the state the door is **asked for**, and both values are real. */
     @Test
     fun commandSendsTheRequestedOpenState() = runTest {
         val requests = mutableListOf<HttpRequestData>()
@@ -133,14 +110,7 @@ class LockRequestsTest {
         assertTrue(requests.last().bodyText().contains(""""aberto":false"""), requests.last().bodyText())
     }
 
-    /**
-     * SPEC L2: the app enables remote opening and has no way to disable it.
-     *
-     * `habilitar` is fixed at `true` in the request type, so this asserts a property of the code
-     * rather than of one call site: there is no argument anywhere that could make these bytes say
-     * `false`. It is the guarantee that matters most here — the opposite value would quietly take a
-     * door's safety net away.
-     */
+    /** SPEC L2: the app enables remote opening and has no way to disable it. */
     @Test
     fun enableRemoteOpenAlwaysAsksToEnable() = runTest {
         val requests = mutableListOf<HttpRequestData>()
@@ -156,14 +126,7 @@ class LockRequestsTest {
         assertFalse(body.contains("false"), "nothing in this request may ever say false: $body")
     }
 
-    /**
-     * SPEC L9: `historico-abertura` is the one lock call **without** `idProduto`.
-     *
-     * The absent field is the contract (`docs/api-contract.md` §5), and an absent field is exactly
-     * what nobody notices creeping back in — so it is asserted, not assumed. `quantidade` is the
-     * whole size of the answer: the endpoint is not paginated, so this number is all the history
-     * there will be for one request (ADR-006).
-     */
+    /** SPEC L9: `historico-abertura` is the one lock call **without** `idProduto`. */
     @Test
     fun historyAsksForAQuantityAndNoProductId() = runTest {
         val requests = mutableListOf<HttpRequestData>()
@@ -175,17 +138,12 @@ class LockRequestsTest {
         val body = requests.single().bodyText()
         assertTrue(body.contains(""""ns":"${LOCK_NAMESPACE}_${HUB_NAMESPACE}_$HUB_PRODUCT_ID""""), body)
         assertTrue(body.contains(""""quantidade":50"""), "unexpected request body: $body")
-        // The key, not the word: the hub's placeholder id happens to spell it too.
         assertFalse(body.contains(""""idProduto":"""), "historico-abertura takes no product id: $body")
     }
 
     /**
-     * SPEC L9: `tempoLocal` is wall-clock time, and a `tipo` nobody has seen survives the mapping.
-     *
-     * `20260918T102735` carries no offset and none may be invented, so it stays a `LocalDateTime`;
-     * the empty `nome` of an opening nobody performed becomes `null` rather than `""`, so the screen
-     * decides what to say; and `biometria` — a type the contract never listed — is carried through
-     * unchanged instead of being dropped.
+     * SPEC L9: `tempoLocal` is wall-clock time, and a `tipo` nobody has seen survives the
+     * mapping.
      */
     @Test
     fun historyEntriesKeepTheirWallClockTimeAndUnknownTypes() = runTest {
@@ -203,13 +161,7 @@ class LockRequestsTest {
         )
     }
 
-    /**
-     * SPEC E3: a `tempoLocal` that is not the documented shape is reported, never guessed at.
-     *
-     * The time *is* the entry — "who opened the door and when" is the whole criterion (SPEC U4) — so
-     * an unreadable one fails the read, the way a volume outside 0..3 does, rather than quietly
-     * becoming a row that cannot say when it happened.
-     */
+    /** SPEC E3: a `tempoLocal` that is not the documented shape is reported, never guessed at. */
     @Test
     fun anUnreadableHistoryTimestampIsUnexpected() = runTest {
         val repository = repositoryAnswering(mutableListOf(), signedIn(), historyTime = "ontem à tarde")
@@ -228,8 +180,8 @@ class LockRequestsTest {
     }
 
     /**
-     * No session, no lock: there is nothing to retry and the only way forward is a new token, which
-     * is what a refused one means to every screen above (SPEC S6).
+     * No session, no lock: there is nothing to retry and the only way forward is a new token,
+     * which is what a refused one means to every screen above (SPEC S6).
      */
     @Test
     fun aMissingSessionIsTokenRejected() = runTest {
@@ -273,9 +225,6 @@ class LockRequestsTest {
     private fun String.answer(volumeLevel: Int, historyTime: String): String = when {
         endsWith("status-abertura/v1") -> """{"status":"sucesso","data":{"aberto":false}}"""
         endsWith("status-abrir-remoto/v1") -> """{"status":"sucesso","data":{"habilitado":true}}"""
-        // `data` is a bare array here, and the third entry is invented: only `usuarioRemoto` and
-        // `interno` were ever observed (SPEC L9 `[ASSUMED]`), and what an unseen type does is
-        // precisely what has to be pinned down.
         endsWith("historico-abertura/v1") -> """
             {"status":"sucesso","data":[
               {"tempoLocal":"$historyTime","nome":"APP","tipo":"usuarioRemoto"},
@@ -284,9 +233,6 @@ class LockRequestsTest {
             ]}
         """.trimIndent()
 
-        // The writes' success payload was never probed — it changes a real device
-        // (`docs/api-contract.md` §8, open question 4). An envelope with an empty `data` is the
-        // least the reader accepts, and the repository reads nothing out of it anyway.
         endsWith("mudar-volume/v1") || endsWith("habilitar-abrir-remoto/v1") ||
             endsWith("controle-fechadura/v1") ->
             """{"status":"sucesso","data":{}}"""

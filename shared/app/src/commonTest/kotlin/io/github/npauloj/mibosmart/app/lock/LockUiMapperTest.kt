@@ -15,12 +15,7 @@ import kotlin.time.Duration.Companion.seconds
 /** SPEC U3 and the offline half of L5: an offline lock says what it knows and how old that is. */
 class LockUiMapperTest {
 
-    /**
-     * The values are not wrong, they are old — so the screen keeps them and date-stamps them.
-     *
-     * Dropping the last known state would leave the user with an empty screen for a door they can
-     * see; showing it without its age would be a lie (`docs/research/user-feedback.md`, cluster 4).
-     */
+    /** The values are not wrong, they are old — so the screen keeps them and date-stamps them. */
     @Test
     fun offlineStateCarriesLastSeen() {
         val destination = LockSamples.destination(

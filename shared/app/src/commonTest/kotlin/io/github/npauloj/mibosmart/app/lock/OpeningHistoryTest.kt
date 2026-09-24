@@ -10,24 +10,11 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 
-/**
- * SPEC L9, L10 and U4: what the opening history says, and what it costs.
- *
- * The rules under test are all about not losing information — an opening the app cannot classify is
- * still an opening, an entry with nobody's name still has to read as something, and a time is shown
- * twice because one way of saying it is never enough.
- */
+/** SPEC L9, L10 and U4: what the opening history says, and what it costs. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class OpeningHistoryTest {
 
-    /**
-     * SPEC L9: the two `tipo` values the partner was ever observed sending, kept apart.
-     *
-     * `usuarioRemoto` and `interno` mean different things to whoever reads the list — somebody
-     * opened the door from an app, or somebody was standing at it — so they may never collapse into
-     * one another. The wire words themselves stop in `:shared:data`; what arrives here is the
-     * distinction.
-     */
+    /** SPEC L9: the two `tipo` values the partner was ever observed sending, kept apart. */
     @Test
     fun mapsKnownTypes() = runTest {
         val viewModel = openingHistoryViewModel(
@@ -46,13 +33,7 @@ class OpeningHistoryTest {
         assertEquals(null, rows.last().actor, "an opening at the door itself names nobody")
     }
 
-    /**
-     * SPEC L9's `[ASSUMED]`, made a rule: a `tipo` nobody has seen reaches the screen as it came.
-     *
-     * The list of types was never published — only two were observed — so a filter here would drop
-     * exactly the openings worth looking at: the ones this app cannot explain. The raw word is
-     * carried through and the entry keeps its place in the list.
-     */
+    /** SPEC L9's `[ASSUMED]`, made a rule: a `tipo` nobody has seen reaches the screen as it came. */
     @Test
     fun unknownTypeShownRaw() = runTest {
         val viewModel = openingHistoryViewModel(
@@ -71,14 +52,7 @@ class OpeningHistoryTest {
         assertEquals(OpeningKind.Unknown("biometria"), rows.first().kind)
     }
 
-    /**
-     * ADR-007: the partner's catalogue names an opening this app has no word of its own for.
-     *
-     * The raw `tipo` stays on the row beside the label — it is what the partner said, and the two
-     * are not the same claim — so nothing is lost by a catalogue that turns out to be wrong. A code
-     * the catalogue has never heard of keeps reading exactly as [unknownTypeShownRaw] asserts, which
-     * is also what the whole of iOS does.
-     */
+    /** ADR-007: the partner's catalogue names an opening this app has no word of its own for. */
     @Test
     fun catalogNamesAnUnknownType() = runTest {
         val viewModel = openingHistoryViewModel(
@@ -115,13 +89,7 @@ class OpeningHistoryTest {
         assertTrue(state.isEmpty, "the screen has nothing to say \"Sem aberturas registradas\" about")
     }
 
-    /**
-     * SPEC U4: both times, on a clock that does not move.
-     *
-     * "há 5 min" on its own is unanchored and "21/09/2026 11:55" on its own has to be subtracted in
-     * the reader's head. The absolute half is also the day-first order a Brazilian reader expects —
-     * the one thing a machine locale would silently get wrong.
-     */
+    /** SPEC U4: both times, on a clock that does not move. */
     @Test
     fun entryShowsRelativeAndAbsoluteTime() = runTest {
         val viewModel = openingHistoryViewModel(
@@ -135,13 +103,7 @@ class OpeningHistoryTest {
         assertEquals("21/09/2026 11:55", row.absoluteTime)
     }
 
-    /**
-     * SPEC U4: a remote opening carries who did it, and one without a name is still not blank.
-     *
-     * The name is the whole point of the criterion — "quem abriu a porta" is what the partner's own
-     * users could not see — and it is also personal data: it lives in this state while the screen is
-     * up and is never logged.
-     */
+    /** SPEC U4: a remote opening carries who did it, and one without a name is still not blank. */
     @Test
     fun remoteEntryShowsActorName() = runTest {
         val viewModel = openingHistoryViewModel(
@@ -164,12 +126,7 @@ class OpeningHistoryTest {
         )
     }
 
-    /**
-     * SPEC L9: newest first, decided here rather than trusted from the partner.
-     *
-     * The fake answers in the order it was given, which is the order the endpoint happens to use on
-     * a good day. Nothing documents it, so the list is sorted where the rule belongs.
-     */
+    /** SPEC L9: newest first, decided here rather than trusted from the partner. */
     @Test
     fun newestFirst() = runTest {
         val viewModel = openingHistoryViewModel(
@@ -190,13 +147,7 @@ class OpeningHistoryTest {
         )
     }
 
-    /**
-     * SPEC L9 and ADR-006: one request to enter the tab, none to come back to it.
-     *
-     * The endpoint is not paginated, so 50 entries is the whole answer and a second call would buy
-     * nothing — while the account pays for it. Switching tabs is the common case, and it must be
-     * free.
-     */
+    /** SPEC L9 and ADR-006: one request to enter the tab, none to come back to it. */
     @Test
     fun oneRequestPerTabEntry() = runTest {
         val repository = FakeLockRepository(history = listOf(LockSamples.opening(5, OpeningKind.Local)))
@@ -213,12 +164,7 @@ class OpeningHistoryTest {
         assertEquals(listOf(OpeningHistory.ENTRIES), repository.requestedEntries)
     }
 
-    /**
-     * SPEC U6: a history that could not be read says why and offers the one action that helps.
-     *
-     * "Tentar novamente" is a tap and never a timer (SPEC E5) — and it is the only thing besides
-     * entering the tab that spends a request here.
-     */
+    /** SPEC U6: a history that could not be read says why and offers the one action that helps. */
     @Test
     fun aFailedReadIsNamedAndRetryable() = runTest {
         val repository = FakeLockRepository(

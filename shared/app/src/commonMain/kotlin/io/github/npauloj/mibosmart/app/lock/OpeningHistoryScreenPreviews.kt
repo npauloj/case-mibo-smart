@@ -7,16 +7,12 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import io.github.npauloj.mibosmart.app.ui.AppTheme
 import io.github.npauloj.mibosmart.domain.lock.OpeningKind
 
-// android.content.res.Configuration.UI_MODE_NIGHT_YES, which commonMain cannot import (rule 4).
 private const val UI_MODE_NIGHT_YES = 0x20
 
 /**
- * Every state `OpeningHistoryContent` can render (SPEC §4 "Visual acceptance"), declared once: the
- * named previews below take one value each so their names stay readable metadata, and tooling that
- * walks providers gets the same sequence.
- *
- * The names in [List] are placeholders. A real entry's `nome` is the account holder's
- * (`docs/api-contract.md` §5) and no identifier of the test account is committed (ADR-008).
+ * Every state `OpeningHistoryContent` can render (SPEC §4 "Visual acceptance"), declared once:
+ * the named previews below take one value each so their names stay readable metadata, and
+ * tooling that walks providers gets the same sequence.
  */
 internal class OpeningHistoryUiStateProvider : PreviewParameterProvider<OpeningHistoryUiState> {
 
@@ -30,11 +26,6 @@ internal class OpeningHistoryUiStateProvider : PreviewParameterProvider<OpeningH
         /**
          * SPEC L9 and U4 in one frame: newest first, both times on every row, and every kind of
          * opening the contract can produce.
-         *
-         * The last four rows are the ones worth looking at — a remote opening that names nobody, a
-         * `tipo` this app has never seen that the partner's catalogue does name (ADR-007), one
-         * nobody catalogued, and one the partner sent empty. None of them is blank and none of them
-         * is missing, which is the acceptance criterion made visible.
          */
         val List = OpeningHistoryUiState.Entries(
             rows = listOf(

@@ -47,11 +47,9 @@ import platform.Security.kSecValueData
 internal actual fun Scope.secureTokenStore(): SecureTokenStore = KeychainTokenStore()
 
 /**
- * One `kSecClassGenericPassword` item, readable only on this device and only after the first unlock
- * since boot — `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` also keeps it out of iCloud and of
- * encrypted backups (ADR-008). Written straight against `Security.framework` through the cinterop
- * Kotlin/Native already ships: that accessibility level is the point of the decision and a settings
- * library would hide it.
+ * One `kSecClassGenericPassword` item, readable only on this device and only after the first
+ * unlock since boot — `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` also keeps it out of
+ * iCloud and of encrypted backups (ADR-008).
  */
 @OptIn(ExperimentalForeignApi::class)
 private class KeychainTokenStore : SecureTokenStore {
@@ -66,7 +64,6 @@ private class KeychainTokenStore : SecureTokenStore {
         if (status == errSecItemNotFound) return@memScoped null
         check(status == errSecSuccess) { "Keychain read failed with OSStatus $status" }
 
-        // `CFRelease` crashes on a null pointer, so the copy is only scheduled once it exists.
         val data: CFDataRef = found.value?.reinterpret() ?: return@memScoped null
         defer { CFRelease(data) }
         val bytes = CFDataGetBytePtr(data) ?: return@memScoped null
@@ -74,8 +71,6 @@ private class KeychainTokenStore : SecureTokenStore {
     }
 
     override fun write(token: String) = memScoped {
-        // The Keychain has no upsert: adding over an existing item answers `errSecDuplicateItem`, so
-        // the previous token goes first. Deleting what is not there is not an error here.
         SecItemDelete(itemQuery())
 
         val insertion = itemQuery()
@@ -93,12 +88,7 @@ private class KeychainTokenStore : SecureTokenStore {
         check(status == errSecSuccess) { "Keychain write failed with OSStatus $status" }
     }
 
-    /**
-     * The item is deleted by the same query that identifies it.
-     *
-     * `errSecItemNotFound` is a success here: "Sair" on a Keychain that has already lost the item
-     * must still end on the token screen (SPEC S8).
-     */
+    /** The item is deleted by the same query that identifies it. */
     override fun clear() = memScoped {
         val status = SecItemDelete(itemQuery())
         check(status == errSecSuccess || status == errSecItemNotFound) {

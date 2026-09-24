@@ -26,12 +26,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * SPEC **D2** (where the list ends) and **D11** (one request in flight), which are the same problem
- * seen from two sides: the account pays per request (ADR-006), so every rule here is ultimately
- * about which requests are *not* sent.
- *
- * The queries the fake partner recorded are the assertion surface — `state.value` says what the user
- * sees, `repository.queries` says what it cost.
+ * SPEC **D2** (where the list ends) and **D11** (one request in flight), which are the same
+ * problem seen from two sides: the account pays per request (ADR-006), so every rule here is
+ * ultimately about which requests are *not* sent.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PaginationTest {
@@ -84,8 +81,8 @@ class PaginationTest {
     }
 
     /**
-     * SPEC D2: an empty page ends the list too — and costs exactly the one request that discovered
-     * it. The rows already on screen stay: the page before it was simply the last.
+     * SPEC D2: an empty page ends the list too — and costs exactly the one request that
+     * discovered it. The rows already on screen stay: the page before it was simply the last.
      */
     @Test
     fun emptyPageEndsListWithoutExtraCall() = runTest(dispatcher) {
@@ -109,14 +106,7 @@ class PaginationTest {
         assertEquals(2, repository.calls)
     }
 
-    /**
-     * SPEC D11: the answer to a query nobody is looking at any more never reaches the list.
-     *
-     * `NonCancellable` is what makes the race reproducible: it stands for a response that was
-     * already on its way back when the user tapped the other chip, so the old request *returns* —
-     * after being cancelled — and the `(origem, pagina)` comparison is the only thing that can stop
-     * it from overwriting the new filter's rows.
-     */
+    /** SPEC D11: the answer to a query nobody is looking at any more never reaches the list. */
     @Test
     fun staleResponseFromPreviousFilterIsDropped() = runTest(dispatcher) {
         val late = CompletableDeferred<List<Device>>()
@@ -149,7 +139,6 @@ class PaginationTest {
     @Test
     fun concurrentNextPageTriggersMakeOneRequest() = runTest(dispatcher) {
         val repository = FakeDeviceRepository { query ->
-            // A suspension point, so the next-page request is still in flight when the others fire.
             yield()
             page(FULL_PAGE, "p${query.page}")
         }
@@ -204,11 +193,8 @@ class PaginationTest {
     }
 
     /**
-     * SPEC D2 and D8 at the end of the list: a next page that fails leaves the rows alone, stops
-     * the list asking on its own, and is retried as *that* page — not the one after it.
-     *
-     * Counting from the request instead of from the rows would skip a page silently, and the user
-     * would have no way to tell: the list would simply be missing twenty devices.
+     * SPEC D2 and D8 at the end of the list: a next page that fails leaves the rows alone,
+     * stops the list asking on its own, and is retried as *that* page — not the one after it.
      */
     @Test
     fun aFailedNextPageKeepsTheRowsAndIsRetriedAsTheSamePage() = runTest(dispatcher) {
@@ -243,13 +229,7 @@ class PaginationTest {
         assertNull(viewModel.state.value.error)
     }
 
-    /**
-     * A device listed on two pages is one row, not two.
-     *
-     * Pagination is blind (`docs/api-contract.md` §3): a device that shifts between pages while the
-     * user scrolls is returned twice, and two rows sharing an id is a duplicate key — which the
-     * list answers with a crash rather than with a repeated row.
-     */
+    /** A device listed on two pages is one row, not two. */
     @Test
     fun aDeviceRepeatedAcrossPagesIsListedOnce() = runTest(dispatcher) {
         val repeated = device(name = "iM3-C", id = "PLACEHOLDER-NS-REPEATED")

@@ -18,8 +18,8 @@ import kotlin.test.assertSame
 import org.koin.dsl.koinApplication
 
 /**
- * The graph the app really starts with: a missing binding would only show up as a crash on the first
- * screen, which no unit test of a single class can catch.
+ * The graph the app really starts with: a missing binding would only show up as a crash on the
+ * first screen, which no unit test of a single class can catch.
  */
 class AppModulesTest {
 
@@ -34,13 +34,8 @@ class AppModulesTest {
     }
 
     /**
-     * The token screen's portal link points at the **portal**, and this test exists because nothing
-     * else would notice if it did not.
-     *
-     * The two hosts are both plausible strings of the same shape, and wiring the api one here would
-     * produce a link that opens a page with no token generator on it — no crash, no failing request,
-     * nothing to see in a log. That is the same failure mode ADR-025 records costing a day, arriving
-     * through a different door.
+     * The token screen's portal link points at the **portal**, and this test exists because
+     * nothing else would notice if it did not.
      */
     @Test
     fun theTokenScreenLinksToThePortalAndNotToTheApi() {
@@ -63,13 +58,7 @@ class AppModulesTest {
         koin.close()
     }
 
-    /**
-     * The guard and the stream it listens to (SPEC S6).
-     *
-     * Resolved from the real graph because the failure they have is not a compile error: a guard
-     * wired to a second, empty refusal stream would never fire, and no unit test of either class on
-     * its own could tell.
-     */
+    /** The guard and the stream it listens to (SPEC S6). */
     @Test
     fun theSessionGuardAndItsRefusalStreamResolveFromTheRealGraph() {
         val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
@@ -92,8 +81,6 @@ class AppModulesTest {
             portalHost = "https://portal.example.invalid")) }.koin
 
         assertNotNull(koin.get<LoadLock>())
-        // The command path is wired too: LockViewModel takes it, so a missing binding is a screen
-        // that crashes on the door rather than on the reads (ADR-014).
         assertNotNull(koin.get<ToggleLock>())
 
         koin.close()
@@ -109,14 +96,7 @@ class AppModulesTest {
         koin.close()
     }
 
-    /**
-     * The code catalogue (ADR-007), whose binding is the platform's rather than a feature's.
-     *
-     * The history tab asks Koin for it by hand, so a missing binding would be a crash on the tab and
-     * nowhere earlier. Which implementation answers depends on the platform — the Java-backed one on
-     * Android, [io.github.npauloj.mibosmart.domain.device.RawCodes] on iOS — and this asserts only
-     * that one of them is there, which is the part that can break by wiring.
-     */
+    /** The code catalogue (ADR-007), whose binding is the platform's rather than a feature's. */
     @Test
     fun theCodeCatalogueResolvesFromTheRealGraph() {
         val koin = koinApplication { modules(appModule(apiHost = "https://api.example.invalid",
@@ -138,13 +118,8 @@ class AppModulesTest {
     }
 
     /**
-     * SPEC D5: the device list reaches the same catalogue the history tab does, and gets the same one.
-     *
-     * Its ViewModel asks Koin for `ModelCatalog` by hand, exactly as the lock's does, and the two
-     * features never import each other (rule 3) — the domain contract is all they share. So what can
-     * break by wiring is not "is it there", which the test above already covers, but "is it *one*":
-     * a second binding, or a `factory` instead of a `single`, would rebuild the partner's table on
-     * every screen that named a code.
+     * SPEC D5: the device list reaches the same catalogue the history tab does, and gets the
+     * same one.
      */
     @Test
     fun deviceListResolvesTheModelCatalog() {

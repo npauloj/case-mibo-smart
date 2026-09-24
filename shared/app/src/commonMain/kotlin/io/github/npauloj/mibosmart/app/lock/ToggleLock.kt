@@ -13,11 +13,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 /**
  * Opening and closing a door, and the one thing that makes it safe: **a command is not a fact**
  * (SPEC L3, L4, L5).
- *
- * `controle-fechadura` answers when the partner has taken the command, not when the lock has obeyed,
- * so [invoke] spends a second request re-reading `status-abertura` and reports what the lock says.
- * Two requests per command, always — and never a third on its own: [verify] exists because SPEC L4
- * forbids polling a device on a 300-request budget (ADR-006), and only a user's tap may call it.
  */
 class ToggleLock(
     private val lockRepository: LockRepository,
@@ -26,18 +21,13 @@ class ToggleLock(
 
     /**
      * Sends [command] and waits, once, for the lock to say the same thing.
-     *
-     * @param before the lock as the user saw it when tapping. Only the door can have moved, so
-     *   everything else in it survives the command unchanged, and it is what the screen restores to
-     *   when the command never left (SPEC L5).
+     * @param before the lock as the user saw it when tapping.
      */
     suspend operator fun invoke(
         address: LockAddress,
         command: LockCommand,
         before: LockState,
     ): ToggleLockResult {
-        // First, before anything can reach the network: this is the call that moves a physical door,
-        // so "off" has to mean no request at all.
         if (!lockWrites.isOn) return ToggleLockResult.WritesDisabled
         try {
             lockRepository.command(address, command)
@@ -50,12 +40,8 @@ class ToggleLock(
     }
 
     /**
-     * The "Verificar" action of SPEC L4: exactly one more `status-abertura`, because the user asked.
-     *
-     * It differs from the confirmation inside [invoke] in one way, deliberately. There, a read that
-     * fails leaves the command unconfirmed and says nothing more — the user is already being told the
-     * door's state is unknown. Here the user asked a direct question, so a failure is reported as a
-     * failure rather than as a silent "still not confirmed".
+     * The "Verificar" action of SPEC L4: exactly one more `status-abertura`, because the user
+     * asked.
      */
     suspend fun verify(
         address: LockAddress,
@@ -69,13 +55,7 @@ class ToggleLock(
         failure.toResult()
     }
 
-    /**
-     * The confirmation read, bounded by the window of SPEC L4.
-     *
-     * A read that times out, or fails, is `null`: not knowing and being told the wrong thing are the
-     * same outcome to a user standing at a door, and both must end in `CommandExpired` rather than in
-     * a screen that settles on a state nothing reported.
-     */
+    /** The confirmation read, bounded by the window of SPEC L4. */
     private suspend fun readWithinTheWindow(address: LockAddress): Boolean? = try {
         withTimeoutOrNull(CONFIRMATION_WINDOW) { lockRepository.readOpenState(address) }
     } catch (cancellation: CancellationException) {
@@ -91,8 +71,6 @@ class ToggleLock(
         confirmation: Boolean?,
     ): ToggleLockResult = when (val outcome = LockCommandOutcome.of(command, before, confirmation)) {
         is LockCommandOutcome.Confirmed -> ToggleLockResult.Confirmed(outcome.lock)
-        // Unconfirmed still carries the freshest reading there is: a disagreeing read is news about
-        // the door even though it is not the news the command asked for.
         LockCommandOutcome.Expired ->
             ToggleLockResult.Unconfirmed(before.copy(isOpen = confirmation ?: before.isOpen))
     }
@@ -107,21 +85,14 @@ class ToggleLock(
 
     internal companion object {
 
-        /**
-         * `[ASSUMED]` (SPEC L4): how long the app waits for the device to confirm.
-         *
-         * Enforced on a virtual clock in `ToggleLockTest.timeoutBecomesCommandExpired` and tuned
-         * against the real lock in wave 3 — the number is a guess, the behaviour at the edge is not.
-         */
+        /** `[ASSUMED]` (SPEC L4): how long the app waits for the device to confirm. */
         val CONFIRMATION_WINDOW = 10.seconds
     }
 }
 
 /**
- * Everything commanding a lock can end in (ADR-002), with [LoadLockResult]'s failure categories.
- *
- * The first two are the ones this use case exists to tell apart: what the device confirmed, and what
- * it merely did not deny.
+ * Everything commanding a lock can end in (ADR-002), with [LoadLockResult]'s failure
+ * categories.
  */
 sealed interface ToggleLockResult {
 
@@ -130,9 +101,8 @@ sealed interface ToggleLockResult {
 
     /**
      * The command was taken but the device did not confirm it (SPEC L4).
-     *
-     * @property lock the freshest reading the app has — the disagreeing one when there was a read,
-     *   otherwise the lock as it was before. It is never the state that was asked for.
+     * @property lock the freshest reading the app has — the disagreeing one when there was a
+     * read, otherwise the lock as it was before.
      */
     data class Unconfirmed(val lock: LockState) : ToggleLockResult
 

@@ -24,14 +24,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
-/**
- * SPEC S7: the session's own countdown, and the banner it raises on the device list.
- *
- * Two clocks on purpose, and they mean different things. [FixedClock] answers "when did this session
- * start", which a test must pin or the boundary cannot be asserted to the millisecond; the virtual
- * time of `runTest` is what actually *passes*, so the app is shown to warn while it is open without
- * anything ticking (ADR-006, SPEC E5).
- */
+/** SPEC S7: the session's own countdown, and the banner it raises on the device list. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionStateTest {
 
@@ -44,14 +37,8 @@ class SessionStateTest {
     fun tearDown() = Dispatchers.resetMain()
 
     /**
-     * The banner appears at 1 h 50 min of a session that was fresh when the app opened — and not a
-     * millisecond earlier.
-     *
-     * `runCurrent()` rather than `advanceUntilIdle()`: the ViewModel is deliberately left with one
-     * task pending — the sleep until the warning — and advancing until idle would run it, which is
-     * the very thing being timed. `advanceTimeBy` then stops short of the tasks scheduled at the
-     * instant it lands on, so the first assertion is the "not before" half and `runCurrent()`
-     * releases exactly the boundary.
+     * The banner appears at 1 h 50 min of a session that was fresh when the app opened — and
+     * not a millisecond earlier.
      */
     @Test
     fun warnsBeforeExpiry() = runTest(dispatcher) {
@@ -74,12 +61,7 @@ class SessionStateTest {
         assertFalse(viewModel.state.value.expiringSoon, "a session that just started has nothing to say")
     }
 
-    /**
-     * A cold start into a session that aged while the app was closed warns on the first frame.
-     *
-     * Without this the warning would only ever appear to someone who kept the app open for 1 h 50 min
-     * — which is precisely the user who did not need telling.
-     */
+    /** A cold start into a session that aged while the app was closed warns on the first frame. */
     @Test
     fun storedSessionPastTheThresholdWarnsImmediately() = runTest(dispatcher) {
         val viewModel = viewModelFor(issuedAt = NOW, now = NOW + Session.WARN_AFTER)

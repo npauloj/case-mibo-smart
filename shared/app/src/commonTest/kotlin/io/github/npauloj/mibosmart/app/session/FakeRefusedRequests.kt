@@ -8,11 +8,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * The refusal stream without a partner: a test says "this request came back refused" and the guard
- * above reacts exactly as it would in the app.
- *
- * The production implementation lives in `:shared:data` and is `internal` there, which is the point —
- * `:shared:app` only ever sees the domain interface (ADR-001, ADR-004).
+ * The refusal stream without a partner: a test says "this request came back refused" and the
+ * guard above reacts exactly as it would in the app.
  */
 internal class FakeRefusedRequests : RefusedRequests {
 

@@ -29,16 +29,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * SPEC V3, V4, V5, V8, V9 and U1 — the things that decide whether this feature costs the account
- * money, and whether a user ever gets an answer.
- *
- * The screen `StateFlow` is read as `state.value` after the scheduler has run on a
- * `StandardTestDispatcher`; Turbine is for one-shot event flows only (`CLAUDE.md`).
- *
- * Which scheduler call matters here. Since V-02 every attempt arms U1's 20-second first-frame
- * watchdog, so `advanceUntilIdle()` does not mean "let the pending work run" any more — it means
- * "let the wait run out". A test that only wants the fakes to answer calls `runCurrent()`; a test
- * about a delay names the delay with `advanceTimeBy`.
+ * SPEC V3, V4, V5, V8, V9 and U1 — the things that decide whether this feature costs the
+ * account money, and whether a user ever gets an answer.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LiveVideoViewModelTest {
@@ -103,11 +95,8 @@ class LiveVideoViewModelTest {
     }
 
     /**
-     * SPEC V8, the expensive case: the user leaves while the partner is still minting the session.
-     *
-     * The session is created anyway — the app cannot un-ask — so the only way not to leak it is to
-     * learn its id and close it. A screen that gave up at the cancellation would leave a stream
-     * running against the account until the partner's own cap ended it.
+     * SPEC V8, the expensive case: the user leaves while the partner is still minting the
+     * session.
      */
     @Test
     fun cancellationMidCreationStillEndsSession() = runTest(dispatcher) {
@@ -130,13 +119,7 @@ class LiveVideoViewModelTest {
         )
     }
 
-    /**
-     * SPEC V8: the teardown outlives the ViewModel.
-     *
-     * `ViewModelStore.clear()` is exactly what the framework does when the screen is gone: it cancels
-     * `viewModelScope` and then calls `onCleared`. A teardown launched on that scope would never send
-     * its request, and nothing but this assertion would say so.
-     */
+    /** SPEC V8: the teardown outlives the ViewModel. */
     @Test
     fun teardownUsesAppScopeNotViewModelScope() = runTest(dispatcher) {
         val partner = FakeStreamingRepository()
@@ -177,13 +160,7 @@ class LiveVideoViewModelTest {
         assertEquals(2, partner.opened.size, "resuming a live screen created a second session")
     }
 
-    /**
-     * SPEC V4, the ladder's free attempt: a drop re-prepares the url the app already has.
-     *
-     * The session stays open on purpose — it is the same session, and only consumed bandwidth is
-     * billed — so this attempt costs the account nothing at all. Ending it here and creating another
-     * would spend a request on the most common failure there is, a radio reconnecting.
-     */
+    /** SPEC V4, the ladder's free attempt: a drop re-prepares the url the app already has. */
     @Test
     fun aDropRePreparesTheSameSessionBeforePayingForAnother() = runTest(dispatcher) {
         val partner = FakeStreamingRepository()
@@ -207,12 +184,7 @@ class LiveVideoViewModelTest {
         assertEquals(emptyList(), partner.closed, "the session it was about to reuse was closed")
     }
 
-    /**
-     * SPEC V4 and ADR-006: a full ladder costs three creations per visit, and not one more.
-     *
-     * The count is the whole assertion. The account has ~300 requests for the entire case, and a
-     * retry loop is the classic way to spend them without anybody noticing.
-     */
+    /** SPEC V4 and ADR-006: a full ladder costs three creations per visit, and not one more. */
     @Test
     fun ladderCreatesAtMostTwoExtraSessions() = runTest(dispatcher) {
         val partner = FakeStreamingRepository()
@@ -220,7 +192,6 @@ class LiveVideoViewModelTest {
         viewModel.open(CameraSamples.camera())
         runCurrent()
 
-        // Three drops: re-prepare (free), new session (3 s), new session (7 s).
         listOf(2.seconds, 4.seconds, 8.seconds).forEach { wait ->
             assertIs<StreamState.Live>(viewModel.state.value, "the ladder stopped before its last rung")
             viewModel.onPlayerEvent(PlayerEvent.NetworkError)
@@ -257,12 +228,7 @@ class LiveVideoViewModelTest {
         assertEquals(listOf(CameraSamples.SESSION.id), partner.closed, "an unplayable stream kept billing")
     }
 
-    /**
-     * SPEC U1: the wait is bounded, and what ends it is a clock, not the user's patience.
-     *
-     * This is the "trava em 97 %" of the partner's own reviews, answered: 20 seconds without a frame
-     * is a failure with a name and two ways out, not a spinner that turns until the app is killed.
-     */
+    /** SPEC U1: the wait is bounded, and what ends it is a clock, not the user's patience. */
     @Test
     fun firstFrameTimeoutBecomesFailed() = runTest(dispatcher) {
         val partner = FakeStreamingRepository()
@@ -298,11 +264,8 @@ class LiveVideoViewModelTest {
     }
 
     /**
-     * SPEC V9 and ADR-005: a session without a `monitor_url` has nothing to fall back to, and the
-     * screen says so instead of offering a button that would open nothing.
-     *
-     * This closes the loop ADR-005 left open: on iOS a null `monitor_url` is reported as a decode
-     * error at once, and V5 sends a decode error to a fallback that would have no url to load.
+     * SPEC V9 and ADR-005: a session without a `monitor_url` has nothing to fall back to, and
+     * the screen says so instead of offering a button that would open nothing.
      */
     @Test
     fun failedWithoutMonitorUrlOffersRetryOnly() = runTest(dispatcher) {
@@ -344,12 +307,7 @@ class LiveVideoViewModelTest {
         )
     }
 
-    /**
-     * SPEC V8 and ADR-006: coming back to the foreground does not buy a new allowance.
-     *
-     * A phone going in and out of a pocket is not a user asking for anything, and it is the one way
-     * an app can spend a shared account's quota all night without a single tap.
-     */
+    /** SPEC V8 and ADR-006: coming back to the foreground does not buy a new allowance. */
     @Test
     fun aForegroundReturnSpendsFromTheSameAllowance() = runTest(dispatcher) {
         val partner = FakeStreamingRepository()
@@ -375,13 +333,7 @@ class LiveVideoViewModelTest {
         assertEquals(3, partner.opened.size, "the foreground return created a fourth session")
     }
 
-    /**
-     * SPEC V4 and V6: the button the failed screen offers has to work.
-     *
-     * The ladder's allowance is what ADR-006 bounds — what the app spends *by itself*. A user who
-     * taps "Tentar novamente" after the third failure is not a loop, and a button that the ladder's
-     * own budget had already spent would be exactly the dead action SPEC V6 refuses.
-     */
+    /** SPEC V4 and V6: the button the failed screen offers has to work. */
     @Test
     fun retryAfterAFullLadderStartsTheAllowanceOver() = runTest(dispatcher) {
         val partner = FakeStreamingRepository()
@@ -407,8 +359,6 @@ class LiveVideoViewModelTest {
     private fun viewModelWith(partner: FakeStreamingRepository) = LiveVideoViewModel(
         watchLiveVideo = WatchLiveVideo(partner, LiveVideoSwitch(isOn = true)),
         endStreamSession = EndStreamSession(partner),
-        // The real one is a `SupervisorJob` on `Dispatchers.Default`; here it is the same shape on a
-        // scheduler the test controls, so "the teardown ran" is an assertion and not a wait.
         appScope = AppCoroutineScope(SupervisorJob() + dispatcher),
     )
 }

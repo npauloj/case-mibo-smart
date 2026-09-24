@@ -8,13 +8,8 @@ import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC **E2**: every failure the taxonomy can currently raise reaches the screen as a category of its
- * own, and none of them collapses into the catch-all.
- *
- * Exhaustiveness itself is enforced by the compiler — `ListDevices` maps the sealed taxonomy with a
- * `when` that has no `else`, so a subtype added by a later slice does not build until it has a
- * category. What this test adds is that the categories are the *right* ones and that none of them
- * silently became [DeviceListResult.Failed].
+ * SPEC **E2**: every failure the taxonomy can currently raise reaches the screen as a category
+ * of its own, and none of them collapses into the catch-all.
  */
 class ErrorMappingTest {
 
@@ -27,11 +22,7 @@ class ErrorMappingTest {
             SmartHomeException.DeviceNotFound() to DeviceListResult.DeviceNotFound,
             SmartHomeException.Offline(cause = null) to DeviceListResult.Offline,
             SmartHomeException.UnexpectedResponse("not an envelope") to DeviceListResult.UnexpectedResponse,
-            // Only `criar-fluxo-video` can answer this (SPEC V6); listing devices cannot, so the list
-            // has nothing better to say than its catch-all — but it still has to say something.
             SmartHomeException.QuotaExceeded() to DeviceListResult.Failed,
-            // The only category that may carry the server's words — and it keeps them in the
-            // exception, never in the result the screen renders (SPEC U6).
             SmartHomeException.ApiError("Erro desconhecido") to DeviceListResult.Failed,
         )
 

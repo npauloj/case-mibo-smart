@@ -55,13 +55,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
-/**
- * Watching one camera live (SPEC V1, V2, V3, V6, V7, V8).
- *
- * The lifecycle wiring is the safety-critical part of this file. A stream left running while the
- * phone is in a pocket spends the account's quota for nothing, so `ON_STOP` tears the session down
- * and `ON_START` brings it back only if it was torn down (ADR-005, SPEC V8).
- */
+/** Watching one camera live (SPEC V1, V2, V3, V6, V7, V8). */
 @Composable
 fun LiveVideoScreen(
     camera: Device,
@@ -90,11 +84,8 @@ fun LiveVideoScreen(
 }
 
 /**
- * The half of SPEC V8 the screen owns: a stream must not survive the app going to the background.
- *
- * It is its own composable, and emits nothing, so it can be composed on its own in a test with a fake
- * `LifecycleOwner` (`LiveVideoScreenLifecycleTest`) — the wiring that silently costs the account a
- * gigabyte when it breaks is the wiring worth covering.
+ * The half of SPEC V8 the screen owns: a stream must not survive the app going to the
+ * background.
  */
 @Composable
 internal fun LiveVideoLifecycle(viewModel: LiveVideoViewModel) {
@@ -121,18 +112,11 @@ fun LiveVideoScreenContent(
         TextButton(onClick = onBack) { Text(stringResource(Res.string.live_back)) }
         Text(text = cameraName, style = MaterialTheme.typography.headlineSmall)
 
-        // The rail is the only thing on this screen that reports state without words, which matters
-        // here more than anywhere: the picture is the content, and a person looking at a frame that is
-        // not moving needs to know which kind of "not moving" it is.
         StateRail(tone = state.tone()) {
             when (state) {
-                // The frame before the first step, and the frame after teardown: an empty surface, not a
-                // collapsed layout, so the screen never jumps as the states go by.
                 StreamState.Idle -> VideoSurface {}
                 is StreamState.Creating -> VideoSurface { StepLabel(state.step) }
                 is StreamState.Live -> LiveSurface(state, onPlayerEvent)
-                // The attempt is counted in words over the same frame the picture will land on, so the
-                // screen neither jumps nor pretends to know a percentage (SPEC V3, U1).
                 is StreamState.Reconnecting -> VideoSurface {
                     Label(
                         stringResource(
@@ -145,8 +129,6 @@ fun LiveVideoScreenContent(
                 StreamState.NoLiveCapability -> Explanation(Res.string.live_no_capability)
                 StreamState.QuotaExceeded -> Explanation(Res.string.live_quota_exceeded)
                 StreamState.CameraOffline -> Explanation(Res.string.live_camera_offline)
-                // The web player is offered only when the session carried a `monitor_url`: with none
-                // there is nothing to open, and a dead button is worse than no button (SPEC V9, ADR-005).
                 is StreamState.Failed ->
                     Explanation(state.error.message, onRetry, state.monitorUrl?.let { onWebPlayer })
                 is StreamState.WebFallback -> WebFallbackSurface(state.url, onCloseWebPlayer)
@@ -155,14 +137,7 @@ fun LiveVideoScreenContent(
     }
 }
 
-/**
- * What kind of "no picture" this is.
- *
- * `Live` gets the brand's own colour because it is the one state on this screen where everything is
- * working. Creating and reconnecting are [StateTone.Waiting] — the app is trying and does not know
- * yet. A camera that is offline or has no live capability is [StateTone.Settled], not a failure:
- * nothing went wrong, the answer is simply no (SPEC V7).
- */
+/** What kind of "no picture" this is. */
 private fun StreamState.tone(): StateTone = when (this) {
     StreamState.Idle -> StateTone.Settled
     is StreamState.Creating -> StateTone.Waiting
@@ -175,12 +150,7 @@ private fun StreamState.tone(): StateTone = when (this) {
     is StreamState.Failed -> StateTone.Failed
 }
 
-/**
- * The stream, with the wait named on top of it until the first frame arrives (SPEC V2, V3).
- *
- * The player is composed as soon as there is a url — that is the whole of V2, since the url stops
- * working 15 seconds after the partner minted it.
- */
+/** The stream, with the wait named on top of it until the first frame arrives (SPEC V2, V3). */
 @Composable
 private fun LiveSurface(state: StreamState.Live, onPlayerEvent: (PlayerEvent) -> Unit) {
     VideoSurface {
@@ -220,12 +190,7 @@ private fun VideoSurface(content: @Composable BoxScope.() -> Unit) {
     )
 }
 
-/**
- * SPEC V3: the wait is a sentence, not a percentage and not a bare spinner.
- *
- * The partner's own app is the reason this rule exists — its stream stuck at "97 %" is the most-cited
- * complaint in the reviews this case was researched from (`docs/research/user-feedback.md`).
- */
+/** SPEC V3: the wait is a sentence, not a percentage and not a bare spinner. */
 @Composable
 private fun StepLabel(step: StreamStep) {
     Label(stringResource(step.label))
@@ -237,24 +202,14 @@ private fun Label(text: String) {
     Text(text = text, style = MaterialTheme.typography.bodyMedium)
 }
 
-/**
- * The partner's own player page, and the way back to the screen that offered it (SPEC V9).
- *
- * The way back matters on iOS, where the surface hands the url to Safari and closes itself: without
- * it the user would return from the browser to a frame with nothing in it.
- */
+/** The partner's own player page, and the way back to the screen that offered it (SPEC V9). */
 @Composable
 private fun WebFallbackSurface(url: String, onClose: () -> Unit) {
     VideoSurface { WebPlayerFallback(url, onClose, Modifier.fillMaxSize()) }
     TextButton(onClick = onClose) { Text(stringResource(Res.string.live_close_web_player)) }
 }
 
-/**
- * One named cause, and an action only when there is one worth offering (SPEC U6, V6).
- *
- * At most one *primary* action (U6): "Tentar novamente" is the button, and the web player — which
- * exists only when the session carried a `monitor_url` — is the quieter second way out.
- */
+/** One named cause, and an action only when there is one worth offering (SPEC U6, V6). */
 @Composable
 private fun Explanation(
     message: StringResource,
@@ -263,8 +218,6 @@ private fun Explanation(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = stringResource(message), style = MaterialTheme.typography.bodyMedium)
-        // Quota, capability and an offline camera have no retry on purpose: asking again cannot
-        // change any of them, and a button that does nothing is worse than no button (SPEC V6).
         onRetry?.let { Button(onClick = it) { Text(stringResource(Res.string.live_retry)) } }
         onWebPlayer?.let { TextButton(onClick = it) { Text(stringResource(Res.string.live_open_web_player)) } }
     }

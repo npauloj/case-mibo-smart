@@ -7,12 +7,7 @@ import io.github.npauloj.mibosmart.domain.session.SessionGuard
 import io.github.npauloj.mibosmart.domain.session.SessionStore
 import kotlin.time.Clock
 
-/**
- * The routing ViewModel over one store, which is how the app really wires it.
- *
- * Startup and the guard share the same [SessionStore] on purpose: the bug this shape prevents is a
- * guard that clears one vault while the app keeps routing from another (SPEC S5, S6).
- */
+/** The routing ViewModel over one store, which is how the app really wires it. */
 internal fun appViewModel(
     store: SessionStore,
     clock: Clock,

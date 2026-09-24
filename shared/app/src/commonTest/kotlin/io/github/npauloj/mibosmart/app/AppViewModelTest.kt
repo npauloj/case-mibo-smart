@@ -35,8 +35,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * The state the app holds between screens (ADR-003, ADR-010). Which screen a session opens is SPEC
- * S5's, and lives in `session/SessionStartTest`; this pins what the state says before it knows.
+ * The state the app holds between screens (ADR-003, ADR-010). Which screen a session opens is
+ * SPEC S5's, and lives in `session/SessionStartTest`; this pins what the state says before it
+ * knows.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppViewModelTest {
@@ -49,13 +50,7 @@ class AppViewModelTest {
     @AfterTest
     fun tearDown() = Dispatchers.resetMain()
 
-    /**
-     * Nothing is routed to until the vault has answered.
-     *
-     * A default of "token screen" would flash the way-in at a signed-in user for a frame, and a
-     * default of "device list" would show a session the store cannot back — the failure ADR-010 is
-     * about. The honest default is "not known yet", and it is only one vault read wide.
-     */
+    /** Nothing is routed to until the vault has answered. */
     @Test
     fun noDestinationIsChosenBeforeTheStoreAnswers() = runTest(dispatcher) {
         val viewModel = appViewModel(InMemorySessionStore(), FixedClock(TokenSamples.Now))
@@ -64,13 +59,7 @@ class AppViewModelTest {
         assertFalse(viewModel.state.value.expiringSoon)
     }
 
-    /**
-     * Renewing clears the banner (SPEC S7, S10).
-     *
-     * This is the lie S-03 made reachable: before this slice [AppUiState.expiringSoon] was computed
-     * once at startup and then only ever set to `true`, so a renewed two-hour session still carried
-     * the warning — the one action the app offers against expiry looking broken.
-     */
+    /** Renewing clears the banner (SPEC S7, S10). */
     @Test
     fun renewalClearsExpiringSoon() = runTest(dispatcher) {
         val world = renewingWorld(issuedAt = NOW - Session.WARN_AFTER)
@@ -83,13 +72,7 @@ class AppViewModelTest {
         assertFalse(world.app.state.value.expiringSoon, "the banner survived a successful renewal")
     }
 
-    /**
-     * The user does not move (SPEC S10).
-     *
-     * The guard against the obvious wrong fix: `onStart()` would recompute the warning correctly and
-     * rebuild [AppUiState] wholesale on the way, resetting the destination and throwing the user off
-     * the account screen at the exact moment they renewed. This fails loudly if anyone reaches for it.
-     */
+    /** The user does not move (SPEC S10). */
     @Test
     fun renewalDoesNotChangeDestination() = runTest(dispatcher) {
         val world = renewingWorld(issuedAt = NOW - Session.WARN_AFTER)
@@ -106,15 +89,7 @@ class AppViewModelTest {
         )
     }
 
-    /**
-     * One timer, rescheduled — not two racing (SPEC S7).
-     *
-     * The old session would have warned a minute from now; the renewed one warns five minutes from
-     * now (15 min of life less the 10 min margin). Both instants are checked: silence at the old
-     * deadline proves the first timer was cancelled, and the banner at the new one proves a second
-     * was actually scheduled. Without the cancel, the loser of the race raises the banner over a
-     * session that has just been renewed.
-     */
+    /** One timer, rescheduled — not two racing (SPEC S7). */
     @Test
     fun renewalReschedulesTheSingleWarning() = runTest(dispatcher) {
         val world = renewingWorld(issuedAt = NOW - (Session.WARN_AFTER - 1.minutes))
@@ -133,12 +108,7 @@ class AppViewModelTest {
         assertTrue(world.app.state.value.expiringSoon, "the renewed session never scheduled its own warning")
     }
 
-    /**
-     * A renewal that failed changes nothing at all (SPEC S10).
-     *
-     * Not just the flag: the credential is untouched and the original timer still fires at its own
-     * deadline, because a failure must leave the app in the state it would have had anyway.
-     */
+    /** A renewal that failed changes nothing at all (SPEC S10). */
     @Test
     fun failedRenewalChangesNothing() = runTest(dispatcher) {
         val world = renewingWorld(
@@ -167,13 +137,7 @@ class AppViewModelTest {
         val store: SessionStore,
     )
 
-    /**
-     * Both ViewModels over **one** store, wired the way `App.kt` wires them.
-     *
-     * The collector is the point: these tests exercise the whole path — the account announces, some
-     * collector carries it, the routing ViewModel recomputes — rather than calling `refreshExpiry()`
-     * directly and proving only that the method works in isolation.
-     */
+    /** Both ViewModels over **one** store, wired the way `App.kt` wires them. */
     private suspend fun TestScope.renewingWorld(
         issuedAt: Instant,
         partner: FakeSessionRepository =
@@ -190,8 +154,6 @@ class AppViewModelTest {
             debugBuild = DebugBuild(true),
             clock = clock,
         )
-        // `backgroundScope`, not `launch`: collecting a SharedFlow never returns, and a plain child
-        // job would keep `runTest` waiting for a collector that cannot finish.
         backgroundScope.launch { account.renewed.collect { app.refreshExpiry() } }
         return RenewingWorld(app, account, store)
     }

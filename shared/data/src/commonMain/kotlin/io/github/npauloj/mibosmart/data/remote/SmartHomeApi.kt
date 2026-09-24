@@ -15,31 +15,11 @@ import io.ktor.http.contentType
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.json.JsonElement
 
-/**
- * The partner endpoints the app calls.
- *
- * Every call spends one request from the account budget (ADR-006), so each function is exactly one
- * HTTP call and never retries on its own — retrying is a decision for the screen that can explain it.
- */
+/** The partner endpoints the app calls. */
 internal class SmartHomeApi(
     private val httpClient: HttpClient,
     private val baseUrl: String,
-    /**
-     * Where the **streaming** endpoints live, which is not where the rest of the API lives.
-     *
-     * Measured 2026-09-23. `cameras/criar-fluxo-video/v1` answers on both hosts and answers
-     * *differently*: on the api host it returns `{"url": "rtsp://…"}` and nothing else — no
-     * `session_id`, so SPEC V8 can never close the session it just opened — and that rtsp endpoint
-     * completes the whole RTSP handshake (`DESCRIBE`, `SETUP`, `PLAY`, all `200`) without ever
-     * sending a media packet. On the portal host the same call returns the shape the Swagger
-     * documents: a fragmented-MP4 url over HTTPS, `monitor_url`, `session_id` and `quota_gb`.
-     * `streaming/cota-disponivel/v1`, `streaming/minhas-sessoes/v1` and `streaming/encerrar-sessao/v1`
-     * answer `403 {"message":"Forbidden"}` on the api host — the gateway refusing an unknown route,
-     * not the platform refusing the token.
-     *
-     * So this is not a preference between two working hosts: the api host is the wrong address for
-     * these calls, and using it is what left 27 sessions open on a shared account.
-     */
+    /** Where the **streaming** endpoints live, which is not where the rest of the API lives. */
     private val streamingBaseUrl: String,
     private val envelopeReader: EnvelopeReader,
     private val requestCounter: RequestCounter,
@@ -47,12 +27,10 @@ internal class SmartHomeApi(
 ) {
 
     /**
-     * `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the envelope.
-     *
-     * @param origin the `origem` filter on the wire — `"todos"`, `"vinculados"` or `"compartilhados"`
-     *   (`docs/api-contract.md` §3). The device list always states it (SPEC D4); the default is
-     *   there for the one caller that is not listing anything — the token validation of SPEC S2,
-     *   which asks for the smallest page of whatever the account has.
+     * `POST /produtos/listar-dispositivos/v1`, returning the raw `data` payload of the
+     * envelope.
+     * @param origin the `origem` filter on the wire — `"todos"`, `"vinculados"` or
+     * `"compartilhados"` (`docs/api-contract.md` §3).
      */
     suspend fun listDevices(
         token: Token,
@@ -64,10 +42,8 @@ internal class SmartHomeApi(
     }
 
     /**
-     * `POST /autenticacao/renovar-token/v1` — a second credential for the same account (SPEC S10).
-     *
-     * The path is the description's, not the Swagger's `/autenticacao/renovarToken`, which does not
-     * answer (`docs/api-contract.md` §2, probed 2026-09-21).
+     * `POST /autenticacao/renovar-token/v1` — a second credential for the same account (SPEC
+     * S10).
      */
     suspend fun renewToken(token: Token, request: RenewTokenRequestDto): JsonElement =
         post(RENEW_TOKEN_PATH, token) { setBody(request) }
@@ -96,22 +72,11 @@ internal class SmartHomeApi(
     suspend fun readLockVolume(token: Token, request: LockVolumeRequestDto): JsonElement =
         post(LOCK_VOLUME_PATH, token) { setBody(request) }
 
-    /**
-     * `POST /fechaduras/historico-abertura/v1` — the door's recent openings (SPEC L9).
-     *
-     * The endpoint is not paginated: `quantidade` is the whole answer, so this is one request per
-     * visit to the history and there is no second page to pay for (ADR-006).
-     */
+    /** `POST /fechaduras/historico-abertura/v1` — the door's recent openings (SPEC L9). */
     suspend fun readLockOpeningHistory(token: Token, request: LockHistoryRequestDto): JsonElement =
         post(LOCK_HISTORY_PATH, token) { setBody(request) }
 
-    /**
-     * `POST /fechaduras/controle-fechadura/v1` — opens or locks the door (SPEC L3).
-     *
-     * The only call in the app that moves a physical thing. It answers as soon as the partner has
-     * taken the command, which is why every caller re-reads `status-abertura` afterwards instead of
-     * believing this return.
-     */
+    /** `POST /fechaduras/controle-fechadura/v1` — opens or locks the door (SPEC L3). */
     suspend fun commandLock(token: Token, request: LockCommandRequestDto): JsonElement =
         post(LOCK_COMMAND_PATH, token) { setBody(request) }
 
@@ -120,22 +85,16 @@ internal class SmartHomeApi(
         post(LOCK_CHANGE_VOLUME_PATH, token) { setBody(request) }
 
     /**
-     * `POST /fechaduras/habilitar-abrir-remoto/v1` — grants the app the right to command the lock
-     * (SPEC L2).
-     *
-     * The request type can only say `habilitar: true`, so this function has no way to take the
-     * permission away: the app enables, never disables.
+     * `POST /fechaduras/habilitar-abrir-remoto/v1` — grants the app the right to command the
+     * lock (SPEC L2).
      */
     suspend fun enableLockRemoteOpen(token: Token, request: LockEnableRemoteOpenRequestDto): JsonElement =
         post(LOCK_ENABLE_REMOTE_OPEN_PATH, token) { setBody(request) }
 
     /**
-     * One call: the shared shape of every partner request (`docs/api-contract.md` §1) — the token in
-     * the `Authorization` header, a JSON body, and an answer that only [EnvelopeReader] may interpret.
-     *
-     * It is also the only place that knows **which token a given request was sent with**, which is
-     * what SPEC S6 needs and why the refusal is announced from here rather than from each repository:
-     * a guard wired per use case would miss the next slice's endpoint (ADR-018).
+     * One call: the shared shape of every partner request (`docs/api-contract.md` §1) — the
+     * token in the `Authorization` header, a JSON body, and an answer that only
+     * [EnvelopeReader] may interpret.
      */
     private suspend fun post(
         path: String,
@@ -143,8 +102,6 @@ internal class SmartHomeApi(
         host: String = baseUrl,
         body: HttpRequestBuilder.() -> Unit,
     ): JsonElement {
-        // Counted before the wire, not after: an answer that never comes has still spent a request
-        // from the account's budget (ADR-006).
         requestCounter.increment()
         val response = try {
             httpClient.post("${host.trimEnd('/')}$path") {
@@ -155,17 +112,11 @@ internal class SmartHomeApi(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (transport: Throwable) {
-            // Nothing thrown here is an answer: the client is configured with `expectSuccess = false`,
-            // so a status the API chose — 200, 401, 403 — arrives as a response, not an exception.
-            // Reaching this branch means the call never completed: connectivity, timeout, DNS or TLS.
             throw SmartHomeException.Offline(transport)
         }
-        // Status first, body second (ADR-012): a 401/403 body is a bare JSON string, not an envelope.
         return try {
             envelopeReader.read(response.status.value, response.bodyAsText())
         } catch (failure: SmartHomeException) {
-            // Only a 401/403 about the session produces a refusal; a forbidden endpoint or a business
-            // error produces none, and the credential is left alone (ADR-012 amended, SPEC S6).
             failure.asTokenRefusal(token)?.let(refusedRequests::report)
             throw failure
         }

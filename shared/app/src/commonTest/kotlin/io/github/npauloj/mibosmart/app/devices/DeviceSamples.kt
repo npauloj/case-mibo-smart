@@ -16,18 +16,16 @@ internal fun listDevices(
 ) = ListDevices(deviceRepository = repository, preferences = preferences)
 
 /**
- * Page 1 of [origin], with the stored page allowed to answer for it — the call the list makes when
- * it opens (SPEC D1, D8). Tests about paging state the page and the cache explicitly.
+ * Page 1 of [origin], with the stored page allowed to answer for it — the call the list makes
+ * when it opens (SPEC D1, D8). Tests about paging state the page and the cache explicitly.
  */
 internal suspend fun ListDevices.firstPage(origin: OriginFilter = OriginFilter.All) =
     this(origin = origin, page = 1, mayUseCache = true)
 
 /**
- * Domain devices for the app-side tests, with **placeholder** serials only — the test account's `ns`
- * values never enter a versioned file (ADR-008).
- *
- * @param model the partner's model code. It is named only by the tests that read it — SPEC D5's
- *   catalogue lookup — and left as a word no catalogue knows everywhere else.
+ * Domain devices for the app-side tests, with **placeholder** serials only — the test account's
+ * `ns` values never enter a versioned file (ADR-008).
+ * @param model the partner's model code.
  */
 internal fun device(
     name: String,
@@ -55,14 +53,15 @@ internal fun device(
 
 /**
  * A lock and the hub it hangs off — every part of the address is on the **lock's** row
- * (`docs/api-contract.md` §3), and the hub row is there only so the list has one to name (SPEC D6).
- *
- * @param lockProductId the lock's own `idProduto`; blank is the case where the partner sent none.
+ * (`docs/api-contract.md` §3), and the hub row is there only so the list has one to name (SPEC
+ * D6).
+ * @param lockProductId the lock's own `idProduto`; blank is the case where the partner sent
+ * none.
  * @param hubProductId the hub's `idProduto`, which the partner puts on the lock's row as
- *   `idProdutoDispositivoPai`; null is a row that arrived without it and blank is one that arrived
- *   empty — neither can be addressed.
+ * `idProdutoDispositivoPai`; null is a row that arrived without it and blank is one that
+ * arrived empty — neither can be addressed.
  * @param withHub false leaves the hub row out, which is a lock on page 1 whose hub is on page 2
- *   (SPEC D2) — and which changes nothing about the address.
+ * (SPEC D2) — and which changes nothing about the address.
  */
 internal fun lockAndHub(
     lockProductId: String = LOCK_PRODUCT_ID,

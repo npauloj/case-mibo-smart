@@ -12,18 +12,16 @@ import javax.crypto.spec.GCMParameterSpec
 import org.koin.core.scope.Scope
 
 /**
- * The `Context` is read from the graph on first use, not while the graph is being built: nothing
- * should open the Keystore because a module was declared (ADR-008).
+ * The `Context` is read from the graph on first use, not while the graph is being built:
+ * nothing should open the Keystore because a module was declared (ADR-008).
  */
 internal actual fun Scope.secureTokenStore(): SecureTokenStore =
     KeystoreTokenStore(context = { get<Context>() })
 
 /**
- * AES/GCM key generated inside `AndroidKeyStore`; only the ciphertext and its IV leave it, into a
- * private `SharedPreferences` file that `allowBackup="false"` keeps out of cloud backups (ADR-008).
- *
- * The key never leaves the hardware-backed store, so the preferences file is useless on its own —
- * which is what the manual evidence of this slice checks, reading the file back with `run-as`.
+ * AES/GCM key generated inside `AndroidKeyStore`; only the ciphertext and its IV leave it, into
+ * a private `SharedPreferences` file that `allowBackup="false"` keeps out of cloud backups
+ * (ADR-008).
  */
 private class KeystoreTokenStore(private val context: () -> Context) : SecureTokenStore {
 
@@ -45,25 +43,15 @@ private class KeystoreTokenStore(private val context: () -> Context) : SecureTok
             .edit()
             .putString(CIPHERTEXT, ciphertext.encodeBase64())
             .putString(IV, cipher.iv.encodeBase64())
-            // `commit`, not `apply`: the token must be on disk before the write returns, because the
-            // scenario this slice exists for is the process dying right after it.
             .commit()
     }
 
-    /**
-     * The ciphertext goes, and so does the key that could read it.
-     *
-     * Deleting the alias is what makes "Sair" irreversible even against a copy of the preferences
-     * file taken beforehand (ADR-008); the next [write] generates a fresh key, so nothing downstream
-     * has to know the alias was gone.
-     */
+    /** The ciphertext goes, and so does the key that could read it. */
     override fun clear() {
         context().getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .remove(CIPHERTEXT)
             .remove(IV)
-            // `commit` for the same reason `write` uses it: the credential must be off disk before
-            // the call returns, not whenever the background write happens to land.
             .commit()
         KeyStore.getInstance(KEYSTORE).apply { load(null) }.deleteEntry(ALIAS)
     }
@@ -82,7 +70,6 @@ private class KeystoreTokenStore(private val context: () -> Context) : SecureTok
                 )
                     .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                     .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    // No biometric gate: the credential must survive a cold start unattended (ADR-008).
                     .setUserAuthenticationRequired(false)
                     .build(),
             )

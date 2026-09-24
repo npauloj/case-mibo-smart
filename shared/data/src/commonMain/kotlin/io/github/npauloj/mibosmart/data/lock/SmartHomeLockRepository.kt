@@ -24,13 +24,6 @@ import kotlinx.serialization.json.JsonElement
 /**
  * The lock's whole surface against the partner API: four reads (SPEC L1, L9) and three writes
  * (SPEC L3, L6, L7).
- *
- * The session is read here rather than passed in from above: which credential a request carries is a
- * transport concern, and keeping it out of [LockRepository] is what lets a second partner implement
- * the same contract (ADR-004).
- *
- * Every write is gated by the kill switch of L-01b before it reaches this class; nothing here decides
- * whether a command may be sent, only how it is spelled on the wire.
  */
 internal class SmartHomeLockRepository(
     private val api: SmartHomeApi,
@@ -50,36 +43,21 @@ internal class SmartHomeLockRepository(
             ?: throw SmartHomeException.UnexpectedResponse("the lock reported a volume outside 0..3")
     }
 
-    /**
-     * `historico-abertura` (SPEC L9): one request, and the `data` payload is a JSON **array**.
-     *
-     * The entries are returned in the partner's own order — sorting them is a product rule and lives
-     * in the use case, which is the one place that can say what "newest first" is worth.
-     */
+    /** `historico-abertura` (SPEC L9): one request, and the `data` payload is a JSON **array**. */
     override suspend fun readOpeningHistory(address: LockAddress, entries: Int): List<OpeningEvent> =
         decode(
             ListSerializer(LockOpeningEventDto.serializer()),
             api.readLockOpeningHistory(token(), LockRequests.openingHistory(address, entries)),
         ).map { it.toOpeningEvent() }
 
-    /**
-     * `mudar-volume` (SPEC L7).
-     *
-     * The success payload of the lock writes was never probed — it changes a real device, so it is
-     * open question 4 of `docs/api-contract.md` §8. Nothing here reads it: [EnvelopeReader] has
-     * already turned every documented failure into a typed exception by the time this returns, so
-     * "it did not throw" is the whole answer, and the caller re-reads the lock when it needs a value.
-     */
+    /** `mudar-volume` (SPEC L7). */
     override suspend fun changeVolume(address: LockAddress, volume: VolumeLevel) {
         api.changeLockVolume(token(), LockRequests.changeVolume(address, volume))
     }
 
     /**
-     * `controle-fechadura` (SPEC L3): the request the whole confirmation state machine exists for.
-     *
-     * Same silence on the body, for a stronger reason than the other writes: even a success here
-     * means only that the partner accepted the command. Whether the door moved is
-     * [readOpenState]'s answer, and the use case above asks it.
+     * `controle-fechadura` (SPEC L3): the request the whole confirmation state machine exists
+     * for.
      */
     override suspend fun command(address: LockAddress, command: LockCommand) {
         api.commandLock(token(), LockRequests.command(address, command))
@@ -90,13 +68,7 @@ internal class SmartHomeLockRepository(
         api.enableLockRemoteOpen(token(), LockRequests.enableRemoteOpen(address))
     }
 
-    /**
-     * The session's credential.
-     *
-     * A lock screen reached without a session is, to every screen above, the same thing as a refused
-     * one: there is nothing to retry and the only way forward is a new token (SPEC S6). It is
-     * reported as such rather than as a new error category nothing else could produce.
-     */
+    /** The session's credential. */
     private suspend fun token(): Token =
         sessionStore.read()?.token ?: throw SmartHomeException.TokenRejected()
 

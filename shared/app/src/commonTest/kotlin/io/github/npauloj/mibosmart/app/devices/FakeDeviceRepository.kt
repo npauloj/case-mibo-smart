@@ -11,14 +11,11 @@ import io.github.npauloj.mibosmart.domain.device.OriginFilter
 internal data class DeviceQuery(val origin: OriginFilter = OriginFilter.All, val page: Int = 1)
 
 /**
- * A partner that answers whatever the test wants, and records every query it was asked — the account
- * pays per request (ADR-006), so "how many calls, and for what" is part of the behaviour under test.
- *
- * @param cached what the local cache holds before the test starts. Reading it costs no request, so
- *   it is not counted: a test that asserts the request budget must not be disturbed by SPEC U2.
- * @param answer the devices of the requested page. `hasMore` is derived from the page being exactly
- *   [FULL_PAGE] long, exactly as the real repository derives it from the wire (SPEC D2), so a test
- *   that wants "one more page" says so by returning a full one.
+ * A partner that answers whatever the test wants, and records every query it was asked — the
+ * account pays per request (ADR-006), so "how many calls, and for what" is part of the
+ * behaviour under test.
+ * @param cached what the local cache holds before the test starts.
+ * @param answer the devices of the requested page.
  */
 internal class FakeDeviceRepository(
     private val cached: suspend () -> CachedDevices? = { null },
@@ -44,12 +41,7 @@ internal class FakeDeviceRepository(
     }
 }
 
-/**
- * The remembered chip without a database (SPEC D4).
- *
- * The real store is proven against a real SQLite file in `:shared:data`'s `PreferencesTest`; what
- * the list owes it is only "open on what I last chose".
- */
+/** The remembered chip without a database (SPEC D4). */
 internal class FakeDeviceListPreferences(
     private var filter: OriginFilter = OriginFilter.All,
 ) : DeviceListPreferences {

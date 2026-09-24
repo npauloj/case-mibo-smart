@@ -18,10 +18,8 @@ import kotlinx.coroutines.test.runTest
 class LoadLockTest {
 
     /**
-     * A lock only answers as a sub-device of its hub: the plain namespace returns "Dispositivo não
-     * encontrado" (`docs/api-contract.md` §3). So all three reads have to carry the same four parts,
-     * with the lock and the hub in their own roles — the wire form they are joined into is asserted
-     * in `:shared:data` by `LockRequestsTest`.
+     * A lock only answers as a sub-device of its hub: the plain namespace returns "Dispositivo
+     * não encontrado" (`docs/api-contract.md` §3).
      */
     @Test
     fun compositeAddress() = runTest {
@@ -38,13 +36,7 @@ class LoadLockTest {
         }
     }
 
-    /**
-     * Three requests, together, once (SPEC L1, ADR-006).
-     *
-     * The gate is what makes "in parallel" provable: while nothing has answered, all three reads are
-     * already in flight. Read one after another, the count would be 1 at this point — and the user
-     * would wait three round trips for a screen that needs all three values anyway.
-     */
+    /** Three requests, together, once (SPEC L1, ADR-006). */
     @Test
     fun exactlyThreeRequestsInParallel() = runTest {
         val partnerAnswered = CompletableDeferred<Unit>()
@@ -69,14 +61,7 @@ class LoadLockTest {
         assertEquals(LockSamples.Locked, loaded.lock)
     }
 
-    /**
-     * The volume may refuse without taking the door's state with it (ADR-026).
-     *
-     * Measured 2026-09-23: `fechaduras/volume/v1` answers `500 "Erro desconhecido"` on five of the six
-     * locks in the test account, while `status-abertura` and `status-abrir-remoto` answer `200` on all
-     * six. Before this, one `500` blanked a screen whose two load-bearing reads had both succeeded —
-     * the user asked whether the door was open and the app, which knew, said "Resposta inesperada".
-     */
+    /** The volume may refuse without taking the door's state with it (ADR-026). */
     @Test
     fun aVolumeThatRefusesDoesNotTakeTheDoorWithIt() = runTest {
         val repository = FakeLockRepository(
@@ -92,12 +77,7 @@ class LoadLockTest {
         assertEquals(3, repository.reads.size, "the volume is still asked for once, and only once")
     }
 
-    /**
-     * The two that the screen cannot exist without still veto it.
-     *
-     * The point of the change above was not "never fail": without the door's state there is nothing
-     * to show, and inventing a screen around the volume alone would be worse than saying so.
-     */
+    /** The two that the screen cannot exist without still veto it. */
     @Test
     fun aDoorStateThatRefusesStillFailsTheScreen() = runTest {
         val repository = FakeLockRepository(answer = { throw SmartHomeException.Offline(null) })

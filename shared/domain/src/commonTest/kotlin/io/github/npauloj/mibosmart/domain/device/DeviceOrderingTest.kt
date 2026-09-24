@@ -21,13 +21,10 @@ class DeviceOrderingTest {
 
         assertEquals(
             listOf(
-                // Online cameras and locks, by name — the two kinds a row can open.
                 "Charlie lock",
                 "delta camera",
-                // Then the rest of what is online, by name: case must not split the group.
                 "alfa sensor",
                 "Bravo hub",
-                // Then everything offline, by name, whatever its kind.
                 "Alfa offline sensor",
                 "zulu-offline-camera",
             ),
@@ -36,8 +33,8 @@ class DeviceOrderingTest {
     }
 
     /**
-     * Two devices with the same name must not swap places between loads — the complaint U8 answers.
-     * Only the id can break the tie, and it is unique.
+     * Two devices with the same name must not swap places between loads — the complaint U8
+     * answers. Only the id can break the tie, and it is unique.
      */
     @Test
     fun sameNameIsBrokenByIdSoTheOrderIsStable() {

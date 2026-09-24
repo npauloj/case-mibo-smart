@@ -14,16 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Everything the lock screen shows, in one immutable value, as a sealed hardware state (ADR-003).
- *
- * The SPEC's `Locked`, `Unlocked`, `RemoteOpenDisabled` and `Offline` are readings of [Ready] rather
- * than alternatives to it: the screen shows the door, the volume and the precondition **together**,
- * and a lock that refuses commands is still a lock whose state is worth seeing (SPEC L2, L5).
- * What is genuinely exclusive gets its own subtype — which is how L-02's command states
- * (`CommandSent`, `Confirmed`, `CommandExpired`, `CommandFailed`) arrive: as new subtypes, never as
- * a refactor of these. They are grouped under [Commanding], which carries the [Ready] they are
- * happening to; `Confirmed` is transient in SPEC §4 and has no subtype, because there is nothing to
- * sit in — the screen goes straight back to [Ready] with the door the lock confirmed.
+ * Everything the lock screen shows, in one immutable value, as a sealed hardware state
+ * (ADR-003).
  */
 sealed interface LockUiState {
 
@@ -44,15 +36,11 @@ sealed interface LockUiState {
 
     /**
      * All three reads answered.
-     *
      * @property areWritesEnabled whether this build may write to the lock at all
-     *   ([LockWritesSwitch]). It is a property of the build, not of the lock, and it is in the state
-     *   so the screen can say so **before** the user asks for something it will not do.
-     * @property writeInFlight the write waiting for the partner, if any. Its control is disabled
-     *   while it is set, and the value it would produce is deliberately **not** in [lock] yet
-     *   (SPEC L7: the UI follows the API).
-     * @property writeFailure the last write that did not happen, with the reason to show (SPEC U6).
-     *   A new write clears it; a failed one never changes [lock].
+     * ([LockWritesSwitch]).
+     * @property writeInFlight the write waiting for the partner, if any.
+     * @property writeFailure the last write that did not happen, with the reason to show (SPEC
+     * U6).
      */
     data class Ready(
         override val deviceName: String,
@@ -63,32 +51,15 @@ sealed interface LockUiState {
         val writeFailure: WriteFailure? = null,
     ) : LockUiState {
 
-        /**
-         * The lock refuses commands from the app until remote opening is granted (SPEC L2).
-         *
-         * Only [LockViewModel.onEnableRemoteOpen] can clear this, and only by believing a fresh read
-         * of `status-abrir-remoto` — no other intent in this class touches it.
-         */
+        /** The lock refuses commands from the app until remote opening is granted (SPEC L2). */
         val isRemoteOpenDisabled: Boolean get() = !lock.isRemoteOpenEnabled
 
-        /**
-         * Whether an open/close command may be sent at all (SPEC L2, L5, and the build's switch).
-         *
-         * Three independent reasons to refuse, in one place so the screen and the ViewModel cannot
-         * disagree about them: the build does not write, the lock has not granted remote opening, or
-         * the hub last saw it some time ago and what is on screen is a memory (SPEC L5).
-         */
+        /** Whether an open/close command may be sent at all (SPEC L2, L5, and the build's switch). */
         val canCommand: Boolean
             get() = areWritesEnabled && !isRemoteOpenDisabled && !isOffline && writeInFlight == null
     }
 
-    /**
-     * A command the user sent, in one of the phases where the door has not settled (SPEC §4).
-     *
-     * Each phase is *about* a lock rather than instead of one: [before] is the last set of readings
-     * the app trusts, so the state, the volume and the precondition stay on screen the whole time —
-     * a command in flight is not a reason to stop showing the door (ADR-021).
-     */
+    /** A command the user sent, in one of the phases where the door has not settled (SPEC §4). */
     sealed interface Commanding : LockUiState {
 
         /** The lock as it was last read: what a failed command restores to (SPEC L5). */
@@ -111,15 +82,8 @@ sealed interface LockUiState {
     /**
      * The command was taken and the device never agreed — a disagreeing read, or none in 10 s
      * (SPEC L4).
-     *
-     * This is the state the slice exists for: the app says what it knows and offers the only honest
-     * next step, one more read, on a tap. Nothing here is on a timer.
-     *
      * @property isChecking a "Verificar" read is in flight; the action is disabled while it is.
-     * @property checkFailure why the last "Verificar" could not answer (SPEC U6). A check that
-     *   answered — even disagreeing — clears it. It is the category only, with no room for the
-     *   partner's own sentence: a refused credential has already reached the session guard by the
-     *   time this is drawn (ADR-018), and the user is on their way to the token screen.
+     * @property checkFailure why the last "Verificar" could not answer (SPEC U6).
      */
     data class CommandExpired(
         override val before: Ready,
@@ -129,11 +93,8 @@ sealed interface LockUiState {
     ) : Commanding
 
     /**
-     * The command did not reach the lock, so the screen goes back to what it was showing (SPEC L5).
-     *
-     * It is deliberately short-lived: [LockViewModel] restores [before] after the notice has been on
-     * screen long enough to read, which is what "for the duration of a retry snackbar" means on a
-     * screen that hosts no snackbar (ADR-021).
+     * The command did not reach the lock, so the screen goes back to what it was showing (SPEC
+     * L5).
      */
     data class CommandFailed(
         override val before: Ready,
@@ -144,9 +105,8 @@ sealed interface LockUiState {
 
     /**
      * No reading: one named cause and one action (SPEC U6).
-     *
-     * @property serverMessage the partner's own sentence, when the failure carried one worth showing
-     *   (SPEC S3.1).
+     * @property serverMessage the partner's own sentence, when the failure carried one worth
+     * showing (SPEC S3.1).
      */
     data class Failed(
         override val deviceName: String,
@@ -159,12 +119,7 @@ sealed interface LockUiState {
 /** The reasons a read can fail, one user-facing message each (SPEC E2, U6, ADR-012). */
 enum class LockError { TokenRejected, TokenExpired, Offline, UnexpectedResponse, Failed }
 
-/**
- * The two things this slice can ask a lock to change (SPEC L2, L7).
- *
- * Open and close are not here: they are L-02's, and they arrive as their own subtypes rather than as
- * a rewrite of these.
- */
+/** The two things this slice can ask a lock to change (SPEC L2, L7). */
 sealed interface LockWrite {
 
     /** Setting the level the lock announces itself at — `mudar-volume`. */
@@ -175,9 +130,10 @@ sealed interface LockWrite {
 }
 
 /**
- * A write that did not happen, named so the user can tell which control failed and why (SPEC U6).
- *
- * @property serverMessage the partner's own sentence when it sent one worth showing (SPEC S3.1).
+ * A write that did not happen, named so the user can tell which control failed and why (SPEC
+ * U6).
+ * @property serverMessage the partner's own sentence when it sent one worth showing (SPEC
+ * S3.1).
  */
 data class WriteFailure(
     val write: LockWrite,
@@ -186,11 +142,8 @@ data class WriteFailure(
 )
 
 /**
- * The lock screen: one state, and intents as suspend functions rather than a second stream (ADR-003).
- *
- * Reading costs three requests of the account's budget (ADR-006), so they are spent once per lock —
- * a recomposition, a rotation or a second visit to the same destination does not pay again, and only
- * [onRetry] asks the partner anything after that (SPEC E5).
+ * The lock screen: one state, and intents as suspend functions rather than a second stream
+ * (ADR-003).
  */
 class LockViewModel(
     private val loadLock: LoadLock,
@@ -231,15 +184,7 @@ class LockViewModel(
         viewModelScope.launch { onCommand(command) }
     }
 
-    /**
-     * SPEC L3–L6: the whole confirmation path, in the order the user experiences it.
-     *
-     * `CommandSent` goes up **before** the request leaves, so the control is dead from the tap
-     * onwards rather than from the first answer; then the use case sends the command, reads
-     * `status-abertura` once and comes back with what the lock said. Nothing on this path starts a
-     * timer that asks again (SPEC L4, ADR-006) — the only second read in the app is [onVerify], and
-     * only a tap reaches it.
-     */
+    /** SPEC L3–L6: the whole confirmation path, in the order the user experiences it. */
     suspend fun onCommand(command: LockCommand) {
         val address = current?.address ?: return
         val ready = commandableLock() ?: return
@@ -252,11 +197,8 @@ class LockViewModel(
     }
 
     /**
-     * SPEC L4's "Verificar": **exactly one** more `status-abertura`, and only from an unconfirmed
-     * command.
-     *
-     * The guard is the state itself — there is no other state this intent does anything from, and a
-     * second tap while the read is in flight finds [LockUiState.CommandExpired.isChecking] set.
+     * SPEC L4's "Verificar": **exactly one** more `status-abertura`, and only from an
+     * unconfirmed command.
      */
     suspend fun onVerify() {
         val address = current?.address ?: return
@@ -274,16 +216,10 @@ class LockViewModel(
         viewModelScope.launch { onChangeVolume(level) }
     }
 
-    /**
-     * SPEC L7: the partner decides, then the screen shows it.
-     *
-     * Nothing writes [LockState.volume] before [ChangeVolumeResult.Changed] arrives, so the selector
-     * cannot display a level the lock is not at — not even for the length of a request.
-     */
+    /** SPEC L7: the partner decides, then the screen shows it. */
     suspend fun onChangeVolume(level: VolumeLevel) {
         val address = current?.address ?: return
         val ready = writableLock() ?: return
-        // The level it is already at costs a request to change nothing (ADR-006).
         if (ready.lock.volume == level) return
         mutableState.value = ready.copy(writeInFlight = LockWrite.Volume(level), writeFailure = null)
         mutableState.value = LockUiMapper.afterVolumeChange(ready, level, changeLockVolume(address, level))
@@ -293,15 +229,7 @@ class LockViewModel(
         viewModelScope.launch { onEnableRemoteOpen() }
     }
 
-    /**
-     * SPEC L2, action half: **the only path in the app that grants remote opening.**
-     *
-     * It runs when the user chooses the labelled action and never as a side effect of anything else:
-     * opening the screen, retrying and changing the volume all leave the flag exactly as the partner
-     * last reported it. On success the answer comes from a fresh `status-abrir-remoto` rather than
-     * from the fact that the write returned; on failure the lock is left as it was, with the reason
-     * beside the control that stays disabled.
-     */
+    /** SPEC L2, action half: **the only path in the app that grants remote opening.** */
     suspend fun onEnableRemoteOpen() {
         val address = current?.address ?: return
         val ready = writableLock() ?: return
@@ -309,25 +237,11 @@ class LockViewModel(
         mutableState.value = LockUiMapper.afterEnablingRemoteOpen(ready, enableLockRemoteOpen(address))
     }
 
-    /**
-     * The lock a write may act on: a loaded one with nothing already in flight.
-     *
-     * The second half is the re-entrancy guard (SPEC L6's rule, applied to this slice's writes): the
-     * screen disables the control that is waiting, and this makes a second tap inert even if it did
-     * not — a double write to a door is worth guarding twice.
-     */
+    /** The lock a write may act on: a loaded one with nothing already in flight. */
     private fun writableLock(): LockUiState.Ready? =
         (mutableState.value as? LockUiState.Ready)?.takeIf { it.writeInFlight == null }
 
-    /**
-     * The lock a command may act on — the re-entrancy guard of SPEC L6, in the ViewModel's state.
-     *
-     * [LockUiState.CommandSent] is the one phase that answers `null`: a door is the last place a
-     * second tap should be able to reach, and the screen disabling its control is an affordance, not
-     * a guarantee. The other two phases are notices *about* a lock, not a lock in motion, so the
-     * readings under them are commandable — the whole point of `CommandFailed` is that the user can
-     * try again, and an unconfirmed command must not leave the screen with nothing to do.
-     */
+    /** The lock a command may act on — the re-entrancy guard of SPEC L6, in the ViewModel's state. */
     private fun commandableLock(): LockUiState.Ready? {
         val readings = when (val state = mutableState.value) {
             is LockUiState.Ready -> state
@@ -338,13 +252,7 @@ class LockViewModel(
         return readings?.takeIf { it.canCommand }
     }
 
-    /**
-     * Publishes [next] and, when it is a failure notice, takes it back down (SPEC L5).
-     *
-     * The identity check is what makes the restore safe: if the user has already sent another
-     * command, or changed the volume, the state on screen is no longer the notice this call put
-     * there, and overwriting it would undo whatever replaced it.
-     */
+    /** Publishes [next] and, when it is a failure notice, takes it back down (SPEC L5). */
     private suspend fun announce(next: LockUiState) {
         mutableState.value = next
         if (next !is LockUiState.CommandFailed) return
@@ -360,12 +268,7 @@ class LockViewModel(
 
     private companion object {
 
-        /**
-         * How long [LockUiState.CommandFailed] stays on screen before the readings come back.
-         *
-         * It is Material's short snackbar — the duration SPEC L5 names the notice by — spent here as
-         * a state rather than as a host the lock screen does not own.
-         */
+        /** How long [LockUiState.CommandFailed] stays on screen before the readings come back. */
         val FAILURE_NOTICE = 4.seconds
     }
 }

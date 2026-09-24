@@ -6,11 +6,7 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
-/**
- * The lock feature's use cases and ViewModels, beside the code they wire (ADR-014).
- *
- * `:shared:app`'s aggregate lists this module in `di/AppModules.kt`; nothing else references it.
- */
+/** The lock feature's use cases and ViewModels, beside the code they wire (ADR-014). */
 internal val lockAppModule: Module = module {
     factoryOf(::LoadLock)
     factoryOf(::ChangeVolume)
@@ -18,8 +14,5 @@ internal val lockAppModule: Module = module {
     factoryOf(::ToggleLock)
     factoryOf(::OpeningHistory)
     viewModelOf(::LockViewModel)
-    // Not `viewModelOf`: the constructor's last parameter is the device's time zone, a default
-    // rather than a binding, which Koin would otherwise try to resolve. The catalogue *is* a
-    // binding — the platform decides which one (ADR-007) — so it is asked for by hand.
     viewModel { OpeningHistoryViewModel(openingHistory = get(), clock = get(), catalog = get()) }
 }

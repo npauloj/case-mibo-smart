@@ -14,12 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
-/**
- * SPEC E4 / ADR-002: cancellation is not an error.
- *
- * If the use case mapped `CancellationException` like any other failure, the screen would show an
- * error for a call the user themselves abandoned — and the coroutine would stop being cancellable.
- */
+/** SPEC E4 / ADR-002: cancellation is not an error. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class UseCaseCancellationTest {
 

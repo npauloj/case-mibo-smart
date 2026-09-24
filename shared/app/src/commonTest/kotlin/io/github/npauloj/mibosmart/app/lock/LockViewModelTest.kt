@@ -16,14 +16,7 @@ import kotlinx.coroutines.test.runTest
 @OptIn(ExperimentalCoroutinesApi::class)
 class LockViewModelTest {
 
-    /**
-     * SPEC L2, read half: the precondition is a state the screen explains, not a switch it flips.
-     *
-     * The open/closed state and the volume stay on screen — the lock is readable, it just refuses
-     * commands — and nothing in this slice can grant the precondition: the repository was asked for
-     * the three reads of SPEC L1 and for nothing else. The action that enables remote opening is
-     * L-01b's, and it does not exist yet, here or anywhere.
-     */
+    /** SPEC L2, read half: the precondition is a state the screen explains, not a switch it flips. */
     @Test
     fun remoteDisabledIsExplained() = runTest {
         val repository = FakeLockRepository(
@@ -44,13 +37,7 @@ class LockViewModelTest {
         )
     }
 
-    /**
-     * SPEC L2, the half the precondition exists for: no remote opening, no command.
-     *
-     * The screen disables the control, but that is an affordance. What is asserted here is that the
-     * lock is never asked: `controle-fechadura` against a door that has not granted the right would
-     * spend a request to be refused, and the app has no business finding out that way.
-     */
+    /** SPEC L2, the half the precondition exists for: no remote opening, no command. */
     @Test
     fun remoteDisabledBlocksCommand() = runTest {
         val repository = FakeLockRepository(
@@ -98,8 +85,6 @@ class LockViewModelTest {
 
         viewModel.onOpen(LockSamples.destination())
         assertEquals(LockError.Offline, assertIs<LockUiState.Failed>(viewModel.state.value).error)
-        // A failing read cancels the other two, so how many were recorded is not fixed — what matters
-        // is that asking again asks the partner again.
         val afterFirstAttempt = repository.reads.size
 
         viewModel.onRetry()

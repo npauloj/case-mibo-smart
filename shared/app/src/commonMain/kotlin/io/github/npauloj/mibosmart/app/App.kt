@@ -37,21 +37,13 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Which screen the app opens on is decided by the stored session, not by a default (SPEC S5): a cold
- * start with one goes straight to the device list, a cold start without one to the token screen. Why
- * nothing is drawn until the answer is back is in [AppUiState.destination].
- *
- * It is also where a session *ends*: the guard of SPEC S6 routes here, which is why the reason it
- * carries is rendered above the token screen rather than inside it — the token screen owns its own
- * validation errors, and an expiry is not one of them.
+ * Which screen the app opens on is decided by the stored session, not by a default (SPEC S5): a
+ * cold start with one goes straight to the device list, a cold start without one to the token
+ * screen.
  */
 @Composable
 fun App(viewModel: AppViewModel = koinViewModel()) {
     AppTheme {
-        // `safeDrawingPadding` once, here, rather than per screen: `MainActivity` calls
-        // `enableEdgeToEdge()`, so without it the content draws under the system bars and in
-        // landscape the controls sit beneath the navigation bar — on every screen. Applying it at
-        // the root is also what stops the next screen from being born with the same defect.
         Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             val state by viewModel.state.collectAsStateWithLifecycle()
             when (state.destination) {
@@ -76,21 +68,8 @@ fun App(viewModel: AppViewModel = koinViewModel()) {
 }
 
 /**
- * The destinations reachable with a session: the device list, the lock screen, and the live video of
- * one camera.
- *
- * Both edges are the one SPEC U2 measures: tapping a camera row puts the picture on screen and
- * tapping a lock row puts the door on screen, with nothing in between. Each destination states in one
- * place what it has to be handed — [LockDestination] the composite address of
- * `docs/api-contract.md` §5, and the camera its own [Device], whose `ns` is what `criar-fluxo-video`
- * addresses and whose `status` decides SPEC V7 without a request.
- *
- * The lock's address is assembled by the list and arrives with the tap, because only the list holds
- * the hub row the address needs: this navigator joins the two feature packages, which may not import
- * each other (rule 3), and neither of them spends a request doing it (ADR-006).
- *
- * Leaving either screen returns to the list *without* rebuilding it: the ViewModel behind
- * `DeviceListScreen` survives, so coming back costs no request and keeps its chip and rows (SPEC D7).
+ * The destinations reachable with a session: the device list, the lock screen, and the live
+ * video of one camera.
  */
 @Composable
 private fun SignedIn(expiringSoon: Boolean, onOpenAccount: () -> Unit) {
@@ -112,12 +91,8 @@ private fun SignedIn(expiringSoon: Boolean, onOpenAccount: () -> Unit) {
 }
 
 /**
- * The device list with the session banner above it, and the way to the account screen (SPEC S7, S8).
- *
- * Both sit here and not inside `DeviceListScreen` because both are about the session, not about the
- * devices: the list owns its own loading, empty and error states, and D-01b keeps owning them while
- * these stay properties of being signed in. It takes [content] so a preview can show the real
- * composition without a ViewModel.
+ * The device list with the session banner above it, and the way to the account screen (SPEC S7,
+ * S8).
  */
 @Composable
 internal fun DeviceListDestination(
@@ -138,13 +113,7 @@ internal fun DeviceListDestination(
     }
 }
 
-/**
- * "Token expira em breve" — a strip above the list, and nothing else (SPEC S7).
- *
- * Non-blocking is the whole requirement: it takes no touch, dims nothing and offers no action, so
- * every device stays reachable while it is up. "Renovar" lands on it in S-03; until then a warning
- * the user can act on by pasting a fresh token beats a dialog they have to dismiss first.
- */
+/** "Token expira em breve" — a strip above the list, and nothing else (SPEC S7). */
 @Composable
 private fun SessionExpiryBanner() {
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
@@ -159,9 +128,6 @@ private fun SessionExpiryBanner() {
 
 /**
  * The token screen, with the reason it was reopened when the user did not ask for it (SPEC U5).
- *
- * [reason] is `null` on a cold start and after "Sair": an entry screen the user walked to needs no
- * explanation, and a banner that is always there explains nothing.
  */
 @Composable
 internal fun TokenEntryDestination(reason: SessionEndReason?, content: @Composable () -> Unit) {
@@ -171,12 +137,7 @@ internal fun TokenEntryDestination(reason: SessionEndReason?, content: @Composab
     }
 }
 
-/**
- * Why the session ended, in the partner's words when it gave any (SPEC U6, ADR-012).
- *
- * A 403 answers "Token expirado, por favor gere um novo token", which already says what to do; every
- * other refusal gets the app's own sentence, which names the 2 h the user could not see coming.
- */
+/** Why the session ended, in the partner's words when it gave any (SPEC U6, ADR-012). */
 @Composable
 private fun SessionEndedBanner(reason: SessionEndReason) {
     Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {

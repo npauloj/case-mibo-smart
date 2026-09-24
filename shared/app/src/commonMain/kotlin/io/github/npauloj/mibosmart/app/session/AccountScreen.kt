@@ -41,9 +41,8 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Who is signed in, for how much longer, and the way out (SPEC S8, S9).
- *
- * @param onSignedOut called once the credential has left the device; the destination is the token
- *   screen.
+ * @param onSignedOut called once the credential has left the device; the destination is the
+ * token screen.
  */
 @Composable
 fun AccountScreen(
@@ -59,8 +58,6 @@ fun AccountScreen(
         viewModel.signedOut.collect { onSignedOut() }
     }
 
-    // The renewal moved the deadline, and the banner of SPEC S7 is owned one level up. This screen
-    // needs nothing from the event; it only carries it, exactly as it carries `signedOut`.
     LaunchedEffect(viewModel) {
         viewModel.renewed.collect { onRenewed() }
     }
@@ -94,12 +91,8 @@ fun AccountScreenContent(
             SessionCard(state)
         }
 
-        // Only inside the last 10 minutes (SPEC S10). Renewing earlier would spend a request to buy
-        // time the session already has.
         if (state.canRenew) RenewAction(state, onRenew)
 
-        // Only in a debug build: outside one the counter is null and the line does not exist
-        // (ADR-006).
         state.requestCount?.let { count ->
             Text(
                 text = stringResource(Res.string.account_requests, count.toString()),
@@ -118,19 +111,10 @@ fun AccountScreenContent(
     }
 }
 
-/**
- * "Renovar", and what to say when it did not work (SPEC S10).
- *
- * The failure line stays deliberately calm: nothing was lost. The previous credential is still the
- * session and still valid — renewal adds one rather than replacing one (measured 2026-09-21) — so the
- * worst outcome of tapping is the state the screen was already in.
- */
+/** "Renovar", and what to say when it did not work (SPEC S10). */
 @Composable
 private fun RenewAction(state: AccountUiState, onRenew: () -> Unit) {
     if (state.renewFailed) {
-        // `Failed` is right and `Waiting` would be wrong, even though the sentence is reassuring: the
-        // attempt did fail. What stays calm is the copy — the previous credential is still the session
-        // and still valid, because renewal adds one rather than replacing one (measured 2026-09-21).
         StateNotice(tone = StateTone.Failed, text = stringResource(Res.string.account_renew_failed))
     }
 
@@ -147,12 +131,7 @@ private fun RenewAction(state: AccountUiState, onRenew: () -> Unit) {
     }
 }
 
-/**
- * The credential and its deadline.
- *
- * The token is rendered as four dots and its last 4 characters — enough to tell two pasted tokens
- * apart, and the most SPEC S9 permits anywhere in the app (ADR-008).
- */
+/** The credential and its deadline. */
 @Composable
 private fun SessionCard(state: AccountUiState) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -165,8 +144,6 @@ private fun SessionCard(state: AccountUiState) {
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            // The masked credential is a value, set in the same data face as the token screen's
-            // field so the same thing looks the same in both places.
             Text(
                 text = stringResource(Res.string.account_token_value, state.tokenSuffix),
                 style = Tabular,
@@ -176,30 +153,17 @@ private fun SessionCard(state: AccountUiState) {
     }
 }
 
-/**
- * How much the session has left, as a tone.
- *
- * A session that expired is [StateTone.Failed] rather than merely waiting: nothing about it works any
- * more. A session about to expire is [StateTone.Waiting] — still valid, and the app is telling the
- * user what it knows before it becomes a problem, which is the same category as a lock command in
- * flight.
- */
+/** How much the session has left, as a tone. */
 private fun AccountUiState.tone(): StateTone = when {
     expiry is SessionExpiry.Expired -> StateTone.Failed
     expiry is SessionExpiry.Remaining && expiry.soon -> StateTone.Waiting
     else -> StateTone.Settled
 }
 
-/**
- * "Expira em 1 h 47 min", "Expira em 7 min" or "Sessão expirada".
- *
- * The hours are dropped below one on purpose: "0 h 7 min" reads as a rounding artefact next to a
- * deadline the user is being warned about.
- */
+/** "Expira em 1 h 47 min", "Expira em 7 min" or "Sessão expirada". */
 @Composable
 private fun ExpiryLine(expiry: SessionExpiry) {
     when (expiry) {
-        // The vault has not answered; the card keeps its shape and says nothing it does not know.
         SessionExpiry.Unknown -> Unit
 
         is SessionExpiry.Remaining -> Text(

@@ -6,22 +6,13 @@ import io.github.npauloj.mibosmart.domain.lock.LockRepository
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 import kotlin.coroutines.cancellation.CancellationException
 
-/**
- * Setting how loudly the lock announces itself (SPEC L7).
- *
- * One request, never optimistic: the level it returns is the level the partner accepted, so a screen
- * that renders [ChangeVolumeResult.Changed] and nothing else can never show a volume the hardware is
- * not at. There is no retry here either — the account pays per request (ADR-006) and asking again is
- * the user's decision.
- */
+/** Setting how loudly the lock announces itself (SPEC L7). */
 class ChangeVolume(
     private val lockRepository: LockRepository,
     private val lockWrites: LockWritesSwitch,
 ) {
 
     suspend operator fun invoke(address: LockAddress, volume: VolumeLevel): ChangeVolumeResult {
-        // First, before anything can reach the network: off means no request at all, not a request
-        // whose answer is ignored.
         if (!lockWrites.isOn) return ChangeVolumeResult.WritesDisabled
         return try {
             lockRepository.changeVolume(address, volume)

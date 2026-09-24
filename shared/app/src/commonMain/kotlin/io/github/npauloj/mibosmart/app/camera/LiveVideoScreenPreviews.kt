@@ -11,15 +11,10 @@ import io.github.npauloj.mibosmart.domain.camera.StreamSession
 import io.github.npauloj.mibosmart.domain.camera.StreamState
 import io.github.npauloj.mibosmart.domain.camera.StreamStep
 
-// android.content.res.Configuration.UI_MODE_NIGHT_YES, which commonMain cannot import (rule 4).
 private const val UI_MODE_NIGHT_YES = 0x20
 
 /**
  * Every state `LiveVideoScreenContent` can render (SPEC §3 "Visual acceptance"), declared once.
- *
- * The url is a placeholder and never reaches a decoder: the player surface renders a plain rectangle
- * under `LocalInspectionMode` (ADR-005), so a preview opens no socket and spends no quota. No serial
- * of the test account appears here (ADR-008).
  */
 internal class StreamStateProvider : PreviewParameterProvider<StreamState> {
 
@@ -58,8 +53,9 @@ internal class StreamStateProvider : PreviewParameterProvider<StreamState> {
         val Failed = StreamState.Failed(StreamError.Playback, MONITOR_URL)
 
         /**
-         * The same failure on a session without a `monitor_url` — the case ADR-005 leaves open and
-         * this preview makes visible: one action, and no button that would open nothing (SPEC V9).
+         * The same failure on a session without a `monitor_url` — the case ADR-005 leaves open
+         * and this preview makes visible: one action, and no button that would open nothing
+         * (SPEC V9).
          */
         val FailedWithoutFallback = StreamState.Failed(StreamError.Playback)
 

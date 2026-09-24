@@ -38,14 +38,8 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC D1, D3, D5, D6, D8 (no cache) and U3, asserted against the real transport with `MockEngine`.
- *
- * It lives in `:shared:data` because "the exact request" is a claim about bytes on the wire: the
- * client, the DTOs and the envelope reader the app ships are all in the assertion. The states the
- * user sees from these outcomes are `DeviceListViewModelTest`'s.
- *
- * Every serial here is a **placeholder** — the test account's `ns` and `idProduto` never enter a
- * versioned file (ADR-008).
+ * SPEC D1, D3, D5, D6, D8 (no cache) and U3, asserted against the real transport with
+ * `MockEngine`.
  */
 class ListDevicesTest {
 
@@ -85,8 +79,8 @@ class ListDevicesTest {
 
     /**
      * SPEC D5, D6, U3 and U8 in one pass over a page shaped like the account's: the payload is
-     * classified, the sub-device keeps its parent, the compact `ultimaVezOnline` becomes an instant,
-     * and the order is the app's rather than the partner's.
+     * classified, the sub-device keeps its parent, the compact `ultimaVezOnline` becomes an
+     * instant, and the order is the app's rather than the partner's.
      */
     @Test
     fun aPageIsClassifiedDatedAndOrdered() = runTest {
@@ -106,9 +100,9 @@ class ListDevicesTest {
     }
 
     /**
-     * SPEC L1: `idProduto` reaches the domain, because the lock edge needs the hub's **and** the
-     * lock's to address a door (`docs/api-contract.md` §5) and the list is the only response that
-     * carries either. Blank stays blank: that is what the lock edge refuses on (D-03).
+     * SPEC L1: `idProduto` reaches the domain, because the lock edge needs the hub's **and**
+     * the lock's to address a door (`docs/api-contract.md` §5) and the list is the only
+     * response that carries either.
      */
     @Test
     fun carriesTheProductId() = runTest {
@@ -126,12 +120,9 @@ class ListDevicesTest {
     }
 
     /**
-     * SPEC L1: the hub's `idProduto` reaches the domain **from the sub-device's own row**, which is
-     * the field that lets a lock be addressed without its hub being loaded
+     * SPEC L1: the hub's `idProduto` reaches the domain **from the sub-device's own row**,
+     * which is the field that lets a lock be addressed without its hub being loaded
      * (`idProdutoDispositivoPai`, `docs/api-contract.md` §3).
-     *
-     * Null on everything that is not a sub-device, because the partner sends it on nothing else — and
-     * a null there is what stops "no parent" from being read as "a parent with a blank id".
      */
     @Test
     fun carriesTheParentProductId() = runTest {
@@ -189,8 +180,8 @@ class ListDevicesTest {
     }
 
     /**
-     * SPEC D2 and D4 on the wire: the chip picks the `origem`, the page number is the partner's own,
-     * and a page exactly as long as the one requested is what offers the next.
+     * SPEC D2 and D4 on the wire: the chip picks the `origem`, the page number is the partner's
+     * own, and a page exactly as long as the one requested is what offers the next.
      */
     @Test
     fun aFilteredNextPageAsksForItByNumber() = runTest {
@@ -269,8 +260,9 @@ class ListDevicesTest {
         val FETCHED_AT = Instant.parse("2026-09-21T12:00:00Z")
 
         /**
-         * A page shaped like `docs/api-contract.md` §3, returned out of order on purpose: a lock under
-         * its hub, the hub itself, and an offline camera with a compact `ultimaVezOnline`.
+         * A page shaped like `docs/api-contract.md` §3, returned out of order on purpose: a
+         * lock under its hub, the hub itself, and an offline camera with a compact
+         * `ultimaVezOnline`.
          */
         val PAGE = """
             [

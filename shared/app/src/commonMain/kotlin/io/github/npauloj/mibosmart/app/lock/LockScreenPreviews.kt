@@ -9,16 +9,12 @@ import io.github.npauloj.mibosmart.domain.lock.LockCommand
 import io.github.npauloj.mibosmart.domain.lock.LockState
 import io.github.npauloj.mibosmart.domain.lock.VolumeLevel
 
-// android.content.res.Configuration.UI_MODE_NIGHT_YES, which commonMain cannot import (rule 4).
 private const val UI_MODE_NIGHT_YES = 0x20
 
 /**
- * Every state `LockScreenContent` can render (SPEC §4 "Visual acceptance"), declared once: the named
- * previews below take one value each so their names stay readable metadata, and tooling that walks
- * providers gets the same sequence.
- *
- * The device name is a placeholder. A real lock's `nome` carries part of its serial
- * (`docs/api-contract.md` §3) and no identifier of the test account is committed (ADR-008).
+ * Every state `LockScreenContent` can render (SPEC §4 "Visual acceptance"), declared once: the
+ * named previews below take one value each so their names stay readable metadata, and tooling
+ * that walks providers gets the same sequence.
  */
 internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
 
@@ -55,28 +51,13 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
             lock = LockState(isOpen = true, isRemoteOpenEnabled = true, volume = VolumeLevel.High),
         )
 
-        /**
-         * SPEC L3: the command is out and nothing has confirmed it.
-         *
-         * The state above still reads "Fechada" and every control is dead. That gap is the
-         * acceptance criterion made visible: the screen is waiting on hardware, not on itself.
-         */
+        /** SPEC L3: the command is out and nothing has confirmed it. */
         val CommandSent = LockUiState.CommandSent(Locked, LockCommand.Open)
 
-        /**
-         * SPEC L4: the command was taken and the device never agreed.
-         *
-         * The single most important frame in this screen — the one that stops the app from claiming
-         * a door opened. The only way forward is the "Verificar" tap beside it.
-         */
+        /** SPEC L4: the command was taken and the device never agreed. */
         val CommandExpired = LockUiState.CommandExpired(Locked, LockCommand.Open)
 
-        /**
-         * SPEC U6 on the one action `CommandExpired` offers: the check could not answer either.
-         *
-         * It has no named preview of its own — the SPEC's visual acceptance list does not ask for
-         * one — but it is in the sequence, so `LockScreen_AllStates` still renders it.
-         */
+        /** SPEC U6 on the one action `CommandExpired` offers: the check could not answer either. */
         val CommandCheckFailed = CommandExpired.copy(checkFailure = LockError.Offline)
 
         /** SPEC L5: the command never left; the readings under the notice are untouched. */
@@ -89,12 +70,7 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
             lock = LockState(isOpen = false, isRemoteOpenEnabled = false, volume = VolumeLevel.Mute),
         )
 
-        /**
-         * SPEC L7: `mudar-volume` is in flight.
-         *
-         * The selected chip is still Medium — the level the lock reported — while the line below
-         * names the level being asked for. That gap is the acceptance criterion made visible.
-         */
+        /** SPEC L7: `mudar-volume` is in flight. */
         val VolumeChanging = Locked.copy(writeInFlight = LockWrite.Volume(VolumeLevel.High))
 
         /** SPEC U6: the write did not happen, the reading did not move, and the reason is named. */
@@ -102,14 +78,7 @@ internal class LockUiStateProvider : PreviewParameterProvider<LockUiState> {
             writeFailure = WriteFailure(LockWrite.Volume(VolumeLevel.High), LockError.Offline),
         )
 
-        /**
-         * The door answered and the volume did not (ADR-026).
-         *
-         * The frame that proves the screen survives a partial read: "Fechada" is on it, every command
-         * is available, and only the selector is out — amber, not red, and saying which reading is
-         * missing. Measured 2026-09-23, this is the state of five of the six locks in the test
-         * account, so it is the common case rather than an edge one.
-         */
+        /** The door answered and the volume did not (ADR-026). */
         val VolumeUnknown = LockUiState.Ready(
             deviceName = LOCK_NAME,
             lock = LockState(isOpen = false, isRemoteOpenEnabled = true, volume = null),

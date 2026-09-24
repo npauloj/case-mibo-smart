@@ -21,14 +21,8 @@ import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 /**
- * SPEC S6's data half: every refusal reaches the guard **carrying the token its request was sent
- * with**, and nothing else does.
- *
- * Driven through the real [SmartHomeApi] rather than by calling `report` directly, because the claim
- * being tested is that the transport reports at all — a guard nobody feeds is the failure mode.
- *
- * Turbine is used here and only here in this file: [SessionRefusals] is a one-shot event stream, not
- * a screen state (`CLAUDE.md`).
+ * SPEC S6's data half: every refusal reaches the guard **carrying the token its request was
+ * sent with**, and nothing else does.
  */
 class SessionRefusalsTest {
 
@@ -65,8 +59,8 @@ class SessionRefusalsTest {
     }
 
     /**
-     * The 403 that must **not** end the session: the gateway's shape, for an endpoint this account
-     * may not call with a perfectly valid token (ADR-012 amended, SPEC E1).
+     * The 403 that must **not** end the session: the gateway's shape, for an endpoint this
+     * account may not call with a perfectly valid token (ADR-012 amended, SPEC E1).
      */
     @Test
     fun aForbiddenEndpointIsNotAnnounced() = runTest {

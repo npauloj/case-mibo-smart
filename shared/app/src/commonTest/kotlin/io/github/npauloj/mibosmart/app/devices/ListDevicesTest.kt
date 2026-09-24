@@ -19,10 +19,6 @@ import kotlinx.coroutines.test.setMain
 /**
  * SPEC D8: what the use case does when page 1 never arrives — which depends entirely on whether
  * there is a cache, and on *why* it failed.
- *
- * The transport half of the same criterion (what "offline" means on the wire) is asserted in
- * `:shared:data`'s `ListDevicesTest` with `MockEngine`; the states the user sees are
- * `DeviceListViewModelTest`'s.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ListDevicesTest {
@@ -63,9 +59,8 @@ class ListDevicesTest {
     }
 
     /**
-     * SPEC D8 reads "fails for network reasons", and that is the whole of it: an expired token with
-     * a cache must still send the user to the token screen (SPEC S6). Old rows behind a dead session
-     * look like a working app and hide the one action left.
+     * SPEC D8 reads "fails for network reasons", and that is the whole of it: an expired token
+     * with a cache must still send the user to the token screen (SPEC S6).
      */
     @Test
     fun anExpiredTokenIsNotHiddenBehindTheCache() = runTest {
@@ -92,12 +87,7 @@ class ListDevicesTest {
         assertEquals(DeviceListResult.Offline, listDevices.firstPage())
     }
 
-    /**
-     * A corrupt or unreadable cache file costs the offline comfort of SPEC D8 and nothing else.
-     *
-     * Nothing above the use case can repair that file, so a screen that crashed on it would strand
-     * the user on exactly the launch where they most need the retry button.
-     */
+    /** A corrupt or unreadable cache file costs the offline comfort of SPEC D8 and nothing else. */
     @Test
     fun aCacheThatThrowsIsACacheMiss() = runTest {
         val repository = FakeDeviceRepository(
@@ -118,14 +108,7 @@ class ListDevicesTest {
         assertEquals(0, repository.calls)
     }
 
-
-    /**
-     * SPEC D7: the list is fetched when it is opened, and not again for merely being looked at.
-     *
-     * The ViewModel outlives the composition, so "navigating back" is exactly this: the same
-     * instance, observed again. Only the pull refetches — which is the other half of D7, and the
-     * reason this test also asserts what a refresh costs.
-     */
+/** SPEC D7: the list is fetched when it is opened, and not again for merely being looked at. */
     @Test
     fun navigationDoesNotRefetch() = runTest(dispatcher) {
         val repository = FakeDeviceRepository { listOf(device("iM3-C")) }

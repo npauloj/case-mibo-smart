@@ -6,16 +6,12 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import io.github.npauloj.mibosmart.app.ui.AppTheme
 
-// android.content.res.Configuration.UI_MODE_NIGHT_YES, which commonMain cannot import (rule 4).
 private const val UI_MODE_NIGHT_YES = 0x20
 
 /**
- * Every state `DeviceListScreenContent` can render (SPEC §2 "Visual acceptance"), declared once: the
- * named previews below take one value each so their names stay readable metadata, and tooling that
- * walks providers gets the same sequence.
- *
- * The success value is the full page of [PreviewFixtures] — 20 rows, a name far too long for one
- * line, an `ultimaVezOnline` twelve days old and a device that was never seen online (SPEC U3).
+ * Every state `DeviceListScreenContent` can render (SPEC §2 "Visual acceptance"), declared
+ * once: the named previews below take one value each so their names stay readable metadata, and
+ * tooling that walks providers gets the same sequence.
  */
 internal class DeviceListUiStateProvider : PreviewParameterProvider<DeviceListUiState> {
 
@@ -26,12 +22,7 @@ internal class DeviceListUiStateProvider : PreviewParameterProvider<DeviceListUi
         val Loading = DeviceListUiState(isLoading = true)
         val Success = DeviceListUiState(rows = PreviewFixtures.fullPage, hasMore = true)
 
-        /**
-         * SPEC D2: a full page, the footer spinner under it, and the rows exactly where they were.
-         *
-         * The scroll position is not part of the state, so the preview shows the footer by rendering
-         * the top of the list; what it proves is that loading more does not move anything above it.
-         */
+        /** SPEC D2: a full page, the footer spinner under it, and the rows exactly where they were. */
         val LoadingMore = DeviceListUiState(
             rows = PreviewFixtures.fullPage,
             hasMore = true,

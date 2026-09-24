@@ -1,4 +1,4 @@
-# Case Mibo Smart — Documento de produto e arquitetura
+# Case Mibo Smart: documento de produto e arquitetura
 
 > Documento de entrega, fechado em 23/09/2026. Os números desta versão foram medidos na data;
 > o que ficou em aberto está nomeado no §11, com o motivo.
@@ -9,11 +9,11 @@
 
 ## 1. Contexto e objetivo
 
-- Case técnico da plataforma Open Casa Inteligente para a vaga de Analista de Desenvolvimento de Produto II — Android.
+- Case técnico da plataforma Open Casa Inteligente para a vaga de Analista de Desenvolvimento de Produto II (Android).
 - Entregar um app Kotlin Multiplatform (Android principal, iOS como prova do compartilhamento) que
   consome a Open Casa Inteligente: token de acesso, lista de dispositivos, vídeo ao vivo de câmeras,
   controle de fechadura.
-- O enunciado pede "como você pensa, prioriza, comunica e codifica" — este documento é a parte
+- O enunciado pede "como você pensa, prioriza, comunica e codifica". Este documento é a parte
   "pensa e comunica"; o repositório (Issues → PRs → ADRs) é a trilha do "prioriza e codifica".
 
 ## 2. Leitura do problema
@@ -29,8 +29,8 @@
 
 | Onda | Escopo | Requisitos | Racional |
 |---|---|---|---|
-| 0 | *Walking skeleton*: repositório, CI, esqueleto de módulos, specs, ADRs, testes de arquitetura | — | a trilha começa antes do código |
-| 1 | Sessão/token (tela, validação, expiração) — constrói client HTTP, envelope, erros tipados e cofre por necessidade própria | RF01, RF04 | primeira fatia vertical; não existe "fatia de fundação" |
+| 0 | *Walking skeleton*: repositório, CI, esqueleto de módulos, specs, ADRs, testes de arquitetura | (sem RF) | a trilha começa antes do código |
+| 1 | Sessão/token (tela, validação, expiração), que constrói client HTTP, envelope, erros tipados e cofre por necessidade própria | RF01, RF04 | primeira fatia vertical; não existe "fatia de fundação" |
 | 2 | Em paralelo: lista + filtro + paginação + estados · vídeo ao vivo · fechadura (status, abrir/fechar, pré-condição remota, volume) | RF02, RF03, RF04, RF05, RF06, RF07, RF08 | as três não dependem entre si; vídeo e fechadura são o "hardware real" |
 | 3 | Histórico da fechadura, renovação de token, iOS com a lista, módulo Java, R8 no release, este PDF | RF09, ★ Java | só após o núcleo funcionar no Android |
 
@@ -44,11 +44,11 @@
 Antes de escrever as issues, li o que quem usa o app oficial da plataforma diz nas lojas
 (`docs/research/user-feedback.md`: 250 avaliações recentes da App Store, 20 da Play, Reclame Aqui e o
 fórum oficial; leitura em 20/09/2026). Nota agregada 4,8★ nas duas lojas, mas as avaliações recentes
-*com texto* são majoritariamente 1★ — a leitura é sobre o texto.
+*com texto* são majoritariamente 1★, e a leitura é sobre o texto.
 
 | O que mais dói (≈ menções em 270) | O que o case faz a respeito |
 |---|---|
-| Vídeo ao vivo trava em "9x %" sem erro nomeado (≈50) | Etapas visíveis, **timeout de 20 s com mensagem**, retry e fallback web — nunca um spinner infinito (SPEC U1, V3–V5) |
+| Vídeo ao vivo trava em "9x %" sem erro nomeado (≈50) | Etapas visíveis, **timeout de 20 s com mensagem**, retry e fallback web, nunca um spinner infinito (SPEC U1, V3–V5) |
 | Propaganda e push de marketing num app de segurança (≈45) | Zero banner, pesquisa, interstitial ou notificação; abre direto na lista, câmera em dois toques (U2, U7) |
 | Câmera "offline do nada", sem explicação (≈20) | Indicador + "visto pela última vez há X" na lista e na fechadura (U3) |
 | Fechadura: histórico chega atrasado e sem nome; volume que "sumiu" (≈10) | Comando → confirmação explícita; histórico com quem e quando; volume com rótulos (L3–L7, U4) |
@@ -64,7 +64,7 @@ tratamento de incidente. O detalhe está no §5–6 do documento de pesquisa.
 
 ```
 :shared:domain   modelos, contratos (DeviceRepository, LockRepository, StreamingRepository,
-                 SecureTokenStore), erros e resultados por caso de uso — sem dependências
+                 SecureTokenStore), erros e resultados por caso de uso, sem dependências
 :shared:data     implementação do parceiro: Ktor, DTOs, EnvelopeReader, mapeadores, SQLDelight;
                  cofre do token em `platform.vault` (Keystore no androidMain, Keychain no iosMain)
 :shared:app      casos de uso, ViewModels, UI Compose Multiplatform por feature, módulos Koin;
@@ -72,7 +72,7 @@ tratamento de incidente. O detalhe está no §5–6 do documento de pesquisa.
                  WKWebView no iosMain)
 :androidApp      Activity + Application (só plumbing, nenhum `actual`)
 iosApp           host SwiftUI (Swift não hospeda `actual` Kotlin)
-:legacy-catalog  módulo Java pequeno (SDK legado simulado) — onda 2, cortável
+:legacy-catalog  módulo Java pequeno (SDK legado simulado), onda 2, cortável
 ```
 
 - `expect/actual` só existe em pacotes chamados `platform` dentro do módulo dono da abstração
@@ -85,44 +85,34 @@ iosApp           host SwiftUI (Swift não hospeda `actual` Kotlin)
   estados de hardware modelados como tipos selados (ADR-003).
 - Erro é valor: a camada de dados lança exceções tipadas; cada caso de uso devolve o resultado da sua
   intenção (`Loaded | Empty | TokenRejected | Offline | Failure`) (ADR-002).
-**Vídeo ao vivo** — a janela de 15 s é do parceiro, não nossa: a url expira se nenhum player a abrir
+
+**Vídeo ao vivo.** A janela de 15 s é do parceiro, não nossa: a url expira se nenhum player a abrir
 nesse prazo, e é por isso que o caso de uso **publica** estados em vez de devolver um (ADR-005).
 
-```
-usuário    ViewModel          parceiro (portal)        player (Media3)
-   │          │                      │                       │
-  toque ─────▶│                      │                       │
-   │          │ criar-fluxo-video ──▶│                       │
-   │          │◀── url, session_id, monitor_url, quota_gb     │   ◀── medido 23/09: só
-   │          │                      │                       │       no host do portal
-   │          │ Creating ────────────────────────────────────▶ prepare(url)
-   │          │                      │                       │
-   │          │           ┌─ 1º quadro em ≤ 20 s ────────────┤  [ASSUMED]
-   │          │           │  Live                            │
-   │          │           └─ nada  → Reconnecting 1s/3s/7s ──┤  teto de 2 sessões novas
-   │          │                                 └─ Failed + "Abrir no player web"
-   │          │                      │                       │
-  sair ──────▶│ encerrar-sessao ────▶│   (NonCancellable)    │ release()
-```
+| Passo | O que acontece | Estado na tela |
+|---|---|---|
+| 1 | Toque na câmera. O app pede `criar-fluxo-video` ao **host do portal** | `Creating` |
+| 2 | Resposta traz `url` (fMP4), `session_id`, `monitor_url` e `quota_gb` | `Creating` |
+| 3 | O player recebe a url e prepara | `Creating`, com etapa nomeada |
+| 4a | Primeiro quadro em até 20 s `[ASSUMED]` | `Live` |
+| 4b | Nada chega: três tentativas (1 s, 3 s, 7 s), teto de duas sessões novas | `Reconnecting` |
+| 4c | A escada termina sem quadro | `Failed`, com "Abrir no player web" |
+| 5 | Saída da tela. `encerrar-sessao` roda sob `NonCancellable` | sessão devolvida |
 
-**Fechadura** — o comando e a confirmação são coisas separadas, e é essa separação que o app não
+**Fechadura.** O comando e a confirmação são coisas separadas, e é essa separação que o app não
 esconde: nenhuma tela afirma que a porta abriu antes de a leitura concordar (ADR-021).
 
-```
-usuário    ViewModel                    parceiro
-   │          │                            │
- "Abrir" ────▶│ controle-fechadura ───────▶│
-   │          │◀── aceito                  │        CommandSent — todo controle morto
-   │          │                            │
-   │          │ status-abertura ──────────▶│        uma leitura, sem polling (ADR-006)
-   │          │◀── aberto: true            │        concorda  → Ready(destrancada)
-   │          │◀── aberto: false           │        discorda  → CommandExpired
-   │          │                            │                    (âmbar, com "Verificar")
-   │          │◀── erro                    │        → CommandFailed, e a porta fica como estava
-```
+| Passo | O que acontece | Estado na tela |
+|---|---|---|
+| 1 | Toque em "Abrir". O app envia `controle-fechadura` | `CommandSent`, todo controle inerte |
+| 2 | O parceiro aceita o comando. Aceitar não é confirmar | `CommandSent` |
+| 3 | Uma leitura de `status-abertura`, sem polling (ADR-006) | `CommandSent` |
+| 4a | A leitura concorda com o comando | `Ready`, com a porta no estado novo |
+| 4b | A leitura discorda | `CommandExpired`, em âmbar, com "Verificar" |
+| 4c | A leitura falha | `CommandFailed`, e a porta fica como estava |
 
 O `CommandExpired` é o estado mais importante das duas telas: ele diz *"o comando saiu e a porta não
-respondeu"*, que não é a mesma coisa que *"a porta recusou"* — e ninguém consegue distinguir as duas
+respondeu"*, que não é a mesma coisa que *"a porta recusou"*, e ninguém consegue distinguir as duas
 daqui.
 
 ## 5. Stack e justificativas
@@ -160,12 +150,12 @@ um lugar só, e um teste que falha se esse lugar mudar.
 | 4 | `volume/v1` exige `productId`, mas a propriedade é `idProduto` | `LockRequests.volume` manda os dois, e a quarentena fica nele | `LockRequestsTest.volumeRequestCarriesBothIds` |
 | 5 | A página de docs mostra `GET` com `{ns, idProduto}`; o Swagger, `POST` com `{tamanhoPagina, pagina, origem}` | vale o Swagger, verificado na prática | `ListDevicesTest.firstPageUsesDefaults` |
 | 6 | `renovarToken` tem caminho diferente no Swagger e na descrição | `SmartHomeApi.RENEW_TOKEN_PATH` fixa o que responde | `RenewTokenTest.exactRequest` |
-| 7 | **Dois hosts** — API nas descrições, portal no `host:` do Swagger | `SmartHomeApi.streamingBaseUrl`: streaming no portal, o resto na API (ADR-025) | `WatchLiveVideoTest.streamingCallsGoToThePortalHostAndTheRestDoesNot` |
+| 7 | **Dois hosts**: API nas descrições, portal no `host:` do Swagger | `SmartHomeApi.streamingBaseUrl`: streaming no portal, o resto na API (ADR-025) | `WatchLiveVideoTest.streamingCallsGoToThePortalHostAndTheRestDoesNot` |
 | 8 | Filtro usa plural `vinculados`; o campo do dispositivo usa singular `vinculado` | `OriginFilter` traduz numa direção só | `OriginFilterTest.mapsToWireValues` |
 
 A número **7 merece destaque**, porque foi a única que escapou: estava documentada desde o começo e
 mesmo assim o app chamou `criar-fluxo-video` no host errado desde o commit 0. Os dois hosts respondem
-`200`, devolvem uma `url` plausível e nenhum reporta erro — nada dentro do app podia distingui-los, e
+`200`, devolvem uma `url` plausível e nenhum reporta erro. Nada dentro do app podia distingui-los, e
 nenhum teste com `MockEngine` também, porque as fixtures foram escritas a partir do Swagger. O custo
 não foi a imagem que faltava: o host errado não devolve `session_id`, então o encerramento de sessão
 era código morto, e **27 sessões ficaram abertas numa conta compartilhada**. Está inteiro no ADR-025 e
@@ -178,8 +168,9 @@ nas linhas do `AI-LOG.md` de 23/09.
 - Câmera: criando sessão · ao vivo · reconectando (n/3) · expirada · cota esgotada · offline · falha
   com fallback web.
 - Sessão: sem token · válida (expira em …) · expirada (rota para a tela de token com mensagem específica).
-**As capturas existem como teste, não como anexo neste documento.** São 42 goldens — um por estado das
-seis telas — gravados por `ScreenshotTest` (Roborazzi + Robolectric, ADR-024) e publicados como
+
+**As capturas existem como teste, não como anexo neste documento.** São 42 goldens, um por estado das
+seis telas, gravados por `ScreenshotTest` (Roborazzi + Robolectric, ADR-024) e publicados como
 artefato do job `verify`. Não estão versionadas de propósito: a rasterização de fonte difere entre
 sistemas operacionais, então uma imagem gravada numa máquina Windows diverge da do runner Linux em
 cada pixel de antialiasing, por motivo que nada tem a ver com a UI. O `.gitignore` carrega essa
@@ -198,11 +189,11 @@ sem acrescentar a captura quebra o build.
 
 ## 9. Qualidade, testes e método
 
-- Metodologia: SDD leve — spec com critérios EARS/Gherkin (`docs/specs/SPEC.md`) → ADRs → Issues no
+- Metodologia: SDD leve. Spec com critérios EARS/Gherkin (`docs/specs/SPEC.md`) → ADRs → Issues no
   GitHub (uma por fatia vertical) → um PR por Issue com o "porquê" na descrição.
 - TDD cirúrgico nas regras críticas: paginação/filtro, tradução de erro/token, máquina de estado da
   fechadura, política de retry do vídeo. UI e player fora do TDD.
-- Uso de IA documentado em `AI-LOG.md` — inclusive o que a IA errou e como foi corrigido.
+- Uso de IA documentado em `AI-LOG.md`, inclusive o que a IA errou e como foi corrigido.
 ### 9.1 Números, medidos em 23/09/2026
 
 | Módulo | Testes | O que eles cobrem |
@@ -217,16 +208,16 @@ sem acrescentar a captura quebra o build.
 Cobertura agregada: **61,5 % de linhas, 61 % de ramos** (Kover). Três leituras que o número sozinho
 esconde:
 
-- Ele exclui, **por decisão explícita**, `*.platform*` e `*.ui.*` — as pontes `expect/actual` e a UI
+- Ele exclui, **por decisão explícita**, `*.platform*` e `*.ui.*`, ou seja, as pontes `expect/actual` e a UI
   Compose. Essas são provadas por preview e golden, não por teste unitário, e contá-las inflaria o
   denominador com código que nenhum teste unitário deveria tocar.
-- Até 23/09 o agregado **omitia o `:shared:data` inteiro** — o módulo com o contrato, os mappers e o
+- Até 23/09 o agregado **omitia o `:shared:data` inteiro**, o módulo com o contrato, os mappers e o
   cache, e o mais testado dos três. O número publicado teria sido 53,2 %. A omissão foi corrigida ao
   fechar este documento; um número que exclui em silêncio o módulo mais coberto lê como o todo e não é.
 - A cobertura **não é porta de merge** (ADR-006). É medida e publicada; o que barra é o teste de
   arquitetura e a suíte.
 
-**CI:** três estágios — `verify` (arquitetura + testes JVM + goldens, em todo PR), `android` (APK e
+**CI:** três estágios. `verify` (arquitetura + testes JVM + goldens, em todo PR), `android` (APK e
 lint) e `ios` (macOS: testes no simulador, link do framework, `xcodebuild`), este só em push para
 `main` ou por disparo manual, porque minuto de macOS custa 10× em repositório privado. Os três
 estiveram verdes em `main` pela primeira vez em 22/09. **Em 23/09 o CI está bloqueado por cobrança da
@@ -245,7 +236,7 @@ localmente, com a mesma lista de tarefas do workflow.
 - **Testes:**
 
   ```bash
-  # regras de negócio e contrato — JVM, segundos
+  # regras de negócio e contrato (JVM, segundos)
   ./gradlew :shared:domain:testAndroidHostTest :shared:data:testAndroidHostTest :shared:app:testAndroidHostTest
 
   # arquitetura (falha o build, não é aviso)
@@ -263,36 +254,36 @@ localmente, com a mesma lista de tarefas do workflow.
 
   Antes de rodar qualquer um: copie `local.properties.example` para `local.properties` e preencha
   `smarthome.apiHost` e `smarthome.portalHost`. Sem eles o build falha com mensagem clara, em vez de
-  embutir um host padrão — e **nenhum teste fala com a API real**; os de contrato usam `MockEngine`.
-- Token: gerado na plataforma Open Casa Inteligente → Contas → Token Temporário (validade 2 h) — ver `docs/guides/token.md`.
+  embutir um host padrão. E **nenhum teste fala com a API real**; os de contrato usam `MockEngine`.
+- Token: gerado na plataforma Open Casa Inteligente → Contas → Token Temporário (validade 2 h). Ver `docs/guides/token.md`.
 
 ## 11. O que ficou de fora e por quê
 
 **O vídeo nunca mostrou um quadro.** É o item mais honesto desta lista e o único que não depende de
-prazo. O app estava chamando `criar-fluxo-video` no host errado desde o commit 0 — corrigido, com
+prazo. O app estava chamando `criar-fluxo-video` no host errado desde o commit 0. Corrigido, com
 ADR-025 e teste de regressão. Com o host certo, a sessão é criada e o `/stream/<id>` do portal
 devolve `200 video/mp4 chunked` e **encerra em exatos 15 s com zero byte**, nas duas câmeras, em todos
 os canais e perfis, conectando 0,1 s depois de criar. É o transcodificador desistindo do upstream
 *dele*. Que já funcionou é medido: dez sessões do mesmo dia consumiram 0,87 Mbit/s constante, e uma
 sessão que não recebe nada registra `mb_consumed: 0.0`. O caminho carregou vídeo e parou. Se as 27
-sessões que deixamos abertas contribuíram para esse estado, não sei — e é por isso que está escrito no
+sessões que deixamos abertas contribuíram para esse estado, não sei, e é por isso que está escrito no
 ADR-025 em vez de omitido.
 
 **Números `[ASSUMED]` do vídeo.** Os atrasos de 1/3/7 s e o orçamento de 20 s para o primeiro quadro
-estão implementados e provados em relógio virtual — o **mecanismo** é testado, os **números** não foram
+estão implementados e provados em relógio virtual. O **mecanismo** é testado, os **números** não foram
 observados contra hardware. Seguem marcados como tal no ADR-005 e na SPEC.
 
 **Renovação de token (S10):** entregou. O endpoint foi sondado em 21/09 e o comportamento surpreendeu
-de um jeito útil — renovar **acrescenta** uma credencial em vez de substituir, e o token anterior
+de um jeito útil: renovar **acrescenta** uma credencial em vez de substituir, e o token anterior
 continua valendo. Está no ADR-020.
 
 **Baseline de goldens não commitada.** Ela só pode nascer no runner Linux (ADR-024) e o CI está
 bloqueado por cobrança. Enquanto isso as capturas são artefato do PR, não porta de regressão.
 
 **Fora do escopo do case, e registrado como próximo passo de produto** (detalhe no §5–6 de
-`docs/research/user-feedback.md`): gravações, timeline e cartão SD — o maior cluster de reclamação
+`docs/research/user-feedback.md`): gravações, timeline e cartão SD, o maior cluster de reclamação
 depois de vídeo e propaganda; notificações de dispositivo com granularidade, que **não** contradizem a
-U7 (o que os usuários odeiam é push de marketing, o que pedem é alerta de segurança — são coisas
+U7 (o que os usuários odeiam é push de marketing, o que pedem é alerta de segurança, e são coisas
 opostas); um app e uma conta para todas as linhas; pareamento resiliente a Wi-Fi + dados móveis.
 
 **E um achado que não é backlog de produto:** um relato de 2026-03-06 descreve senha excluída na
@@ -301,18 +292,18 @@ tratamento de incidente, não card de feature, e está assim classificado na pes
 
 ## 12. Roteiro da apresentação (20 min)
 
-O que se **diz**. O que precisa estar certo antes de falar — token, build, orçamento de requisições,
-a chave de escrita da fechadura — está em [`docs/guides/demo.md`](guides/demo.md).
+O que se **diz**. O que precisa estar certo antes de falar (token, build, orçamento de requisições,
+a chave de escrita da fechadura) está em [`docs/guides/demo.md`](guides/demo.md).
 
 **3 min · o problema, lido antes de escrito.** Antes de abrir uma issue, li 270 avaliações do app
 oficial da plataforma (`docs/research/user-feedback.md`). Os critérios de UX U1–U8 da SPEC nascem
-daí, cada um com o teste que o prova — não de suposição sobre o que seria bom.
+daí, cada um com o teste que o prova, não de suposição sobre o que seria bom.
 
 **5 min · demonstração.** Token → lista → câmera → fechadura → histórico. Quatro momentos que não
 são detalhes de UI:
 
 - um token truncado é recusado **sem gastar requisição** (a conta tem orçamento finito, ADR-006);
-- a lista aparece **antes** da rede responder, do cache — dois toques até a imagem (U2);
+- a lista aparece **antes** da rede responder, do cache, e são dois toques até a imagem (U2);
 - o vídeo tem etapas nomeadas e teto de 20 s: nunca um "97 %" eterno, que é a reclamação nº 1 dos
   usuários reais;
 - a fechadura separa **comando** de **confirmação**, e o app nunca afirma que a porta abriu antes de
@@ -320,10 +311,10 @@ são detalhes de UI:
 
 **7 min · arquitetura.** ADR-001 a 005: módulos com dependência só para dentro, erro como valor, um
 estado imutável por tela, domínio agnóstico de parceiro. O que o compilador garante e o que o teste
-de arquitetura garante — `:konture-test` falha o build, não emite aviso.
+de arquitetura garante: o `:konture-test` falha o build, não emite aviso.
 
 **3 min · o contrato, e o que ele forçou.** As oito contradições do §6.1 e onde cada uma é defendida.
-Fecha na número 7 — **dois hosts** —, que é a que escapou: documentada desde o começo, e mesmo assim
+Fecha na número 7, **dois hosts**, que é a que escapou: documentada desde o começo, e mesmo assim
 o app chamou o host errado desde o commit 0, porque os dois respondem `200` e nada dentro do app
 podia distingui-los. O custo não foi a imagem que faltava; foi o `session_id` que não vinha, que
 deixou 27 sessões abertas numa conta compartilhada. ADR-025.
@@ -332,4 +323,4 @@ deixou 27 sessões abertas numa conta compartilhada. ADR-025.
 para calar um alarme que estava certo, escrever "a documentação está errada" a partir de uma medição
 com um parâmetro não variado, implementar a correção descrita num ticket antes de verificar a
 premissa dele. Os três foram pegos medindo, e a regra que saiu deles está escrita: **premissa em
-ticket é hipótese até ser medida** — inclusive em ticket que a IA mesma escreveu.
+ticket é hipótese até ser medida**, inclusive em ticket que a IA mesma escreveu.

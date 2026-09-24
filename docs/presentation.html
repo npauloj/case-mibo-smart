@@ -6,11 +6,8 @@
 <!--
   Slides da apresentação. Gerado por `bash tools/product-pdf.sh --slides`.
 
-  Regra de densidade: no máximo ~45 palavras por slide. Slide é apoio de fala, não documento; frase
-  completa faz a plateia ler em vez de ouvir. O detalhe vive no PRODUCT.pdf e no repositório.
-
-  Paleta do próprio app (AppTheme): verde da marca nos títulos, âmbar do papel `waiting` no que
-  exige cautela, mono para dado.
+  Regra de densidade: no máximo ~45 palavras por slide. Slide é apoio de fala, não documento.
+  Paleta do próprio app (AppTheme).
 -->
 <style>
   @page { size: 297mm 167mm; margin: 0; }
@@ -35,7 +32,7 @@
        letter-spacing: -0.02em; font-weight: 700; }
 
   ul { margin: 0; padding-left: 7mm; font-size: 16pt; line-height: 1.65; }
-  li { margin-bottom: 4mm; }
+  li { margin-bottom: 4.5mm; }
   li::marker { color: #00A335; }
   .sub { color: #5C6B63; font-size: 12pt; }
   b, strong { color: #0B1A13; }
@@ -48,8 +45,10 @@
        letter-spacing: 0.06em; text-transform: uppercase; }
   td { padding: 3.2mm 4mm; border-bottom: 0.3mm solid #DCE5DF; vertical-align: top; }
 
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
   .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7mm; }
   .card { border: 0.4mm solid #CFDDD4; border-radius: 2mm; padding: 6mm; background: #FAFCFA; }
+  .card.pick { border-color: #00702A; border-width: 0.8mm; background: #F1F8F3; }
   .card h3 { margin: 0 0 3mm; font-size: 14pt; color: #00702A; }
   .card p { margin: 0; font-size: 13pt; color: #3A4A42; line-height: 1.5; }
 
@@ -57,11 +56,11 @@
           padding: 5mm 7mm; border-radius: 0 2mm 2mm 0; font-size: 14pt; line-height: 1.5; }
   .note.g { border-left-color: #00702A; background: #F4F8F5; }
 
-  .nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6mm; margin: 0 0 10mm; }
+  .nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; margin: 0 0 11mm; }
   .nums div { text-align: center; }
   .nums dt { font-size: 11pt; letter-spacing: 0.08em; text-transform: uppercase;
              color: #5C6B63; margin: 0 0 2mm; }
-  .nums dd { margin: 0; font-size: 34pt; font-weight: 700; color: #00702A;
+  .nums dd { margin: 0; font-size: 36pt; font-weight: 700; color: #00702A;
              letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
 
   .pg { position: absolute; right: 20mm; bottom: 9mm; font-size: 10pt; color: #9AAAA1;
@@ -99,7 +98,6 @@
     <tr><td><b>Ter 22</b></td><td>Implementação · identidade visual <span class="sub">26</span></td></tr>
     <tr><td><b>Qua 23</b></td><td>Implementação · correções contra a API real <span class="sub">21</span></td></tr>
   </table>
-  <div class="note g">Dois dias antes da primeira linha. Primeiro commit: <b>domingo, 17h11</b>.</div>
   <div class="pg">2</div>
 </section>
 
@@ -113,8 +111,6 @@
     <tr><td><b>2</b></td><td>Lista · vídeo ao vivo · fechadura <span class="sub">em paralelo</span></td></tr>
     <tr><td><b>3</b></td><td>Histórico · renovação · iOS · módulo Java · R8</td></tr>
   </table>
-  <div class="note">Ordem de corte decidida antes: Java → histórico → fallback do vídeo → R8.
-    Vídeo e fechadura nunca cortáveis.</div>
   <div class="pg">3</div>
 </section>
 
@@ -127,7 +123,6 @@
     <li>Teste não entra no teto. Quem o limita são os critérios</li>
     <li>Uma issue por fatia · um PR por issue · merge por humano</li>
   </ul>
-  <div class="note g">SPEC com 50 critérios EARS → ADR → issue → PR.</div>
   <div class="pg">4</div>
 </section>
 
@@ -137,10 +132,10 @@
   <table>
     <tr><th style="width:30%">Escolha</th><th>Por quê</th></tr>
     <tr><td><b>Konture</b></td><td>Arquitetura como teste que <b>quebra o build</b></td></tr>
-    <tr><td><b>Roborazzi</b></td><td>42 capturas geradas das previews que já existem</td></tr>
+    <tr><td><b>Roborazzi</b></td><td>42 capturas de tela geradas das telas que já existem</td></tr>
     <tr><td><b>Kover</b></td><td>A meta de 80% precisa ser medida para existir</td></tr>
     <tr><td><b>Módulo Java puro</b></td><td>Interop provada por teste <i>escrito em Java</i></td></tr>
-    <tr><td><b>Media3 / WKWebView</b></td><td><code>expect/actual</code> só na superfície do player</td></tr>
+    <tr><td><b>Media3 / WKWebView</b></td><td>Código de plataforma só na superfície do player</td></tr>
   </table>
   <div class="note g">Ktor, Koin e SQLDelight são o óbvio de KMP.
     <b>Konture e Kover vieram do que vocês disseram querer.</b></div>
@@ -158,74 +153,64 @@
     <div class="card"><h3>app</h3><p>Casos de uso, ViewModels, telas.<br><br>
       Gera o framework do iOS.</p></div>
   </div>
-  <div class="note g">Erro é valor · um estado imutável por tela · domínio agnóstico de parceiro.</div>
   <div class="pg">6</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">3 · Arquitetura</p>
-  <h2>A fronteira é um teste</h2>
+  <h2>Regras do Konture</h2>
   <ul>
     <li><b>1</b> · domínio sem framework nem persistência</li>
     <li><b>2</b> · dependência só para dentro, sem ciclo</li>
     <li><b>4</b> · nada de <code>android.*</code> ou <code>java.*</code> em <code>commonMain</code></li>
     <li><b>5</b> · repositório do domínio é interface</li>
-    <li><b>8</b> · <code>expect/actual</code> só em pacote <code>platform</code></li>
+    <li><b>8</b> · código de plataforma só em pacote <code>platform</code></li>
   </ul>
-  <div class="note">E um <b>teste negativo permanente</b>: uma regra violada de propósito tem que
-    falhar. Se passar verde, a suíte é decoração.</div>
   <div class="pg">7</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">3 · Arquitetura</p>
-  <h2>Como poderia melhorar</h2>
-  <ul>
-    <li>Modularizar <b>por feature</b>, não por camada</li>
-    <li>Um segundo parceiro de verdade, para provar o ADR-004</li>
-    <li>Goldens como <b>porta de regressão</b>, não como anexo</li>
-    <li>Sincronismo offline, se houver escrita sem rede</li>
+  <h2>Por que módulo por camada, e não por feature</h2>
+  <div class="cols2">
+    <div class="card pick"><h3>B · por camada <span class="sub">escolhida</span></h3>
+      <p>Três módulos: domínio, dados, app.<br><br>
+      As quatro features são pastas dentro do app, já isoladas: nenhuma importa a outra.</p></div>
+    <div class="card"><h3>C · por feature</h3>
+      <p>Oito a doze módulos, um por feature mais os de base.<br><br>
+      Cada um vira um alvo compilado para o iOS.</p></div>
+  </div>
+  <ul style="margin-top:8mm">
+    <li>Um dev, quatro telas: o custo de C é real e o ganho dele (times em paralelo) não existe aqui</li>
+    <li>Promover para C depois é <b>mover pastas</b>, porque as fronteiras já estão respeitadas</li>
   </ul>
   <div class="pg">8</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">4 · GitHub</p>
-  <h2>O repositório conta a história</h2>
+  <h2>Organização do GitHub</h2>
   <ul>
-    <li><b>5 épicos</b> · milestones por onda · Project com campo <code>Wave</code></li>
-    <li>Labels <code>rf:*</code> e <code>area:*</code>: o mapeamento sai deles, não da memória</li>
-    <li><b>55 PRs</b>, um por fatia, com o porquê no corpo</li>
-    <li><b>27 ADRs</b> com as opções recusadas</li>
-    <li>CI em três estágios · squash por humano, sempre</li>
+    <li><b>Issues</b> criadas por fatia, com critérios de aceite e os arquivos que toca</li>
+    <li><b>PRs</b> mapeados um a um para as issues, com o porquê no corpo</li>
+    <li><b>Épicos e milestones</b> por onda, em um Project</li>
+    <li><b>CI em três estágios:</b> arquitetura e testes · APK e lint · iOS</li>
+    <li>Merge por humano, sempre</li>
   </ul>
   <div class="pg">9</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">5 · Implementação</p>
-  <h2>O orçamento é o eixo</h2>
+  <h2>Abrir a porta e confirmar que abriu</h2>
   <ul>
-    <li>Cache da lista · <b>zero polling</b> em todo o app</li>
-    <li>Formato do token validado <b>local</b>, antes de gastar chamada</li>
-    <li>Trocar o chip de filtro: <b>nenhuma requisição</b></li>
-    <li>Fechadura: uma leitura, não polling</li>
+    <li>São duas coisas diferentes, e o app não junta as duas</li>
+    <li>Ele só diz que a porta abriu depois de <b>ler o estado</b> e ver que concorda</li>
+    <li>Se a fechadura não responde, o app diz que <b>não sabe</b> — não inventa</li>
+    <li>Nesta versão, comandos que mexem na porta vêm desligados</li>
   </ul>
-  <div class="note">A franquia da conta zerou na véspera. O desenho já estava pronto.</div>
+  <div class="note">A porta é de uma conta compartilhada. Errar para o lado cauteloso é a escolha certa.</div>
   <div class="pg">10</div>
-</section>
-
-<section class="s">
-  <p class="eyebrow">5 · Implementação</p>
-  <h2>Comando ≠ confirmação</h2>
-  <ul>
-    <li>Nenhuma tela afirma que a porta abriu sem leitura que concorde</li>
-    <li><b>"Enviado, não confirmado"</b> não é "recusou" nem "abriu"</li>
-    <li>Escrita na fechadura é <b>opt-in no build</b></li>
-    <li>Uma leitura secundária falhando não derruba a tela</li>
-  </ul>
-  <div class="note">Fingir que o app distingue seria o erro mais caro desta tela.</div>
-  <div class="pg">11</div>
 </section>
 
 <section class="s">
@@ -234,46 +219,39 @@
   <dl class="nums">
     <div><dt>Testes</dt><dd>314</dd></div>
     <div><dt>ADRs</dt><dd>27</dd></div>
-    <div><dt>PRs</dt><dd>55</dd></div>
     <div><dt>Cobertura</dt><dd>61,5%</dd></div>
   </dl>
   <ul>
-    <li><b>Barra:</b> testes de arquitetura · a suíte · a guarda de deriva</li>
+    <li><b>Barra:</b> testes de arquitetura · a suíte de testes · a checagem das telas</li>
     <li><b>Não barra:</b> cobertura. É medida e publicada</li>
   </ul>
-  <div class="note">Meta de 80%: o caminho passa pelas 42 capturas virarem porta de regressão.</div>
-  <div class="pg">12</div>
+  <div class="pg">11</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">5 · Implementação</p>
-  <h2>IA com guarda-corpos</h2>
-  <div class="cols3">
-    <div class="card"><h3>O que barra</h3><p>Regras de arquitetura que quebram o build.<br><br>
-      Nenhum merge automático.</p></div>
-    <div class="card"><h3>O que registra</h3><p><code>AI-LOG.md</code>, 53 entradas.<br><br>
-      ADR para toda decisão estrutural.</p></div>
-    <div class="card"><h3>A regra</h3><p>Premissa em ticket é <b>hipótese até ser medida</b>.</p></div>
-  </div>
-  <div class="note g">Na prática: polling recusado · gerador do Roborazzi recusado ·
-    otimização descartada depois de medida.</div>
-  <div class="pg">13</div>
+  <h2>Como usei IA</h2>
+  <ul>
+    <li>Para <b>escrever código</b>. As decisões continuaram sendo minhas</li>
+    <li>Nada entra sem teste, e nada é mesclado sozinho</li>
+    <li>Toda decisão importante virou um documento curto com o motivo</li>
+    <li>Onde a IA errou, está anotado — <b>e o que eu fiz para corrigir</b></li>
+  </ul>
+  <div class="note g">Escrever rápido é fácil. O trabalho é revisar o que foi escrito.</div>
+  <div class="pg">12</div>
 </section>
 
 <section class="s">
   <p class="eyebrow">6 · Próximos passos</p>
-  <h2>O que vem depois</h2>
-  <div class="cols3">
-    <div class="card"><h3>Técnico</h3><p>Escada de confirmação da fechadura.<br><br>
-      Goldens como porta de regressão.<br><br>Ordenação escolhível.</p></div>
-    <div class="card"><h3>Com o parceiro</h3><p>Vídeo: fluxo encerra em 15 s sem dados.<br><br>
-      Volume da fechadura responde 500.</p></div>
-    <div class="card"><h3>Produto</h3><p>Gravações e timeline.<br><br>
-      Notificação com granularidade.<br><br>Uma conta para todas as linhas.</p></div>
-  </div>
-  <div class="note">Das avaliações: senha excluída que continuava abrindo a porta.
-    Isso é <b>incidente</b>, não backlog.</div>
-  <div class="pg">14</div>
+  <h2>O que eu melhoraria no fluxo</h2>
+  <ul>
+    <li><b>Início do vídeo mais robusto:</b> reconexão melhor, indicação de progresso real, e cair para uma alternativa antes de falhar</li>
+    <li><b>Ferramentas de câmera:</b> captura de imagem, gravação de trecho, tela cheia e controles de qualidade</li>
+    <li><b>Favoritar dispositivos</b>, para o que se usa todo dia ficar no topo</li>
+    <li><b>Grupos e ambientes</b> (sala, garagem, entrada), para navegar por lugar e não por lista</li>
+    <li><b>Atalhos</b> para abrir a câmera ou a fechadura direto da tela inicial do celular</li>
+  </ul>
+  <div class="pg">13</div>
 </section>
 
 <section class="s cover" style="justify-content:flex-end">

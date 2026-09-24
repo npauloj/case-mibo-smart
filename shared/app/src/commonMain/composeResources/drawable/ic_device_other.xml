@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Qualquer outro dispositivo: uma caixa com um indicador. Deliberadamente neutro — a lista não
+     deve sugerir uma capacidade que o app não conhece. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FF000000" android:fillType="evenOdd"
+        android:pathData="M5,4 h14 a2,2 0 0,1 2,2 v12 a2,2 0 0,1 -2,2 h-14 a2,2 0 0,1 -2,-2 v-12 a2,2 0 0,1 2,-2 Z M5.2,6.2 v11.6 h13.6 v-11.6 Z M12,12 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0 Z" />
+</vector>

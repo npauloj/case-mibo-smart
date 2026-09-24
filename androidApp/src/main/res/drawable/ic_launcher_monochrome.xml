@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The same mark as a single silhouette, for Android 13+ themed icons: the system tints this layer to
+  the user's wallpaper palette, so it cannot carry colours of its own. The lens and the door are holes
+  punched with `evenOdd` rather than shapes drawn in the background colour — with one tintable colour,
+  a "hole" has to be an actual hole.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,26 L87,54 L78,54 L78,85 L30,85 L30,54 L21,54 Z M54,56 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 Z M48,73 h12 v12 h-12 Z" />
+</vector>

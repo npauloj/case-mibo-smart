@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -16,6 +17,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,18 +60,24 @@ import io.github.npauloj.mibosmart.app.resources.device_lock_product_id_missing
 import io.github.npauloj.mibosmart.app.resources.device_origin_linked
 import io.github.npauloj.mibosmart.app.resources.device_origin_shared
 import io.github.npauloj.mibosmart.app.resources.device_retry
-import io.github.npauloj.mibosmart.app.resources.device_status_offline
 import io.github.npauloj.mibosmart.app.resources.device_stale_days
 import io.github.npauloj.mibosmart.app.resources.device_stale_hours
 import io.github.npauloj.mibosmart.app.resources.device_stale_minutes
+import io.github.npauloj.mibosmart.app.resources.device_status_offline
 import io.github.npauloj.mibosmart.app.resources.device_status_online
+import io.github.npauloj.mibosmart.app.resources.ic_device_camera
+import io.github.npauloj.mibosmart.app.resources.ic_device_hub
+import io.github.npauloj.mibosmart.app.resources.ic_device_lock
+import io.github.npauloj.mibosmart.app.resources.ic_device_other
 import io.github.npauloj.mibosmart.app.ui.LocalAppColors
 import io.github.npauloj.mibosmart.domain.device.Device
 import io.github.npauloj.mibosmart.domain.device.DeviceKind
 import io.github.npauloj.mibosmart.domain.device.DeviceOrigin
 import io.github.npauloj.mibosmart.domain.device.OriginFilter
 import io.github.npauloj.mibosmart.domain.lock.LockAddress
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -276,47 +284,74 @@ private fun DeviceRowItem(
             }
             .padding(vertical = 12.dp),
     ) {
-        Text(
-            text = row.name,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = "${stringResource(row.kind.label)} · ${row.model}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = stringResource(
-                    if (row.isOnline) Res.string.device_status_online else Res.string.device_status_offline,
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                // `tertiary`, not `primary`: since the theme landed, `primary` is the interactive
-                // colour, and a status badge drawn in it invites a tap that does nothing. The brand
-                // green in its "on / working" job is what this is.
-                color = if (row.isOnline) {
-                    MaterialTheme.colorScheme.tertiary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // The kind, as a shape, before it is read as a word. A list of seventeen rows is scanned
+            // for "the camera" or "the lock" and the eye finds a silhouette faster than a noun — the
+            // text stays, because an icon alone would be a guess, and a screen reader gets the word.
+            Icon(
+                painter = painterResource(row.kind.icon),
+                contentDescription = null,
+                modifier = Modifier.padding(top = 2.dp).size(22.dp),
+                // The icon is a label, not a control: `onSurfaceVariant` keeps it in the same voice as
+                // the line under the name. Drawn in `primary` it would invite a tap of its own.
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(text = stringResource(row.origin.label), style = MaterialTheme.typography.labelMedium)
-            row.lastSeen?.let { Text(text = it.text(), style = MaterialTheme.typography.labelMedium) }
-        }
-        // SPEC D6: a sub-device is only addressable through its hub, so the row says which one.
-        row.parentName?.let {
-            Text(text = it, style = MaterialTheme.typography.labelSmall)
-        }
-        // SPEC U6: when the row cannot open, it names the cause in one sentence and offers no dead
-        // action — the alternative is a lock screen with nothing to address.
-        row.unavailable?.let {
-            Text(
-                text = stringResource(it.message),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = row.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${stringResource(row.kind.label)} · ${row.model}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (row.isOnline) {
+                                Res.string.device_status_online
+                            } else {
+                                Res.string.device_status_offline
+                            },
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        // `tertiary`, not `primary`: since the theme landed, `primary` is the
+                        // interactive colour, and a status badge drawn in it invites a tap that does
+                        // nothing. The brand green in its "on / working" job is what this is.
+                        color = if (row.isOnline) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Text(
+                        text = stringResource(row.origin.label),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    row.lastSeen?.let {
+                        Text(text = it.text(), style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                // SPEC D6: a sub-device is only addressable through its hub, so the row says which.
+                row.parentName?.let {
+                    Text(text = it, style = MaterialTheme.typography.labelSmall)
+                }
+                // SPEC U6: when the row cannot open, it names the cause in one sentence and offers
+                // no dead action — the alternative is a lock screen with nothing to address.
+                row.unavailable?.let {
+                    Text(
+                        text = stringResource(it.message),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }
@@ -438,6 +473,20 @@ private val DeviceOrigin.label: StringResource
     }
 
 /** The chips, in the order the user reads them (SPEC D4). */
+/**
+ * The silhouette for a kind, beside the word for it.
+ *
+ * `Other` gets a deliberately neutral box: the list must not suggest a capability the app does not
+ * have. A lamp drawn as a lamp reads as something this screen can switch on, and it cannot.
+ */
+private val DeviceKind.icon: DrawableResource
+    get() = when (this) {
+        DeviceKind.Camera -> Res.drawable.ic_device_camera
+        DeviceKind.Lock -> Res.drawable.ic_device_lock
+        DeviceKind.Hub -> Res.drawable.ic_device_hub
+        is DeviceKind.Other -> Res.drawable.ic_device_other
+    }
+
 private val OriginFilter.label: StringResource
     get() = when (this) {
         OriginFilter.All -> Res.string.device_filter_all

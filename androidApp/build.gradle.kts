@@ -27,11 +27,11 @@ val smartHomePortalHost: String =
 val liveVideoEnabled: String =
     localProperties?.getProperty("smarthome.liveVideoEnabled") ?: "true"
 
-// The lock-writes kill switch (SPEC L2, L7). Default **off**, unlike the video one: `mudar-volume`
-// and `habilitar-abrir-remoto` change a physical door on a shared account, so writing to one is
-// opted into with `smarthome.lockWritesEnabled=true`, never inherited from a default.
+// The lock-writes kill switch (SPEC L2, L7). Default on since ADR-028: the lock commands are the
+// feature under evaluation. Set `smarthome.lockWritesEnabled=false` to build an app that never writes
+// to a physical door on the shared account.
 val lockWritesEnabled: String =
-    localProperties?.getProperty("smarthome.lockWritesEnabled") ?: "false"
+    localProperties?.getProperty("smarthome.lockWritesEnabled") ?: "true"
 
 dependencies {
     implementation(projects.shared.app)

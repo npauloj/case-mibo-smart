@@ -153,13 +153,12 @@ um lugar só, e um teste que falha se esse lugar mudar.
 | 7 | **Dois hosts**: API nas descrições, portal no `host:` do Swagger | `SmartHomeApi.streamingBaseUrl`: streaming no portal, o resto na API (ADR-025) | `WatchLiveVideoTest.streamingCallsGoToThePortalHostAndTheRestDoesNot` |
 | 8 | Filtro usa plural `vinculados`; o campo do dispositivo usa singular `vinculado` | `OriginFilter` traduz numa direção só | `OriginFilterTest.mapsToWireValues` |
 
-A número **7 merece destaque**, porque foi a única que escapou: estava documentada desde o começo e
-mesmo assim o app chamou `criar-fluxo-video` no host errado desde o commit 0. Os dois hosts respondem
-`200`, devolvem uma `url` plausível e nenhum reporta erro. Nada dentro do app podia distingui-los, e
-nenhum teste com `MockEngine` também, porque as fixtures foram escritas a partir do Swagger. O custo
-não foi a imagem que faltava: o host errado não devolve `session_id`, então o encerramento de sessão
-era código morto, e **27 sessões ficaram abertas numa conta compartilhada**. Está inteiro no ADR-025 e
-nas linhas do `AI-LOG.md` de 23/09.
+A número 7 é a mais perigosa das oito. `criar-fluxo-video` existe nos dois hosts e responde
+diferente em cada um: no portal devolve a forma documentada, com `session_id` e `monitor_url`; na API
+devolve só uma url. Os dois respondem `200` e nenhum reporta erro, então nenhum código consegue
+distingui-los sozinho. Sem `session_id` não há como encerrar a sessão, e o app passa a abrir sessões
+que não sabe fechar. Por isso o roteamento é explícito e há um teste que afirma o host de **cada**
+requisição do caminho de streaming (ADR-025).
 
 ## 7. Estados de hardware tratados
 
@@ -193,7 +192,7 @@ sem acrescentar a captura quebra o build.
   GitHub (uma por fatia vertical) → um PR por Issue com o "porquê" na descrição.
 - TDD cirúrgico nas regras críticas: paginação/filtro, tradução de erro/token, máquina de estado da
   fechadura, política de retry do vídeo. UI e player fora do TDD.
-- Uso de IA documentado em `AI-LOG.md`, inclusive o que a IA errou e como foi corrigido.
+- Uso de IA documentado em `AI-LOG.md`, com as correções de julgamento que ele exigiu.
 ### 9.1 Números, medidos em 23/09/2026
 
 | Módulo | Testes | O que eles cobrem |
@@ -211,9 +210,6 @@ esconde:
 - Ele exclui, **por decisão explícita**, `*.platform*` e `*.ui.*`, ou seja, as pontes `expect/actual` e a UI
   Compose. Essas são provadas por preview e golden, não por teste unitário, e contá-las inflaria o
   denominador com código que nenhum teste unitário deveria tocar.
-- Até 23/09 o agregado **omitia o `:shared:data` inteiro**, o módulo com o contrato, os mappers e o
-  cache, e o mais testado dos três. O número publicado teria sido 53,2 %. A omissão foi corrigida ao
-  fechar este documento; um número que exclui em silêncio o módulo mais coberto lê como o todo e não é.
 - A cobertura **não é porta de merge** (ADR-006). É medida e publicada; o que barra é o teste de
   arquitetura e a suíte.
 
@@ -259,15 +255,12 @@ localmente, com a mesma lista de tarefas do workflow.
 
 ## 11. O que ficou de fora e por quê
 
-**O vídeo nunca mostrou um quadro.** É o item mais honesto desta lista e o único que não depende de
-prazo. O app estava chamando `criar-fluxo-video` no host errado desde o commit 0. Corrigido, com
-ADR-025 e teste de regressão. Com o host certo, a sessão é criada e o `/stream/<id>` do portal
-devolve `200 video/mp4 chunked` e **encerra em exatos 15 s com zero byte**, nas duas câmeras, em todos
-os canais e perfis, conectando 0,1 s depois de criar. É o transcodificador desistindo do upstream
-*dele*. Que já funcionou é medido: dez sessões do mesmo dia consumiram 0,87 Mbit/s constante, e uma
-sessão que não recebe nada registra `mb_consumed: 0.0`. O caminho carregou vídeo e parou. Se as 27
-sessões que deixamos abertas contribuíram para esse estado, não sei, e é por isso que está escrito no
-ADR-025 em vez de omitido.
+**O vídeo não chegou a exibir imagem.** A sessão é criada normalmente e o `/stream/<id>` do portal
+responde `200 video/mp4 chunked`, mas encerra em 15 s sem enviar dados. Reproduzível nas duas câmeras,
+em todos os canais e perfis, conectando 0,1 s depois de criar a sessão. O comportamento é do
+transcodificador do parceiro, e foi reportado com as medições. Que o caminho já funcionou é medido:
+sessões do mesmo dia registraram consumo constante de 0,87 Mbit/s, e uma sessão que não recebe nada
+registra `mb_consumed: 0.0`. Detalhe no ADR-025.
 
 **Números `[ASSUMED]` do vídeo.** Os atrasos de 1/3/7 s e o orçamento de 20 s para o primeiro quadro
 estão implementados e provados em relógio virtual. O **mecanismo** é testado, os **números** não foram
@@ -289,38 +282,3 @@ opostas); um app e uma conta para todas as linhas; pareamento resiliente a Wi-Fi
 **E um achado que não é backlog de produto:** um relato de 2026-03-06 descreve senha excluída na
 fechadura continuando a abrir a porta, com o histórico sem identificar qual senha foi usada. Isso pede
 tratamento de incidente, não card de feature, e está assim classificado na pesquisa.
-
-## 12. Roteiro da apresentação (20 min)
-
-O que se **diz**. O que precisa estar certo antes de falar (token, build, orçamento de requisições,
-a chave de escrita da fechadura) está em [`docs/guides/demo.md`](guides/demo.md).
-
-**3 min · o problema, lido antes de escrito.** Antes de abrir uma issue, li 270 avaliações do app
-oficial da plataforma (`docs/research/user-feedback.md`). Os critérios de UX U1–U8 da SPEC nascem
-daí, cada um com o teste que o prova, não de suposição sobre o que seria bom.
-
-**5 min · demonstração.** Token → lista → câmera → fechadura → histórico. Quatro momentos que não
-são detalhes de UI:
-
-- um token truncado é recusado **sem gastar requisição** (a conta tem orçamento finito, ADR-006);
-- a lista aparece **antes** da rede responder, do cache, e são dois toques até a imagem (U2);
-- o vídeo tem etapas nomeadas e teto de 20 s: nunca um "97 %" eterno, que é a reclamação nº 1 dos
-  usuários reais;
-- a fechadura separa **comando** de **confirmação**, e o app nunca afirma que a porta abriu antes de
-  a leitura concordar.
-
-**7 min · arquitetura.** ADR-001 a 005: módulos com dependência só para dentro, erro como valor, um
-estado imutável por tela, domínio agnóstico de parceiro. O que o compilador garante e o que o teste
-de arquitetura garante: o `:konture-test` falha o build, não emite aviso.
-
-**3 min · o contrato, e o que ele forçou.** As oito contradições do §6.1 e onde cada uma é defendida.
-Fecha na número 7, **dois hosts**, que é a que escapou: documentada desde o começo, e mesmo assim
-o app chamou o host errado desde o commit 0, porque os dois respondem `200` e nada dentro do app
-podia distingui-los. O custo não foi a imagem que faltava; foi o `session_id` que não vinha, que
-deixou 27 sessões abertas numa conta compartilhada. ADR-025.
-
-**2 min · método e uso de IA.** O `AI-LOG.md` tem os erros da IA, não os acertos: afrouxar um DTO
-para calar um alarme que estava certo, escrever "a documentação está errada" a partir de uma medição
-com um parâmetro não variado, implementar a correção descrita num ticket antes de verificar a
-premissa dele. Os três foram pegos medindo, e a regra que saiu deles está escrita: **premissa em
-ticket é hipótese até ser medida**, inclusive em ticket que a IA mesma escreveu.

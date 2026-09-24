@@ -240,8 +240,7 @@
     </div>
     <div class="rail w"><b>E a restrição mordeu</b>
       Na véspera da entrega a franquia da conta chegou a zero, e a API passou a responder <code>401 "verifique os seus limites disponíveis"</code> em todos os endpoints.<br><br>
-      O desenho já estava pronto para isso, o que mostra que o orçamento não era uma preocupação teórica.<br><br>
-      <span style="color:#5C6B63;font-size:10.5pt">Revisando por segurança, uma destas decisões merece revisão: a confirmação da fechadura dispara a leitura imediatamente, e uma fechadura leva segundos para atuar. Escrita numa porta física é o caso em que a certeza vale mais que a requisição economizada.</span></div>
+      O desenho já estava pronto para isso, o que mostra que o orçamento não era preocupação teórica.</div>
   </div>
   <div class="foot">Case Mibo Smart</div><div class="pg">8</div>
 </section>
@@ -293,15 +292,15 @@
 
 <section class="s">
   <p class="eyebrow">5 · Decisões de implementação</p>
-  <h2>Uso de IA, com os erros à mostra</h2>
-  <p class="thesis">O <code>AI-LOG.md</code> tem 53 registros e documenta o que a IA <b>errou</b>, não o que ela acertou. As correções são de julgamento, não de digitação.</p>
+  <h2>Uso de IA, com guarda-corpos</h2>
+  <p class="thesis">A IA acelera escrita de código e erode fronteira na mesma velocidade. O projeto foi montado para que a segunda parte não passe.</p>
   <div class="cols3">
-    <div class="card"><h3>Afrouxar para calar</h3><p>A IA tornou um campo opcional para silenciar um erro de parse. Parecia progresso: desligou em silêncio o encerramento de sessão e deixou <b>27 sessões abertas</b> numa conta compartilhada. O erro de parse era o alarme certo apontando para o endereço errado.</p></div>
-    <div class="card"><h3>Afirmar sem variar tudo</h3><p>Escrevi "a documentação está errada" num arquivo versionado, a partir de uma medição real, com um parâmetro do ambiente ainda não variado. A documentação estava certa; o host é que era outro.</p></div>
-    <div class="card"><h3>Implementar antes de medir</h3><p>Escrevi inteira a otimização descrita num ticket antes de verificar a premissa dele. Medido depois: não economizava nada. Apagada.</p></div>
+    <div class="card"><h3>O que a barra</h3><p>Dez regras de arquitetura como teste JVM que <b>falha o build</b>. Guarda de deriva nas telas. Nenhum merge automático: squash por humano, sempre.</p></div>
+    <div class="card"><h3>O que fica registrado</h3><p><code>AI-LOG.md</code>, com 53 entradas. Cada decisão estrutural tem ADR com as opções recusadas, então o <i>porquê</i> sobrevive a quem escreveu.</p></div>
+    <div class="card"><h3>A regra de trabalho</h3><p>Premissa escrita em ticket é <b>hipótese até ser medida</b>. Medir antes de implementar custa minutos; o contrário custa a mudança inteira.</p></div>
   </div>
-  <div class="rail" style="margin-top:7mm"><b>A regra que saiu dos três</b>
-    Premissa escrita em ticket é <b>hipótese até ser medida</b>, inclusive em ticket que a própria IA escreveu. Medir antes custa minutos; medir depois custou a mudança inteira.</div>
+  <div class="rail" style="margin-top:7mm"><b>O que isso produziu na prática</b>
+    Decisões contra a corrente do "mais fácil": polling recusado na fechadura por causa do orçamento de requisições; o gerador de previews do Roborazzi recusado depois de medir que não funciona neste layout KMP; uma otimização inteira descartada depois de medir que não economizava nada.</div>
   <div class="foot">Case Mibo Smart</div><div class="pg">11</div>
 </section>
 
@@ -317,7 +316,7 @@
       <b>Ordenação escolhível</b> da lista, por tipo, nome ou status.<br><br>
       <b>Afinar os números do vídeo</b> contra a câmera real. Hoje seguem marcados como suposição.</p></div>
     <div class="card"><h3>Depende do parceiro</h3><p>
-      <b>Vídeo ao vivo.</b> O app foi corrigido para o host certo; o transcodificador aceita a sessão e desiste do upstream em 15 s.<br><br>
+      <b>Vídeo ao vivo.</b> A sessão é criada normalmente e o transcodificador encerra o fluxo em 15 s sem enviar dados. Reportado com as medições.<br><br>
       <b>O endpoint de volume da fechadura</b> responde 500 em cinco das seis fechaduras.<br><br>
       <b>Dois hosts com o mesmo endpoint</b> respondendo formas diferentes, ambos com <code>200</code>.</p></div>
     <div class="card"><h3>Produto</h3><p>

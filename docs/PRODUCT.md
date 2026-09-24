@@ -301,6 +301,35 @@ tratamento de incidente, não card de feature, e está assim classificado na pes
 
 ## 12. Roteiro da apresentação (20 min)
 
-- 3 min contexto e leitura do problema · 5 min demo (token → lista → câmera → fechadura → erro de token)
-  · 7 min arquitetura e decisões (ADRs 1–5) · 3 min contrato da API e o que ele forçou · 2 min método e
-  uso de IA (um erro corrigido, de verdade).
+O que se **diz**. O que precisa estar certo antes de falar — token, build, orçamento de requisições,
+a chave de escrita da fechadura — está em [`docs/guides/demo.md`](guides/demo.md).
+
+**3 min · o problema, lido antes de escrito.** Antes de abrir uma issue, li 270 avaliações do app
+oficial da plataforma (`docs/research/user-feedback.md`). Os critérios de UX U1–U8 da SPEC nascem
+daí, cada um com o teste que o prova — não de suposição sobre o que seria bom.
+
+**5 min · demonstração.** Token → lista → câmera → fechadura → histórico. Quatro momentos que não
+são detalhes de UI:
+
+- um token truncado é recusado **sem gastar requisição** (a conta tem orçamento finito, ADR-006);
+- a lista aparece **antes** da rede responder, do cache — dois toques até a imagem (U2);
+- o vídeo tem etapas nomeadas e teto de 20 s: nunca um "97 %" eterno, que é a reclamação nº 1 dos
+  usuários reais;
+- a fechadura separa **comando** de **confirmação**, e o app nunca afirma que a porta abriu antes de
+  a leitura concordar.
+
+**7 min · arquitetura.** ADR-001 a 005: módulos com dependência só para dentro, erro como valor, um
+estado imutável por tela, domínio agnóstico de parceiro. O que o compilador garante e o que o teste
+de arquitetura garante — `:konture-test` falha o build, não emite aviso.
+
+**3 min · o contrato, e o que ele forçou.** As oito contradições do §6.1 e onde cada uma é defendida.
+Fecha na número 7 — **dois hosts** —, que é a que escapou: documentada desde o começo, e mesmo assim
+o app chamou o host errado desde o commit 0, porque os dois respondem `200` e nada dentro do app
+podia distingui-los. O custo não foi a imagem que faltava; foi o `session_id` que não vinha, que
+deixou 27 sessões abertas numa conta compartilhada. ADR-025.
+
+**2 min · método e uso de IA.** O `AI-LOG.md` tem os erros da IA, não os acertos: afrouxar um DTO
+para calar um alarme que estava certo, escrever "a documentação está errada" a partir de uma medição
+com um parâmetro não variado, implementar a correção descrita num ticket antes de verificar a
+premissa dele. Os três foram pegos medindo, e a regra que saiu deles está escrita: **premissa em
+ticket é hipótese até ser medida** — inclusive em ticket que a IA mesma escreveu.

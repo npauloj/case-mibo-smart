@@ -170,4 +170,5 @@ evidência no corpo do PR → merge humano. Cada linha de código tem um caminho
 | [`docs/guides/token.md`](docs/guides/token.md) | Token de acesso: obter, validade, armazenamento, expiração, renovação |
 | [`docs/guides/swagger.md`](docs/guides/swagger.md) | Como o contrato foi lido e o que ele não conta |
 | [`docs/guides/running.md`](docs/guides/running.md) | Build, testes, previews, iOS, troubleshooting |
+| [`docs/guides/demo.md`](docs/guides/demo.md) | Rodar a demonstração: orçamento de requisições, checklist e o que fazer quando algo falha ao vivo |
 | [`AI-LOG.md`](AI-LOG.md) | Registro do uso de IA |

@@ -9,13 +9,12 @@ struct iOSApp: App {
         //
         // Every flag is spelled out because Kotlin default arguments do not cross into Swift: the
         // generated `doInitKoin` requires all of them. The values mirror `MiboSmartApplication`
-        // one for one — live video on, and lock writes OFF, which is the posture that keeps a build
-        // from commanding a real door (L-01b's kill switch).
+        // one for one — live video on, and lock writes on (ADR-028).
         AppModulesKt.doInitKoin(
             apiHost: "https://api.example.invalid",
             portalHost: "https://portal.example.invalid",
             liveVideoEnabled: true,
-            lockWritesEnabled: false,
+            lockWritesEnabled: true,
             debugBuild: isDebugBuild,
             appDeclaration: { _ in }
         )

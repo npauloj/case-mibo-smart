@@ -11,8 +11,7 @@ smarthome.portalHost=https://portal.example.invalid
 # without ever opening a streaming session — the camera screen goes straight to "não anuncia vídeo".
 smarthome.liveVideoEnabled=true
 
-# Lock-writes kill switch (SPEC L2, L7). Default **false** — the opposite of the video one, on
-# purpose: `mudar-volume` and `habilitar-abrir-remoto` reach a physical door on an account several
-# people share. False means the volume selector is disabled and "Habilitar abertura remota" only
-# explains what it would do; no write request leaves the app. Set to true to opt in.
-smarthome.lockWritesEnabled=false
+# Lock-writes kill switch (SPEC L2, L7). Default true (ADR-028). Set to false to build an app that
+# never writes to the lock: the volume selector is disabled and "Habilitar abertura remota" only
+# explains what it would do; no write request leaves the app.
+smarthome.lockWritesEnabled=true
